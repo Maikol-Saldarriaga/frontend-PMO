@@ -1,0 +1,107 @@
+<form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
+
+  <div class="bg-surface rounded-2xl shadow-card border border-neutral-200 overflow-hidden mb-5">
+
+    <!-- Card header -->
+    <div class="flex items-center gap-3 px-6 py-4 border-b border-neutral-100 bg-gradient-to-r from-accent-50 to-transparent">
+      <div class="w-9 h-9 rounded-xl bg-accent-100 flex items-center justify-center flex-shrink-0">
+        <svg class="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+        </svg>
+      </div>
+      <div class="flex-1">
+        <h3 class="text-sm font-bold text-primary-700">Alineación Estratégica</h3>
+        <p class="text-xs text-neutral-500">Indicador, curso de acción y justificación del proyecto</p>
+      </div>
+    </div>
+
+    <div class="p-6 space-y-6">
+
+      <!-- Indicador -->
+      <div>
+        <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">
+          Indicador <span class="text-danger">*</span>
+        </label>
+        <input formControlName="indicator" type="text"
+          placeholder="Ej: Número de beneficiarios directos alcanzados"
+          class="w-full px-4 py-2.5 rounded-xl border text-sm text-primary-700 placeholder-neutral-400 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 transition-colors"
+          [class.border-neutral-200]="!isInvalid('indicator')"
+          [class.focus:ring-accent-200]="!isInvalid('indicator')"
+          [class.focus:border-accent]="!isInvalid('indicator')"
+          [class.border-danger]="isInvalid('indicator')"
+          [class.focus:ring-red-100]="isInvalid('indicator')"
+        />
+        @if (isInvalid('indicator')) {
+          <p class="mt-1 text-xs text-danger">El indicador es obligatorio</p>
+        }
+      </div>
+
+      <!-- Curso de acción -->
+      <div>
+        <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">
+          Curso de acción <span class="text-danger">*</span>
+        </label>
+        <textarea formControlName="course_action" rows="3"
+          placeholder="Ej: Fortalecer capacidades técnicas en gestión de proyectos"
+          class="w-full px-4 py-2.5 rounded-xl border text-sm text-primary-700 placeholder-neutral-400 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 transition-colors resize-none"
+          [class.border-neutral-200]="!isInvalid('course_action')"
+          [class.focus:ring-accent-200]="!isInvalid('course_action')"
+          [class.focus:border-accent]="!isInvalid('course_action')"
+          [class.border-danger]="isInvalid('course_action')"
+          [class.focus:ring-red-100]="isInvalid('course_action')"
+        ></textarea>
+        @if (isInvalid('course_action')) {
+          <p class="mt-1 text-xs text-danger">El curso de acción es obligatorio</p>
+        }
+      </div>
+
+      <!-- Justificación -->
+      <div>
+        <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">
+          Justificación <span class="text-danger">*</span>
+        </label>
+        <textarea formControlName="context_justification" rows="3"
+          placeholder="Ej: Es necesario mejorar los indicadores de resultado para medir impacto real del proyecto"
+          class="w-full px-4 py-2.5 rounded-xl border text-sm text-primary-700 placeholder-neutral-400 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 transition-colors resize-none"
+          [class.border-neutral-200]="!isInvalid('context_justification')"
+          [class.focus:ring-accent-200]="!isInvalid('context_justification')"
+          [class.focus:border-accent]="!isInvalid('context_justification')"
+          [class.border-danger]="isInvalid('context_justification')"
+          [class.focus:ring-red-100]="isInvalid('context_justification')"
+        ></textarea>
+        @if (isInvalid('context_justification')) {
+          <p class="mt-1 text-xs text-danger">La justificación es obligatoria</p>
+        }
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Footer actions -->
+  <div class="flex items-center justify-between py-2">
+    <button type="button" (click)="goBack.emit()"
+      class="flex items-center gap-2 px-5 py-2.5 border border-neutral-200 text-neutral-600 text-sm font-semibold rounded-xl hover:bg-neutral-50 transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+      </svg>
+      Fase anterior
+    </button>
+    <button type="submit" [disabled]="submitting"
+      class="flex items-center gap-2.5 px-6 py-3 bg-gradient-to-r from-accent to-accent-700 hover:from-accent-600 hover:to-accent-800 text-white text-sm font-bold rounded-xl shadow-md hover:shadow-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed">
+      @if (submitting) {
+        <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+        </svg>
+        Guardando...
+      } @else {
+        Siguiente fase
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+        </svg>
+      }
+    </button>
+  </div>
+
+</form>

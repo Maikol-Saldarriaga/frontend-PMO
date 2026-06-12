@@ -1,0 +1,76 @@
+import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { Router, ActivatedRoute } from '@angular/router';
+import { ProjectService } from '../../services/project.service';
+import { ProjectDetails } from '../../models/project.model';
+import { TabResumenComponent }    from './tabs/tab-resumen/tab-resumen.component';
+import { TabAlcanceComponent }    from './tabs/tab-alcance/tab-alcance.component';
+import { TabCronogramaComponent } from './tabs/tab-cronograma/tab-cronograma.component';
+import { TabPresupuestoComponent } from './tabs/tab-presupuesto/tab-presupuesto.component';
+
+@Component({
+  selector: 'app-project-detail',
+  standalone: true,
+  imports: [
+    CommonModule,
+    TabResumenComponent,
+    TabAlcanceComponent,
+    TabCronogramaComponent,
+    TabPresupuestoComponent,
+  ],
+  templateUrl: './project-detail.component.html',
+})
+export class ProjectDetailComponent implements OnInit {
+  private router  = inject(Router);
+  private route   = inject(ActivatedRoute);
+  private service = inject(ProjectService);
+
+  projectId  = '';
+  details    = signal<ProjectDetails | null>(null);
+  loading    = signal(true);
+  error      = signal<string | null>(null);
+  activeTab  = signal<string>('resumen');
+
+  readonly TABS = [
+    { id: 'resumen',      label: 'Resumen'      },
+    { id: 'alcance',      label: 'Alcance'      },
+    { id: 'cronograma',   label: 'Cronograma'   },
+    { id: 'presupuesto',  label: 'Presupuesto'  },
+    { id: 'recursos',     label: 'Recursos'     },
+    { id: 'riesgos',      label: 'Riesgos'      },
+    { id: 'entregables',  label: 'Entregables'  },
+    { id: 'documentos',   label: 'Documentos'   },
+    { id: 'indicadores',  label: 'Indicadores'  },
+    { id: 'historial',    label: 'Historial'    },
+  ];
+
+  statusCls = computed(() => {
+    const s = (this.details()?.status ?? '').toLowerCase();
+    return {
+      'bg-emerald-50 border-emerald-200 text-emerald-700': s === 'activo',
+      'bg-amber-50 border-amber-200 text-amber-700':       s === 'borrador' || s === 'registro',
+      'bg-sky-50 border-sky-200 text-sky-700':             s === 'completado',
+      'bg-red-50 border-red-200 text-red-700':             s === 'cancelado',
+    };
+  });
+
+  ngOnInit(): void {
+    this.projectId = this.route.snapshot.paramMap.get('id') ?? '';
+    if (!this.projectId) { this.router.navigate(['/dashboard/projects']); return; }
+    this.service.getProjectDetails(this.projectId).subscribe({
+      next:  d => { this.details.set(d); this.loading.set(false); },
+      error: () => { this.error.set('No se pudo cargar el proyecto.'); this.loading.set(false); },
+    });
+  }
+
+  onTabClick(id: string): void { this.activeTab.set(id); }
+
+  goBack(): void { this.router.navigate(['/dashboard/projects']); }
+
+  formatCompact(v: number): string {
+    if (v >= 1_000_000_000) return `$${(v / 1_000_000_000).toFixed(1)}B`;
+    if (v >= 1_000_000)     return `$${(v / 1_000_000).toFixed(1)}M`;
+    if (v >= 1_000)         return `$${(v / 1_000).toFixed(0)}K`;
+    return `$${v}`;
+  }
+}

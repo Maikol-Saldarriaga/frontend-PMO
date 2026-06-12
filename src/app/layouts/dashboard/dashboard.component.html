@@ -1,0 +1,24 @@
+<div class="dashboard-shell" [class.sidebar-collapsed]="sidebarCollapsed" [class.mobile-open]="mobileSidebarOpen">
+
+  <!-- Sidebar -->
+  <app-sidebar
+    [(collapsed)]="sidebarCollapsed"
+    (collapsedChange)="onSidebarToggle($event)"
+  />
+
+  <!-- Overlay móvil -->
+  <div class="mobile-overlay" (click)="mobileSidebarOpen = false" *ngIf="mobileSidebarOpen"></div>
+
+  <!-- Área principal -->
+  <div class="dashboard-main">
+    <app-topbar
+      [sidebarCollapsed]="sidebarCollapsed"
+      (toggleSidebar)="onMobileToggle()"
+    />
+
+    <main class="dashboard-content">
+      <router-outlet />
+    </main>
+  </div>
+
+</div>

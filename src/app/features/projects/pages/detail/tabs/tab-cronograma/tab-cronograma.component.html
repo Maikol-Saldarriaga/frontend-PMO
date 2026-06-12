@@ -1,0 +1,234 @@
+<div class="px-6 py-6">
+
+  <!-- Toolbar: filtros -->
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-4 mb-5 flex items-center gap-4 flex-wrap">
+
+    <div class="flex items-center gap-2 mr-2">
+      <div class="w-8 h-8 rounded-lg bg-sky-50 flex items-center justify-center">
+        <svg class="w-4 h-4 text-sky-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+        </svg>
+      </div>
+      <span class="text-sm font-bold text-gray-800">Diagrama de Gantt</span>
+    </div>
+
+    <div class="flex items-center gap-3 flex-wrap flex-1">
+
+      <div class="flex items-center gap-2">
+        <label class="text-xs text-gray-500 font-medium whitespace-nowrap">Año</label>
+        <select class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-sky-300 focus:border-sky-400"
+          [value]="ganttFilters().year ?? ''"
+          (change)="load({ year: $any($event.target).value ? +$any($event.target).value : undefined })">
+          <option value="">Todo el proyecto</option>
+          @for (y of ganttYears(); track y) {
+            <option [value]="y">{{ y }}</option>
+          }
+        </select>
+      </div>
+
+      @if (ganttFilters().year) {
+        <div class="flex items-center gap-2">
+          <label class="text-xs text-gray-500 font-medium">Semestre</label>
+          <div class="flex rounded-lg border border-gray-200 overflow-hidden text-xs">
+            <button (click)="load({ year: ganttFilters().year, semester: undefined, month: undefined })"
+              class="px-3 py-1.5 transition-colors"
+              [class.bg-sky-500]="!ganttFilters().semester && !ganttFilters().month"
+              [class.text-white]="!ganttFilters().semester && !ganttFilters().month"
+              [class.text-gray-500]="ganttFilters().semester || ganttFilters().month">Todos</button>
+            <button (click)="load({ year: ganttFilters().year, semester: 1 })"
+              class="px-3 py-1.5 border-l border-gray-200 transition-colors"
+              [class.bg-sky-500]="ganttFilters().semester === 1"
+              [class.text-white]="ganttFilters().semester === 1"
+              [class.text-gray-500]="ganttFilters().semester !== 1">Ene–Jun</button>
+            <button (click)="load({ year: ganttFilters().year, semester: 2 })"
+              class="px-3 py-1.5 border-l border-gray-200 transition-colors"
+              [class.bg-sky-500]="ganttFilters().semester === 2"
+              [class.text-white]="ganttFilters().semester === 2"
+              [class.text-gray-500]="ganttFilters().semester !== 2">Jul–Dic</button>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <label class="text-xs text-gray-500 font-medium">Mes</label>
+          <select class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-sky-300 focus:border-sky-400"
+            [value]="ganttFilters().month ?? ''"
+            (change)="load({ year: ganttFilters().year, month: $any($event.target).value ? +$any($event.target).value : undefined })">
+            <option value="">Todos los meses</option>
+            @for (m of MONTHS_SHORT; track $index) {
+              <option [value]="$index + 1">{{ m }}</option>
+            }
+          </select>
+        </div>
+      }
+    </div>
+
+    @if (ganttData()) {
+      <div class="flex items-center gap-4 ml-auto">
+        <div class="text-center">
+          <p class="text-lg font-bold text-gray-800">{{ ganttData()!.components.length }}</p>
+          <p class="text-[10px] text-gray-400 uppercase tracking-wide">Componentes</p>
+        </div>
+        <div class="w-px h-8 bg-gray-200"></div>
+        <div class="text-center">
+          <p class="text-lg font-bold text-gray-800">{{ totalActivities() }}</p>
+          <p class="text-[10px] text-gray-400 uppercase tracking-wide">Actividades</p>
+        </div>
+      </div>
+    }
+  </div>
+
+  @if (ganttLoading()) {
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center justify-center py-24 gap-3">
+      <div class="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+      <p class="text-sm text-gray-400">Cargando cronograma...</p>
+    </div>
+
+  } @else if (!ganttData() || !ganttData()!.timeline.length) {
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center justify-center py-24 gap-3">
+      <div class="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center">
+        <svg class="w-7 h-7 text-gray-300" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+        </svg>
+      </div>
+      <p class="text-sm font-semibold text-gray-500">Sin datos de cronograma</p>
+      <p class="text-xs text-gray-400">No hay actividades para el período seleccionado</p>
+    </div>
+
+  } @else {
+
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+
+      <div class="px-5 py-3 border-b border-gray-100 flex items-center gap-6 bg-gray-50/60 flex-wrap">
+        <span class="flex items-center gap-2 text-xs text-gray-500">
+          <span class="w-8 h-3 rounded-sm bg-sky-400/30 border border-sky-400 inline-block relative">
+            <span class="absolute inset-y-0 left-0 w-3/5 bg-sky-500 rounded-sm"></span>
+          </span>
+          Planificado (progreso)
+        </span>
+        <span class="flex items-center gap-2 text-xs text-gray-500">
+          <span class="w-8 h-3 rounded-sm bg-emerald-500 inline-block"></span>
+          Completado
+        </span>
+        <span class="flex items-center gap-2 text-xs text-gray-500">
+          <span class="w-8 h-2 rounded-sm bg-amber-400 inline-block mt-0.5 border-l-2 border-amber-600"></span>
+          Ejecución real
+        </span>
+        <span class="flex items-center gap-2 text-xs text-gray-500">
+          <span class="w-8 h-3 rounded-sm bg-slate-200 inline-block"></span>
+          Sin iniciar
+        </span>
+        <span class="ml-auto text-[10px] text-gray-400">
+          {{ ganttData()!.timeline[0].label }} — {{ ganttData()!.timeline[ganttData()!.timeline.length - 1].label }}
+        </span>
+      </div>
+
+      <div class="overflow-x-auto">
+        <div [style.min-width]="(200 + ganttData()!.timeline.length * 72) + 'px'">
+
+          <div class="flex sticky top-0 z-10 bg-white border-b border-gray-100">
+            <div class="w-52 shrink-0 px-4 py-3 border-r border-gray-100">
+              <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Actividad / Responsable</span>
+            </div>
+            <div class="flex flex-1">
+              @for (col of ganttData()!.timeline; track $index) {
+                <div class="flex-1 py-2 text-center border-r border-gray-100 last:border-r-0 min-w-[72px]">
+                  <p class="text-[10px] font-bold text-gray-500 uppercase tracking-wide">{{ col.label.split(' ')[0].slice(0, 3) }}</p>
+                  <p class="text-[9px] text-gray-400">{{ col.year }}</p>
+                </div>
+              }
+            </div>
+          </div>
+
+          @for (comp of ganttData()!.components; track comp.id) {
+
+            <div class="flex items-center bg-gradient-to-r from-slate-50 to-white border-b border-gray-100">
+              <div class="w-52 shrink-0 px-4 py-2.5 border-r border-gray-100 flex items-center gap-2">
+                <div class="w-2 h-2 rounded-full bg-violet-400 shrink-0"></div>
+                <span class="text-xs font-bold text-gray-700 truncate" [title]="comp.name">{{ comp.name }}</span>
+              </div>
+              <div class="flex flex-1 items-center">
+                @for (col of ganttData()!.timeline; track $index) {
+                  <div class="flex-1 min-w-[72px] h-9 border-r border-gray-50 last:border-r-0 bg-slate-50/60"></div>
+                }
+              </div>
+            </div>
+
+            @for (act of comp.activities; track trackByActivity($index, act)) {
+              <div class="flex items-center border-b border-gray-50 last:border-b-0 hover:bg-sky-50/20 transition-colors group min-h-[52px]">
+
+                <div class="w-52 shrink-0 px-4 py-3 border-r border-gray-100">
+                  <div class="flex items-start gap-2">
+                    <span class="text-[10px] font-bold mt-0.5 shrink-0 w-5 h-5 rounded-md flex items-center justify-center text-white"
+                      [style.background]="activityColor(act)">{{ act.act }}</span>
+                    <div class="min-w-0">
+                      <p class="text-xs font-medium text-gray-700 leading-tight line-clamp-2" [title]="act.description ?? ''">
+                        {{ act.description ?? '—' }}
+                      </p>
+                      @if (act.responsible) {
+                        <p class="text-[10px] text-gray-400 mt-0.5 truncate">{{ act.responsible }}</p>
+                      }
+                    </div>
+                  </div>
+                </div>
+
+                <div class="flex flex-1 relative items-center" style="height:52px">
+
+                  <div class="absolute inset-0 flex">
+                    @for (col of ganttData()!.timeline; track $index) {
+                      <div class="flex-1 min-w-[72px] h-full border-r border-gray-50 last:border-r-0"></div>
+                    }
+                  </div>
+
+                  @if (act.start_date) {
+                    <div class="absolute inset-y-0 flex items-center" style="left:0;right:0">
+
+                      <div class="absolute h-6 rounded-full opacity-20"
+                        [style.left.%]="activityBar(act, ganttData()!.timeline).left"
+                        [style.width.%]="activityBar(act, ganttData()!.timeline).width"
+                        [style.background]="activityColor(act)">
+                      </div>
+
+                      <div class="absolute h-6 rounded-full flex items-center justify-end pr-1.5 overflow-hidden group-hover:opacity-90 transition-opacity"
+                        [style.left.%]="activityBar(act, ganttData()!.timeline).left"
+                        [style.width.%]="activityBar(act, ganttData()!.timeline).width * ((act.percentage ?? 0) / 100)"
+                        [style.background]="activityColor(act)">
+                        @if ((act.percentage ?? 0) > 15) {
+                          <span class="text-[9px] font-bold text-white/90">{{ act.percentage }}%</span>
+                        }
+                      </div>
+
+                      @if (actualBar(act, ganttData()!.timeline); as actual) {
+                        <div class="absolute h-2 rounded-full border-l-2"
+                          [style.left.%]="actual.left"
+                          [style.width.%]="actual.width"
+                          [style.background]="activityColorActual(act)"
+                          [style.border-color]="activityColorActual(act)"
+                          style="top: calc(50% + 8px)">
+                        </div>
+                      }
+
+                      @if ((act.percentage ?? 0) === 0 && !act.is_completed) {
+                        <div class="absolute flex items-center justify-center"
+                          [style.left.%]="activityBar(act, ganttData()!.timeline).left + activityBar(act, ganttData()!.timeline).width + 0.5">
+                          <span class="text-[9px] text-gray-400 whitespace-nowrap">Sin iniciar</span>
+                        </div>
+                      }
+                    </div>
+                  } @else {
+                    <div class="absolute left-4 flex items-center h-full">
+                      <span class="text-[10px] text-gray-300 italic">Sin fechas planificadas</span>
+                    </div>
+                  }
+
+                </div>
+              </div>
+            }
+          }
+
+        </div>
+      </div>
+
+    </div>
+  }
+
+</div>

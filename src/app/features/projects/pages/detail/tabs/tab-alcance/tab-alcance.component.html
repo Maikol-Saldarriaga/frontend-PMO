@@ -1,0 +1,432 @@
+<div class="px-6 py-6 space-y-4">
+
+  <!-- Toolbar -->
+  <div class="flex items-center justify-between gap-3 flex-wrap">
+    <div>
+      <h2 class="text-base font-bold text-gray-900">Alcance del Proyecto</h2>
+      <p class="text-xs text-gray-400 mt-0.5">
+        {{ scopeComponents().length }} componentes · {{ totalActivities() }} actividades ·
+        <span class="font-semibold" [class.text-emerald-600]="usedComponentPct() <= 100" [class.text-red-500]="usedComponentPct() > 100">
+          {{ usedComponentPct() }}% asignado
+        </span>
+        <span class="text-gray-300 mx-1">/</span>
+        <span class="text-gray-500">avance proyecto {{ projectProgress() }}%</span>
+      </p>
+    </div>
+    <button (click)="addingComponent.set(true)"
+      class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-600 text-white text-sm font-semibold shadow-sm shadow-sky-200 transition-all active:scale-95 shrink-0">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+      </svg>
+      Agregar Componente
+    </button>
+  </div>
+
+  @if (scopeLoading()) {
+    <div class="flex items-center justify-center py-24">
+      <div class="flex flex-col items-center gap-3">
+        <div class="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+        <p class="text-sm text-gray-400">Cargando alcance...</p>
+      </div>
+    </div>
+  } @else if (scopeError()) {
+    <div class="bg-red-50 rounded-2xl border border-red-100 p-6 flex items-center gap-3">
+      <svg class="w-5 h-5 text-red-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <div class="flex-1">
+        <p class="text-sm text-red-700 font-medium">{{ scopeError() }}</p>
+      </div>
+      <button (click)="load()" class="px-3 py-1.5 rounded-lg bg-red-100 hover:bg-red-200 text-red-600 text-xs font-semibold transition-colors">
+        Reintentar
+      </button>
+    </div>
+  } @else {
+
+    @if (addingComponent()) {
+      <div class="bg-white rounded-2xl border-2 border-sky-200 shadow-sm p-5 space-y-3">
+        <p class="text-xs font-bold text-sky-700 uppercase tracking-wide">Nuevo componente</p>
+        <div class="flex items-start gap-3">
+          <div class="w-8 h-8 rounded-lg bg-sky-100 flex items-center justify-center shrink-0 mt-1">
+            <svg class="w-4 h-4 text-sky-500" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+            </svg>
+          </div>
+          <div class="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div class="sm:col-span-2">
+              <label class="block text-[10px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">Nombre del componente *</label>
+              <input type="text" [(ngModel)]="newComponentName" placeholder="Ej: Componente A"
+                class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-300 focus:border-sky-400"
+                (keydown.escape)="addingComponent.set(false); newComponentName.set(''); newComponentPct.set(null)"/>
+            </div>
+            <div>
+              <label class="block text-[10px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">
+                % del proyecto <span class="text-red-500">*</span>
+                <span class="text-gray-400 normal-case font-normal">(usado: {{ usedComponentPct() }}%)</span>
+              </label>
+              <input type="number" [(ngModel)]="newComponentPct" min="0" max="100" placeholder="0"
+                class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-300"/>
+            </div>
+          </div>
+        </div>
+        @if (saveError()) {
+          <p class="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{{ saveError() }}</p>
+        }
+        <div class="flex gap-2 justify-end">
+          <button (click)="addingComponent.set(false); newComponentName.set(''); newComponentPct.set(null); saveError.set(null)"
+            class="px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-sm text-gray-500 transition-colors">
+            Cancelar
+          </button>
+          <button (click)="saveNewComponent()" [disabled]="scopeSaving() || !newComponentName().trim()"
+            class="flex items-center gap-2 px-4 py-2 rounded-lg bg-sky-500 hover:bg-sky-600 disabled:opacity-50 text-white text-sm font-semibold transition-colors">
+            @if (scopeSaving()) { <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> }
+            Guardar componente
+          </button>
+        </div>
+      </div>
+    }
+
+    @if (!scopeComponents().length) {
+      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center justify-center py-20 gap-3">
+        <div class="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center">
+          <svg class="w-7 h-7 text-gray-300" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+          </svg>
+        </div>
+        <p class="text-sm font-semibold text-gray-500">Sin componentes registrados</p>
+        <p class="text-xs text-gray-400">Agrega el primer componente del proyecto</p>
+      </div>
+    }
+
+    @for (comp of scopeComponents(); track comp.id; let ci = $index) {
+      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+
+        <div class="flex items-center gap-3 px-5 py-4 border-b"
+          [class.border-gray-100]="!expandedComps().has(comp.id)"
+          [class.border-gray-200]="expandedComps().has(comp.id)">
+
+          <div class="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-black shrink-0"
+            [style.background]="color(ci)">{{ ci + 1 }}</div>
+
+          @if (editingCompId() === comp.id) {
+            <input type="text" [(ngModel)]="editingCompName"
+              class="flex-1 text-sm font-semibold border border-sky-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-sky-300"
+              (keydown.enter)="saveCompName(comp)" (keydown.escape)="editingCompId.set(null)"/>
+            <button (click)="saveCompName(comp)" [disabled]="scopeSaving()"
+              class="px-3 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-600 text-white text-xs font-semibold transition-colors disabled:opacity-50">
+              Guardar
+            </button>
+            <button (click)="editingCompId.set(null)"
+              class="px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-xs text-gray-500 transition-colors">
+              Cancelar
+            </button>
+          } @else {
+            <div class="flex-1 min-w-0">
+              <h3 class="text-sm font-bold text-gray-800 truncate">{{ comp.name }}</h3>
+              <p class="text-xs text-gray-400 mt-0.5">
+                {{ comp.scopes.length }} actividades ·
+                <span class="font-semibold text-violet-600">{{ comp.percentage }}% peso</span> ·
+                <span class="font-semibold" [class.text-emerald-600]="comp.progress >= 100" [class.text-sky-600]="comp.progress < 100">{{ comp.progress }}% avance</span>
+              </p>
+            </div>
+            <button (click)="startEditCompName(comp)" title="Editar nombre"
+              class="w-8 h-8 rounded-lg border border-gray-200 hover:bg-gray-50 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+              </svg>
+            </button>
+            <button (click)="startAddActivity(comp.id)"
+              class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 text-xs font-semibold transition-colors">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+              </svg>
+              Actividad
+            </button>
+            <button (click)="toggleComp(comp.id)"
+              class="w-8 h-8 rounded-lg border border-gray-200 hover:bg-gray-50 flex items-center justify-center text-gray-400 transition-all"
+              [class.rotate-180]="expandedComps().has(comp.id)">
+              <svg class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+              </svg>
+            </button>
+          }
+        </div>
+
+        @if (expandedComps().has(comp.id)) {
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs min-w-[860px]">
+              <thead>
+                <tr class="bg-gray-50/80 text-gray-500 border-b border-gray-100">
+                  <th class="text-left px-5 py-2.5 font-semibold w-10">#</th>
+                  <th class="text-left px-3 py-2.5 font-semibold">Descripción / Objetivo</th>
+                  <th class="text-center px-3 py-2.5 font-semibold whitespace-nowrap">Fecha Inicio</th>
+                  <th class="text-center px-3 py-2.5 font-semibold whitespace-nowrap">Fecha Fin</th>
+                  <th class="text-left px-3 py-2.5 font-semibold">Responsable</th>
+                  <th class="text-center px-3 py-2.5 font-semibold whitespace-nowrap">% Peso</th>
+                  <th class="text-center px-3 py-2.5 font-semibold">Avance</th>
+                  <th class="text-center px-3 py-2.5 font-semibold">Estado</th>
+                  <th class="text-center px-3 py-2.5 font-semibold w-20">Acciones</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-50">
+
+                @for (act of comp.scopes; track act.id) {
+                  @if (editingActivityId() === act.id) {
+                    <tr class="bg-sky-50/40 border-b border-sky-100">
+                      <td class="px-5 py-3" colspan="9">
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                          <div>
+                            <label class="block text-[10px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">Acto #</label>
+                            <input type="number" [(ngModel)]="editActivityForm.act"
+                              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300"/>
+                          </div>
+                          <div>
+                            <label class="block text-[10px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">% Peso</label>
+                            <input type="number" [(ngModel)]="editActivityForm.percentage" min="0" max="100" placeholder="0"
+                              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300"/>
+                          </div>
+                          <div class="md:col-span-2">
+                            <label class="block text-[10px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">Descripción *</label>
+                            <input type="text" [(ngModel)]="editActivityForm.description"
+                              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300"/>
+                          </div>
+                          <div>
+                            <label class="block text-[10px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">Fecha Inicio</label>
+                            <input type="date" [(ngModel)]="editActivityForm.start_date"
+                              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300"/>
+                          </div>
+                          <div>
+                            <label class="block text-[10px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">Fecha Fin</label>
+                            <input type="date" [(ngModel)]="editActivityForm.end_date"
+                              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300"/>
+                          </div>
+                          <div>
+                            <label class="block text-[10px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">Responsable</label>
+                            <input type="text" [(ngModel)]="editActivityForm.responsible"
+                              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300"/>
+                          </div>
+                          <div>
+                            <label class="block text-[10px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">Mes inicio plan</label>
+                            <input type="number" [(ngModel)]="editActivityForm.start_plan" min="1" max="24"
+                              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300"/>
+                          </div>
+                          <div class="md:col-span-4">
+                            <label class="block text-[10px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">Objetivo</label>
+                            <input type="text" [(ngModel)]="editActivityForm.objective"
+                              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300"/>
+                          </div>
+                          <div>
+                            <label class="block text-[10px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">Inicio real</label>
+                            <input type="date" [(ngModel)]="editActivityForm.actual_start_date"
+                              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300"/>
+                          </div>
+                          <div>
+                            <label class="block text-[10px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">Fin real</label>
+                            <input type="date" [(ngModel)]="editActivityForm.actual_end_date"
+                              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300"/>
+                          </div>
+                        </div>
+                        <div class="flex gap-2 justify-end">
+                          <button (click)="cancelEditActivity()"
+                            class="px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-sm text-gray-500 transition-colors">
+                            Cancelar
+                          </button>
+                          <button (click)="saveEditActivity(comp)" [disabled]="scopeSaving()"
+                            class="flex items-center gap-2 px-4 py-2 rounded-lg bg-sky-500 hover:bg-sky-600 text-white text-sm font-semibold transition-colors disabled:opacity-50">
+                            @if (scopeSaving()) { <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> }
+                            Guardar cambios
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  } @else {
+                    <tr class="hover:bg-gray-50/50 transition-colors group">
+                      <td class="px-5 py-3 font-bold text-gray-500">{{ act.act }}</td>
+                      <td class="px-3 py-3 max-w-xs">
+                        <p class="font-semibold text-gray-700 leading-snug">{{ act.description }}</p>
+                        @if (act.objective) {
+                          <p class="text-gray-400 mt-0.5 truncate text-[11px]" [title]="act.objective">{{ act.objective }}</p>
+                        }
+                      </td>
+                      <td class="px-3 py-3 text-center text-gray-500 whitespace-nowrap">
+                        @if (act.start_date) { {{ act.start_date | date:'dd/MM/yy' }} } @else { <span class="text-gray-300">—</span> }
+                      </td>
+                      <td class="px-3 py-3 text-center text-gray-500 whitespace-nowrap">
+                        @if (act.end_date) { {{ act.end_date | date:'dd/MM/yy' }} } @else { <span class="text-gray-300">—</span> }
+                      </td>
+                      <td class="px-3 py-3 text-gray-600">
+                        @if (act.responsible) {
+                          <div class="flex items-center gap-2">
+                            <div class="w-6 h-6 rounded-full bg-gradient-to-br from-violet-400 to-purple-600 flex items-center justify-center text-white text-[10px] font-bold shrink-0">
+                              {{ act.responsible.charAt(0).toUpperCase() }}
+                            </div>
+                            <span class="truncate max-w-[120px]">{{ act.responsible }}</span>
+                          </div>
+                        } @else {
+                          <span class="text-gray-300">Sin asignar</span>
+                        }
+                      </td>
+                      <!-- % Peso -->
+                      <td class="px-3 py-3 text-center">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-100 text-xs font-bold">
+                          {{ act.percentage }}%
+                        </span>
+                      </td>
+                      <!-- Avance (progress) -->
+                      <td class="px-3 py-3 text-center">
+                        <div class="flex flex-col items-center gap-1">
+                          <span class="text-xs font-bold"
+                            [class.text-emerald-600]="act.is_completed"
+                            [class.text-sky-600]="!act.is_completed && act.progress > 0"
+                            [class.text-gray-400]="!act.is_completed && act.progress === 0">
+                            {{ act.progress | number:'1.0-1' }}%
+                          </span>
+                          <div class="w-16 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                            <div class="h-full rounded-full transition-all duration-500"
+                              [style.width.%]="act.progress"
+                              [class.bg-emerald-500]="act.is_completed"
+                              [class.bg-sky-500]="!act.is_completed && act.progress > 0"
+                              [class.bg-gray-300]="!act.is_completed && act.progress === 0">
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td class="px-3 py-3 text-center">
+                        @if (act.is_completed) {
+                          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 font-semibold">
+                            <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                            Completado
+                          </span>
+                        } @else if (act.percentage > 0) {
+                          <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-100 font-semibold">En progreso</span>
+                        } @else {
+                          <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-100 text-gray-400 border border-gray-200 font-semibold">Sin iniciar</span>
+                        }
+                      </td>
+                      <td class="px-3 py-3 text-center">
+                        <div class="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button (click)="startEditActivity(act)" title="Editar"
+                            class="w-7 h-7 rounded-lg border border-gray-200 hover:border-sky-300 hover:bg-sky-50 flex items-center justify-center text-gray-400 hover:text-sky-500 transition-colors">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                            </svg>
+                          </button>
+                          <button (click)="deleteActivity(comp, act.id)" title="Eliminar"
+                            class="w-7 h-7 rounded-lg border border-gray-200 hover:border-red-300 hover:bg-red-50 flex items-center justify-center text-gray-400 hover:text-red-500 transition-colors">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  }
+                }
+
+                @if (addingActivityToCompId() === comp.id) {
+                  <tr class="bg-emerald-50/40 border-t border-emerald-100">
+                    <td class="px-5 py-3" colspan="9">
+                      <p class="text-[11px] font-bold text-emerald-700 uppercase tracking-wide mb-3">
+                        Nueva actividad · <span class="font-normal normal-case text-gray-400">% usado en este componente: {{ usedScopePct(comp) }}%</span>
+                      </p>
+                      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                        <div>
+                          <label class="block text-[10px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">Acto #</label>
+                          <input type="number" [(ngModel)]="newActivityForm.act"
+                            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"/>
+                        </div>
+                        <div>
+                          <label class="block text-[10px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">% Peso</label>
+                          <input type="number" [(ngModel)]="newActivityForm.percentage" min="0" max="100" placeholder="0"
+                            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"/>
+                        </div>
+                        <div class="md:col-span-2">
+                          <label class="block text-[10px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">Descripción *</label>
+                          <input type="text" [(ngModel)]="newActivityForm.description" placeholder="Descripción de la actividad…"
+                            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"/>
+                        </div>
+                        <div>
+                          <label class="block text-[10px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">
+                            Fecha Inicio <span class="text-red-500">*</span>
+                          </label>
+                          <input type="date" [(ngModel)]="newActivityForm.start_date" required
+                            class="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300 transition-colors"
+                            [class.border]="!newActivityForm.start_date"
+                            [class.border-red-300]="!newActivityForm.start_date"
+                            [class.bg-red-50]="!newActivityForm.start_date"
+                            [class.border-gray-200]="newActivityForm.start_date"
+                            [class.border]="newActivityForm.start_date"/>
+                          @if (!newActivityForm.start_date) {
+                            <p class="text-[10px] text-red-500 mt-0.5">Requerido</p>
+                          }
+                        </div>
+                        <div>
+                          <label class="block text-[10px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">
+                            Fecha Fin <span class="text-red-500">*</span>
+                          </label>
+                          <input type="date" [(ngModel)]="newActivityForm.end_date" required
+                            class="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300 transition-colors"
+                            [class.border]="!newActivityForm.end_date"
+                            [class.border-red-300]="!newActivityForm.end_date"
+                            [class.bg-red-50]="!newActivityForm.end_date"
+                            [class.border-gray-200]="newActivityForm.end_date"
+                            [class.border]="newActivityForm.end_date"/>
+                          @if (!newActivityForm.end_date) {
+                            <p class="text-[10px] text-red-500 mt-0.5">Requerido</p>
+                          }
+                        </div>
+                        <div>
+                          <label class="block text-[10px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">Responsable</label>
+                          <input type="text" [(ngModel)]="newActivityForm.responsible"
+                            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"/>
+                        </div>
+                        <div>
+                          <label class="block text-[10px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">Mes inicio plan</label>
+                          <input type="number" [(ngModel)]="newActivityForm.start_plan" min="1" max="24"
+                            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"/>
+                        </div>
+                        <div class="md:col-span-4">
+                          <label class="block text-[10px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">Objetivo</label>
+                          <input type="text" [(ngModel)]="newActivityForm.objective"
+                            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"/>
+                        </div>
+                      </div>
+                      @if (saveError()) {
+                        <p class="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2 mb-2">{{ saveError() }}</p>
+                      }
+                      <div class="flex gap-2 justify-end">
+                        <button (click)="cancelAddActivity()"
+                          class="px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-sm text-gray-500 transition-colors">
+                          Cancelar
+                        </button>
+                        <button (click)="saveNewActivity(comp)" [disabled]="scopeSaving() || !newActivityForm.description.trim() || !newActivityForm.start_date || !newActivityForm.end_date"
+                          class="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold transition-colors disabled:opacity-50">
+                          @if (scopeSaving()) { <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> }
+                          Agregar actividad
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                }
+
+                @if (!comp.scopes.length && addingActivityToCompId() !== comp.id) {
+                  <tr>
+                    <td colspan="9" class="px-5 py-10 text-center">
+                      <p class="text-sm text-gray-400">Este componente no tiene actividades.</p>
+                      <button (click)="startAddActivity(comp.id)"
+                        class="mt-2 text-xs text-sky-500 hover:text-sky-600 font-semibold underline underline-offset-2">
+                        Agregar la primera actividad
+                      </button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+
+      </div>
+    }
+
+  }
+</div>

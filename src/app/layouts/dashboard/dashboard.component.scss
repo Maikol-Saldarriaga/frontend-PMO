@@ -1,0 +1,58 @@
+@use '../../../styles/tokens' as *;
+
+$sidebar-width:           240px;
+$sidebar-collapsed-width: 68px;
+$topbar-height:           64px;
+$transition:              0.25s cubic-bezier(0.4, 0, 0.2, 1);
+
+.dashboard-shell {
+  display: flex;
+  min-height: 100vh;
+  background: $color-background;
+}
+
+// ── Área principal se desplaza según sidebar ──
+.dashboard-main {
+  flex: 1;
+  margin-left: $sidebar-width;
+  min-width: 0;
+  transition: margin-left $transition;
+  display: flex;
+  flex-direction: column;
+
+  .sidebar-collapsed & {
+    margin-left: $sidebar-collapsed-width;
+  }
+}
+
+// ── Contenido con scroll propio ───────────────
+.dashboard-content {
+  flex: 1;
+  padding: 1.75rem 2rem;
+  overflow-y: auto;
+
+  @media (max-width: 768px) {
+    padding: 1.25rem 1rem;
+  }
+}
+
+// ── Overlay móvil ─────────────────────────────
+.mobile-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(1, 30, 23, 0.5);
+  z-index: 99;
+  backdrop-filter: blur(2px);
+}
+
+// ── Responsive móvil ──────────────────────────
+@media (max-width: 768px) {
+  .dashboard-main {
+    margin-left: 0 !important;
+  }
+
+  .mobile-open .mobile-overlay {
+    display: block;
+  }
+}

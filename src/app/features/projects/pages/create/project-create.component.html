@@ -1,0 +1,463 @@
+<div class="min-h-screen bg-background">
+
+  <!-- ===== TOP BAR ===== -->
+  <div class="max-w-screen-xl mx-auto px-4 sm:px-6 pt-4 sm:pt-5 pb-2">
+    <div class="flex items-center justify-between gap-3">
+
+      <!-- Back + Title -->
+      <div class="flex items-center gap-2 min-w-0">
+        <button (click)="goBack()"
+          class="flex items-center gap-1.5 text-neutral-500 hover:text-primary-700 transition-colors group flex-shrink-0">
+          <div class="w-8 h-8 rounded-xl bg-neutral-200/70 group-hover:bg-neutral-200 flex items-center justify-center transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+            </svg>
+          </div>
+          <span class="text-sm font-medium hidden sm:block">Proyectos</span>
+        </button>
+        <svg class="w-4 h-4 text-neutral-300 hidden sm:block flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5l7 7-7 7"/>
+        </svg>
+        <span class="text-sm font-bold text-primary-700 truncate">Crear Nuevo Proyecto</span>
+      </div>
+
+      <!-- Saved indicator mejorado -->
+      @if (projectId()) {
+        <div class="flex items-center gap-2 bg-success/10 border border-success/25 rounded-xl px-3 py-2 flex-shrink-0">
+          <div class="relative">
+            <div class="w-2 h-2 rounded-full bg-success"></div>
+            <div class="absolute inset-0 rounded-full bg-success animate-ping opacity-60"></div>
+          </div>
+          <div class="hidden sm:block">
+            <p class="text-xs font-bold text-success leading-none">Borrador guardado</p>
+            <p class="text-[10px] text-success/70 mt-0.5">Fase {{ currentStep() }} — {{ percentDone() }}% completado</p>
+          </div>
+          <svg class="w-4 h-4 text-success sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+          </svg>
+        </div>
+      }
+
+    </div>
+  </div>
+
+  <!-- ===== STEPPER HORIZONTAL ===== -->
+  <div class="max-w-screen-xl mx-auto px-4 sm:px-6 py-3 sm:py-4">
+    <div class="bg-surface rounded-2xl border border-neutral-200 shadow-card px-4 sm:px-6 py-4">
+
+      <!-- Step circles + lines — scroll horizontal en móvil -->
+      <div class="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0 scrollbar-hide">
+        <div class="flex items-center min-w-max sm:min-w-0 py-2 px-1">
+          @for (step of steps; track step.number; let last = $last) {
+
+            <button
+              (click)="goToStep(step.number)"
+              [disabled]="!isStepClickable(step.number)"
+              [title]="step.label"
+              class="flex-shrink-0 group relative"
+              [class.cursor-pointer]="isStepClickable(step.number)"
+              [class.cursor-not-allowed]="!isStepClickable(step.number)"
+            >
+              @if (getStepStatus(step.number) === 'completed') {
+                <div class="w-7 h-7 sm:w-9 sm:h-9 rounded-full bg-success flex items-center justify-center shadow-sm transition-transform group-hover:scale-110">
+                  <svg class="w-3 h-3 sm:w-4 sm:h-4 text-white" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" [attr.d]="step.icon"/>
+                  </svg>
+                </div>
+              } @else if (getStepStatus(step.number) === 'current') {
+                <div class="relative">
+                  <div class="w-7 h-7 sm:w-9 sm:h-9 rounded-full bg-accent flex items-center justify-center shadow-md ring-2 sm:ring-4 ring-accent/20">
+                    <svg class="w-3 h-3 sm:w-4 sm:h-4 text-white" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" [attr.d]="step.icon"/>
+                    </svg>
+                  </div>
+                  <div class="absolute -inset-1 sm:-inset-1.5 rounded-full bg-accent/15 animate-ping pointer-events-none"></div>
+                </div>
+              } @else {
+                <div class="w-7 h-7 sm:w-9 sm:h-9 rounded-full border-2 flex items-center justify-center transition-colors"
+                     [class.border-neutral-200]="!isStepClickable(step.number)"
+                     [class.bg-neutral-50]="!isStepClickable(step.number)"
+                     [class.border-neutral-300]="isStepClickable(step.number)"
+                     [class.bg-white]="isStepClickable(step.number)">
+                  <svg class="w-3 h-3 sm:w-4 sm:h-4 transition-colors"
+                       [class.text-neutral-300]="!isStepClickable(step.number)"
+                       [class.text-neutral-400]="isStepClickable(step.number)"
+                       fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" [attr.d]="step.icon"/>
+                  </svg>
+                </div>
+              }
+
+              <!-- Tooltip -->
+              <div class="hidden sm:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-primary-800 text-white text-xs rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                {{ step.label }}
+                <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-primary-800"></div>
+              </div>
+            </button>
+
+            @if (!last) {
+              <div class="w-3 sm:flex-1 h-0.5 mx-0.5 transition-colors flex-shrink-0"
+                   [class.bg-success]="getStepStatus(step.number) === 'completed'"
+                   [class.bg-gradient-to-r]="getStepStatus(step.number) === 'current'"
+                   [class.from-accent]="getStepStatus(step.number) === 'current'"
+                   [class.to-neutral-200]="getStepStatus(step.number) === 'current'"
+                   [class.bg-neutral-200]="getStepStatus(step.number) === 'upcoming'">
+              </div>
+            }
+
+          }
+        </div>
+      </div>
+
+      <!-- Progress summary -->
+      <div class="flex items-center justify-between mt-3 pt-3 border-t border-neutral-100 gap-3">
+        <p class="text-xs text-neutral-500 whitespace-nowrap">
+          <span class="font-bold text-primary-700">{{ completedSteps() }}</span>/<span class="font-bold text-primary-700">{{ totalSteps() }}</span>
+          <span class="hidden sm:inline"> fases completadas</span>
+        </p>
+        <div class="flex items-center gap-2 flex-1 justify-end">
+          <div class="flex-1 max-w-xs h-1.5 bg-neutral-100 rounded-full overflow-hidden">
+            <div class="h-full bg-gradient-to-r from-accent to-success rounded-full transition-all duration-700"
+                 [style.width]="progressWidth()"></div>
+          </div>
+          <span class="text-xs font-black text-accent w-10 text-right">{{ percentDone() }}%</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ===== MAIN LAYOUT ===== -->
+  <div class="max-w-screen-xl mx-auto px-4 sm:px-6 pb-10">
+    <div class="flex gap-6 items-start">
+
+      <!-- ===== FORM AREA (izquierda) ===== -->
+      <div class="flex-1 min-w-0">
+
+        <!-- Loading skeleton -->
+        @if (loading()) {
+          <div class="bg-surface rounded-2xl shadow-card border border-neutral-200 p-10 flex flex-col items-center gap-4">
+            <svg class="animate-spin w-8 h-8 text-accent" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+            </svg>
+            <p class="text-sm text-neutral-500 font-medium">Cargando información del proyecto...</p>
+          </div>
+        }
+
+        @if (!loading()) {
+
+        <!-- Draft Banner -->
+        @if (draftLoaded()) {
+          <div class="mb-5 bg-warning/10 border border-warning/30 rounded-2xl p-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-9 h-9 rounded-xl bg-warning/20 flex items-center justify-center flex-shrink-0">
+                <svg class="w-4 h-4 text-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+              </div>
+              <div>
+                <p class="text-sm font-bold text-primary-700">Borrador recuperado</p>
+                <p class="text-xs text-neutral-500 mt-0.5">Continuando desde la Fase {{ currentStep() }} — los datos están cargados</p>
+              </div>
+            </div>
+            <button (click)="clearDraft()"
+              class="text-xs font-bold text-warning hover:text-amber-700 underline underline-offset-2 transition-colors flex-shrink-0">
+              Empezar de nuevo
+            </button>
+          </div>
+        }
+
+
+        <!-- Step Header -->
+        <div class="mb-4 sm:mb-5 flex items-center gap-3 sm:gap-4">
+          <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-gradient-to-br from-accent to-accent-700 flex items-center justify-center shadow-md flex-shrink-0">
+            <span class="text-sm sm:text-base font-black text-white">{{ currentStep() }}</span>
+          </div>
+          <div class="flex-1 min-w-0">
+            @for (step of steps; track step.number) {
+              @if (step.number === currentStep()) {
+                <h2 class="text-base sm:text-lg font-bold text-primary-700 leading-tight">{{ step.label }}</h2>
+                <p class="text-xs sm:text-sm text-neutral-500 mt-0.5 line-clamp-1">{{ step.description }}</p>
+              }
+            }
+          </div>
+        </div>
+
+        <!-- Step Forms -->
+        @switch (currentStep()) {
+          @case (1) {
+            <app-step1-general-info
+              [savedData]="getStep1SavedData()"
+              [projectId]="projectId()"
+              [submitting]="submitting()"
+              (submitted)="onStep1Submit($event)"
+              (dataChange)="onStepDataChange($event)"
+              (validationError)="onValidationError($event)"
+            />
+          }
+          @case (2) {
+            <app-step1b-supervisors
+              [savedData]="getStep1bSavedData()"
+              [projectId]="projectId()"
+              [submitting]="submitting()"
+              (submitted)="onStep1bSubmit($event)"
+              (dataChange)="onStepDataChange($event)"
+              (goBack)="goToStep(1)"
+              (validationError)="onValidationError($event)"
+            />
+          }
+          @case (3) {
+            <app-step2-location
+              [savedLocations]="getStep2SavedLocations()"
+              [submitting]="submitting()"
+              (submitted)="onStep2Submit($event)"
+              (dataChange)="onStepDataChange($event)"
+              (goBack)="goToStep(2)"
+              (validationError)="onValidationError($event)"
+            />
+          }
+          @case (4) {
+            <app-step3-alignment
+              [savedData]="getStep3SavedData()"
+              [submitting]="submitting()"
+              (submitted)="onStep3Submit($event)"
+              (dataChange)="onStepDataChange($event)"
+              (goBack)="goToStep(3)"
+              (validationError)="onValidationError($event)"
+            />
+          }
+          @case (5) {
+            <app-step4-objectives
+              [savedData]="getStep4SavedData()"
+              [submitting]="submitting()"
+              (submitted)="onStep4Submit($event)"
+              (dataChange)="onStepDataChange($event)"
+              (goBack)="goToStep(4)"
+              (validationError)="onValidationError($event)"
+            />
+          }
+          @case (6) {
+            <app-step5-conditions
+              [savedData]="getStep5SavedData()"
+              [submitting]="submitting()"
+              (submitted)="onStep5Submit($event)"
+              (dataChange)="onStepDataChange($event)"
+              (goBack)="goToStep(5)"
+              (validationError)="onValidationError($event)"
+            />
+          }
+          @case (7) {
+            <app-step6-beneficiaries
+              [savedData]="getStep6SavedData()"
+              [submitting]="submitting()"
+              (submitted)="onStep6Submit($event)"
+              (dataChange)="onStepDataChange($event)"
+              (goBack)="goToStep(6)"
+              (validationError)="onValidationError($event)"
+            />
+          }
+          @case (8) {
+            <app-step7-actors
+              [savedData]="getStep7SavedData()"
+              [submitting]="submitting()"
+              (submitted)="onStep7Submit($event)"
+              (dataChange)="onStepDataChange($event)"
+              (goBack)="goToStep(7)"
+              (validationError)="onValidationError($event)"
+            />
+          }
+          @case (9) {
+            <app-step8-scope
+              [savedData]="getStep8SavedData()"
+              [submitting]="submitting()"
+              (submitted)="onStep8Submit($event)"
+              (dataChange)="onStepDataChange($event)"
+              (goBack)="goToStep(8)"
+              (validationError)="onValidationError($event)"
+            />
+          }
+          @case (10) {
+            <app-step9-indicators
+              [savedData]="getStep9SavedData()"
+              [components]="getStep9Components()"
+              [submitting]="submitting()"
+              (submitted)="onStep9Submit($event)"
+              (dataChange)="onStepDataChange($event)"
+              (goBack)="goToStep(9)"
+              (validationError)="onValidationError($event)"
+            />
+          }
+          @case (11) {
+            <app-step10-guarantees
+              [savedData]="getStep10SavedData()"
+              [submitting]="submitting()"
+              (submitted)="onStep10Submit($event)"
+              (dataChange)="onStepDataChange($event)"
+              (goBack)="goToStep(10)"
+              (validationError)="onValidationError($event)"
+            />
+          }
+          @default {
+            <div class="bg-surface rounded-2xl shadow-card border border-neutral-200 overflow-hidden">
+              <div class="p-16 text-center">
+                <div class="w-20 h-20 rounded-2xl bg-neutral-100 flex items-center justify-center mx-auto mb-5">
+                  <svg class="w-9 h-9 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                  </svg>
+                </div>
+                @for (step of steps; track step.number) {
+                  @if (step.number === currentStep()) {
+                    <h3 class="text-xl font-bold text-primary-700">{{ step.label }}</h3>
+                    <p class="text-sm text-neutral-500 mt-2 max-w-sm mx-auto">
+                      Este paso estará disponible próximamente como parte de las siguientes fases de desarrollo.
+                    </p>
+                  }
+                }
+                @if (currentStep() > 1) {
+                  <button (click)="goToStep(currentStep() - 1)"
+                    class="mt-6 inline-flex items-center gap-2 px-5 py-2.5 border border-neutral-200 text-neutral-600 text-sm font-semibold rounded-xl hover:bg-neutral-50 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                    </svg>
+                    Fase anterior
+                  </button>
+                }
+              </div>
+            </div>
+          }
+        }
+
+        } <!-- end @if (!loading()) -->
+
+      </div>
+
+      <!-- ===== PANEL LATERAL DERECHO ===== -->
+      <aside class="hidden xl:block w-72 flex-shrink-0 sticky top-6">
+        <div class="bg-surface rounded-2xl shadow-card border border-neutral-200 overflow-hidden">
+
+          <!-- Panel Header -->
+          <div class="px-5 py-4 bg-gradient-to-br from-primary-700 to-primary-800">
+            <h2 class="text-sm font-bold text-white">Resumen de Fases</h2>
+            <p class="text-xs text-neutral-300 mt-0.5">{{ completedSteps() }} de {{ totalSteps() }} completadas</p>
+          </div>
+
+          <!-- Steps checklist -->
+          <div>
+            <div class="p-3 space-y-0.5">
+              @for (step of steps; track step.number) {
+                <button
+                  (click)="goToStep(step.number)"
+                  [disabled]="!isStepClickable(step.number)"
+                  class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all"
+                  [class.bg-accent-50]="step.number === currentStep()"
+                  [class.border]="step.number === currentStep()"
+                  [class.border-accent-200]="step.number === currentStep()"
+                  [class.hover:bg-neutral-50]="step.number !== currentStep() && isStepClickable(step.number)"
+                  [class.opacity-40]="!isStepClickable(step.number)"
+                  [class.cursor-not-allowed]="!isStepClickable(step.number)"
+                  [class.cursor-pointer]="isStepClickable(step.number)"
+                >
+                  <!-- Indicator -->
+                  <div class="flex-shrink-0 relative">
+                    @if (getStepStatus(step.number) === 'completed') {
+                      <div class="w-8 h-8 rounded-xl bg-success flex items-center justify-center shadow-sm">
+                        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+                        </svg>
+                      </div>
+                    } @else if (getStepStatus(step.number) === 'current') {
+                      <div class="w-8 h-8 rounded-xl bg-accent flex items-center justify-center shadow-md ring-2 ring-accent/30">
+                        <span class="text-xs font-black text-white">{{ step.number }}</span>
+                      </div>
+                    } @else {
+                      <div class="w-8 h-8 rounded-xl border-2 border-neutral-200 bg-neutral-50 flex items-center justify-center">
+                        <span class="text-xs font-semibold text-neutral-400">{{ step.number }}</span>
+                      </div>
+                    }
+                  </div>
+
+                  <!-- Text -->
+                  <div class="flex-1 min-w-0">
+                    <p class="text-xs font-semibold leading-tight truncate"
+                       [class.text-accent-700]="step.number === currentStep()"
+                       [class.text-current-400]="getStepStatus(step.number) === 'completed'"
+                       [class.text-neutral-500]="getStepStatus(step.number) === 'upcoming'">
+                      {{ step.label }}
+                    </p>
+                  </div>
+
+                  @if (step.number === currentStep()) {
+                    <svg class="w-3.5 h-3.5 text-accent flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/>
+                    </svg>
+                  }
+                </button>
+              }
+            </div>
+          </div>
+
+        </div>
+      </aside>
+
+    </div>
+  </div>
+
+  <!-- ===== TOASTS FLOTANTES (superior derecha) ===== -->
+  <div class="fixed top-6 right-6 z-50 flex flex-col gap-3 max-w-sm w-full pointer-events-none">
+
+    <!-- Toast éxito -->
+    @if (success()) {
+      <div class="bg-white border border-success/30 rounded-2xl shadow-xl p-4 flex items-start gap-3 pointer-events-auto">
+        <div class="w-9 h-9 rounded-xl bg-success/10 flex items-center justify-center flex-shrink-0">
+          <svg class="w-4 h-4 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+          </svg>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-bold text-success">Guardado exitosamente</p>
+          <p class="text-xs text-neutral-500 mt-0.5 break-words">{{ success() }}</p>
+        </div>
+        <button (click)="clearError()" class="flex-shrink-0 text-neutral-400 hover:text-neutral-600 transition-colors ml-1">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+    }
+
+    <!-- Toast error -->
+    @if (error()) {
+      <div class="bg-white border border-danger/30 rounded-2xl shadow-xl p-4 flex items-start gap-3 pointer-events-auto">
+        <div class="w-9 h-9 rounded-xl bg-danger/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+          <svg class="w-4 h-4 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-bold text-danger">Error al procesar</p>
+          <p class="text-xs text-neutral-500 mt-0.5 break-words">{{ error() }}</p>
+          @if (validationErrors().length) {
+            <ul class="mt-2 space-y-0.5">
+              @for (e of validationErrors(); track $index) {
+                <li class="flex items-start gap-1.5 text-xs text-danger/80">
+                  <svg class="w-3 h-3 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-.75-5.25a.75.75 0 001.5 0v-3.5a.75.75 0 00-1.5 0v3.5zm.75-7a.75.75 0 100 1.5.75.75 0 000-1.5z" clip-rule="evenodd"/>
+                  </svg>
+                  {{ e }}
+                </li>
+              }
+            </ul>
+          }
+        </div>
+        <button (click)="clearError()" class="flex-shrink-0 text-neutral-400 hover:text-neutral-600 transition-colors ml-1">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+    }
+
+  </div>
+
+</div>

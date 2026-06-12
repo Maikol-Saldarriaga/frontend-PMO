@@ -1,0 +1,10 @@
+{
+  "/api": {
+    "target": "",
+    "secure": true,
+    "changeOrigin": true,
+    "headers": {
+      "ngrok-skip-browser-warning": "true"
+    }
+  }
+}

@@ -1,0 +1,281 @@
+<form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
+
+  <!-- ① type · project_number · company_name · start_date · end_date · object · duration · value -->
+  <div class="bg-surface rounded-2xl shadow-card border border-neutral-200 overflow-hidden mb-5">
+    <div class="flex items-center gap-3 px-6 py-4 border-b border-neutral-100 bg-gradient-to-r from-accent-50 to-transparent">
+      <div class="w-9 h-9 rounded-xl bg-accent-100 flex items-center justify-center flex-shrink-0">
+        <svg class="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      </div>
+      <div><h3 class="text-sm font-bold text-primary-700">Datos del Contrato</h3><p class="text-xs text-neutral-500">Tipo, identificación, fechas, objeto y valor</p></div>
+    </div>
+    <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
+
+      <!-- type -->
+      <div class="md:col-span-2">
+        <label class="block text-xs font-bold text-neutral-600 mb-2 uppercase tracking-wide">Tipo de Proyecto <span class="text-danger">*</span></label>
+        <div class="flex gap-3">
+          @for (tipo of projectTypes; track tipo) {
+            <label class="flex-1 flex items-center gap-3 px-4 py-3 rounded-xl border cursor-pointer transition-all"
+              [class.border-accent]="form.get('type')?.value === tipo" [class.bg-accent-50]="form.get('type')?.value === tipo"
+              [class.ring-2]="form.get('type')?.value === tipo" [class.ring-accent-200]="form.get('type')?.value === tipo"
+              [class.border-neutral-200]="form.get('type')?.value !== tipo" [class.bg-neutral-50]="form.get('type')?.value !== tipo">
+              <input type="radio" formControlName="type" [value]="tipo" class="sr-only"/>
+              <div class="w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0"
+                   [class.border-accent]="form.get('type')?.value === tipo" [class.border-neutral-300]="form.get('type')?.value !== tipo">
+                @if (form.get('type')?.value === tipo) { <div class="w-2 h-2 rounded-full bg-accent"></div> }
+              </div>
+              <span class="text-sm font-semibold capitalize"
+                    [class.text-accent-700]="form.get('type')?.value === tipo"
+                    [class.text-neutral-600]="form.get('type')?.value !== tipo">{{ tipo }}</span>
+            </label>
+          }
+        </div>
+      </div>
+
+      <!-- project_number -->
+      <div>
+        <label class="block text-xs font-bold text-neutral-600 mb-1.5 uppercase tracking-wide">Número de Proyecto <span class="text-danger">*</span></label>
+        <input formControlName="project_number" type="text" placeholder="Ej: CC-2026-001"
+          class="w-full px-4 py-2.5 rounded-xl border text-sm text-primary-700 placeholder-neutral-400 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 transition-colors"
+          [class.border-neutral-200]="!isInvalid('project_number')" [class.focus:ring-accent-200]="!isInvalid('project_number')" [class.focus:border-accent]="!isInvalid('project_number')"
+          [class.border-danger]="isInvalid('project_number')" [class.focus:ring-red-100]="isInvalid('project_number')" [class.bg-red-50]="isInvalid('project_number')"/>
+        @if (isInvalid('project_number')) { <p class="mt-1 text-xs text-danger">El número de proyecto es obligatorio</p> }
+      </div>
+
+      <!-- project_name -->
+      <div>
+        <label class="block text-xs font-bold text-neutral-600 mb-1.5 uppercase tracking-wide">Nombre del Proyecto</label>
+        <input formControlName="project_name" type="text" placeholder="Ej: Proyecto Alpha"
+          class="w-full px-4 py-2.5 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-400 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+      </div>
+
+      <!-- company_name -->
+      <div>
+        <label class="block text-xs font-bold text-neutral-600 mb-1.5 uppercase tracking-wide">Razón Social <span class="text-danger">*</span></label>
+        <input formControlName="social_reason" type="text" placeholder="Ej: Tech Solutions SAS"
+          class="w-full px-4 py-2.5 rounded-xl border text-sm text-primary-700 placeholder-neutral-400 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 transition-colors"
+          [class.border-neutral-200]="!isInvalid('social_reason')" [class.focus:ring-accent-200]="!isInvalid('social_reason')" [class.focus:border-accent]="!isInvalid('social_reason')"
+          [class.border-danger]="isInvalid('social_reason')" [class.focus:ring-red-100]="isInvalid('social_reason')" [class.bg-red-50]="isInvalid('social_reason')"/>
+        @if (isInvalid('social_reason')) { <p class="mt-1 text-xs text-danger">La razón social es obligatoria</p> }
+      </div>
+
+      <!-- start_date · end_date · duration -->
+      <div class="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div>
+          <label class="block text-xs font-bold text-neutral-600 mb-1.5 uppercase tracking-wide">Fecha de Inicio <span class="text-danger">*</span></label>
+          <input formControlName="start_date" type="date" class="w-full px-4 py-2.5 rounded-xl border text-sm text-primary-700 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 transition-colors"
+            [class.border-neutral-200]="!isInvalid('start_date')" [class.focus:ring-accent-200]="!isInvalid('start_date')" [class.focus:border-accent]="!isInvalid('start_date')"
+            [class.border-danger]="isInvalid('start_date')" [class.focus:ring-red-100]="isInvalid('start_date')"/>
+          @if (isInvalid('start_date')) { <p class="mt-1 text-xs text-danger">La fecha de inicio es obligatoria</p> }
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-neutral-600 mb-1.5 uppercase tracking-wide">Fecha de Fin <span class="text-danger">*</span></label>
+          <input formControlName="end_date" type="date" class="w-full px-4 py-2.5 rounded-xl border text-sm text-primary-700 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 transition-colors"
+            [class.border-neutral-200]="!isInvalid('end_date')" [class.focus:ring-accent-200]="!isInvalid('end_date')" [class.focus:border-accent]="!isInvalid('end_date')"
+            [class.border-danger]="isInvalid('end_date')" [class.focus:ring-red-100]="isInvalid('end_date')"/>
+          @if (isInvalid('end_date')) { <p class="mt-1 text-xs text-danger">La fecha de fin es obligatoria</p> }
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-neutral-600 mb-1.5 uppercase tracking-wide">Duración <span class="ml-1 text-xs font-normal text-accent normal-case">Auto</span></label>
+          <div class="relative">
+            <input type="text" readonly [value]="durationMonths()" class="w-full px-4 py-2.5 rounded-xl border border-accent-200 text-sm font-bold text-accent bg-accent-50 outline-none cursor-default"/>
+            <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none"><span class="text-xs text-accent/60 font-semibold">meses</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- object -->
+      <div class="md:col-span-2">
+        <label class="block text-xs font-bold text-neutral-600 mb-1.5 uppercase tracking-wide">Objeto <span class="text-danger">*</span></label>
+        <textarea formControlName="objective" rows="3" placeholder="Ej: Prestación de servicios de consultoría..."
+          class="w-full px-4 py-2.5 rounded-xl border text-sm text-primary-700 placeholder-neutral-400 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 transition-colors resize-none"
+          [class.border-neutral-200]="!isInvalid('objective')" [class.focus:ring-accent-200]="!isInvalid('objective')" [class.focus:border-accent]="!isInvalid('objective')"
+          [class.border-danger]="isInvalid('objective')" [class.focus:ring-red-100]="isInvalid('objective')" [class.bg-red-50]="isInvalid('objective')"></textarea>
+        @if (isInvalid('objective')) { <p class="mt-1 text-xs text-danger">El objeto es obligatorio (mínimo 10 caracteres)</p> }
+      </div>
+
+
+    </div>
+  </div>
+
+  <!-- Presupuesto Total -->
+  <div class="bg-surface rounded-2xl shadow-card border border-neutral-200 overflow-hidden mb-5">
+    <div class="flex items-center gap-3 px-6 py-4 border-b border-neutral-100 bg-gradient-to-r from-success/10 to-transparent">
+      <div class="w-9 h-9 rounded-xl bg-success/15 flex items-center justify-center flex-shrink-0">
+        <svg class="w-4 h-4 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      </div>
+      <div><h3 class="text-sm font-bold text-primary-700">Presupuesto Total</h3><p class="text-xs text-neutral-500">Valor del contrato en pesos colombianos</p></div>
+    </div>
+    <div class="p-6">
+      <div class="relative">
+        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><span class="text-sm font-bold text-neutral-400">$</span></div>
+        <input type="text" inputmode="numeric" [value]="budgetDisplay()" (input)="formatBudget($any($event.target).value)" placeholder="0"
+          class="w-full pl-8 pr-16 py-2.5 rounded-xl border text-sm font-semibold text-primary-700 placeholder-neutral-400 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 transition-colors"
+          [class.border-neutral-200]="!isInvalid('total_budget')" [class.focus:ring-accent-200]="!isInvalid('total_budget')" [class.focus:border-accent]="!isInvalid('total_budget')"
+          [class.border-danger]="isInvalid('total_budget')" [class.focus:ring-red-100]="isInvalid('total_budget')" [class.bg-red-50]="isInvalid('total_budget')"/>
+        <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none"><span class="text-xs text-neutral-400 font-semibold">COP</span></div>
+      </div>
+      @if (isInvalid('total_budget')) { <p class="mt-1 text-xs text-danger">El presupuesto es obligatorio</p> }
+    </div>
+  </div>
+
+  <!-- Datos del Servicio Asociado (siempre visible) -->
+  <div class="bg-surface rounded-2xl shadow-card border border-neutral-200 overflow-hidden mb-5">
+    <div class="flex items-center gap-3 px-6 py-4 border-b border-neutral-100 bg-gradient-to-r from-indigo-50 to-transparent">
+      <div class="w-9 h-9 rounded-xl bg-indigo-100 flex items-center justify-center flex-shrink-0">
+        <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+      </div>
+      <div><h3 class="text-sm font-bold text-primary-700">Datos del Servicio Asociado</h3><p class="text-xs text-neutral-500">Código, vigencia y duración del servicio</p></div>
+    </div>
+    <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div>
+        <label class="block text-xs font-bold text-neutral-600 mb-1.5 uppercase tracking-wide">Código de Proyecto</label>
+        <input formControlName="project_code" type="text" placeholder="Ej: PRJ-001"
+          class="w-full px-4 py-2.5 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-400 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+      </div>
+      <div>
+        <label class="block text-xs font-bold text-neutral-600 mb-1.5 uppercase tracking-wide">
+          Inicio de Servicio <span class="text-danger">*</span>
+        </label>
+        <input formControlName="service_start_date" type="date"
+          class="w-full px-4 py-2.5 rounded-xl border text-sm text-primary-700 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"
+          [class.border-neutral-200]="!isInvalid('service_start_date')"
+          [class.border-danger]="isInvalid('service_start_date')"/>
+        @if (isInvalid('service_start_date')) {
+          <p class="mt-1 text-xs text-danger">La fecha de inicio del servicio es obligatoria</p>
+        }
+      </div>
+      <div>
+        <label class="block text-xs font-bold text-neutral-600 mb-1.5 uppercase tracking-wide">
+          Fin de Servicio <span class="text-danger">*</span>
+        </label>
+        <input formControlName="service_end_date" type="date"
+          class="w-full px-4 py-2.5 rounded-xl border text-sm text-primary-700 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"
+          [class.border-neutral-200]="!isInvalid('service_end_date')"
+          [class.border-danger]="isInvalid('service_end_date')"/>
+        @if (isInvalid('service_end_date')) {
+          <p class="mt-1 text-xs text-danger">La fecha de fin del servicio es obligatoria</p>
+        }
+      </div>
+      <div class="md:col-span-2">
+        <label class="block text-xs font-bold text-neutral-600 mb-1.5 uppercase tracking-wide">Duración del Servicio</label>
+        <div class="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-neutral-200 bg-neutral-100">
+          <svg class="w-4 h-4 text-accent flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+          </svg>
+          @if (serviceDurationDays() > 0) {
+            <span class="text-sm font-bold text-primary-700">{{ serviceDurationDays() }} días</span>
+            <span class="text-xs text-neutral-400">(≈ {{ (serviceDurationDays() / 30) | number:'1.0-1' }} meses)</span>
+          } @else {
+            <span class="text-sm text-neutral-400">Se calcula automáticamente al ingresar las fechas</span>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ② other_type_if · ext_number · ext_date · ext_duration -->
+  <div class="bg-surface rounded-2xl shadow-card border border-neutral-200 overflow-hidden mb-5">
+    <div class="flex items-center gap-3 px-6 py-4 border-b border-neutral-100 bg-gradient-to-r from-rose-50 to-transparent">
+      <div class="w-9 h-9 rounded-xl bg-rose-100 flex items-center justify-center flex-shrink-0">
+        <svg class="w-4 h-4 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+      </div>
+      <div class="flex-1"><h3 class="text-sm font-bold text-primary-700">¿Aplica otrosí?</h3><p class="text-xs text-neutral-500">Activa si este proyecto es extensión de otro existente</p></div>
+      <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+        <input type="checkbox" formControlName="other_type_if" class="sr-only peer"/>
+        <div class="w-12 h-6 bg-neutral-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-accent-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[3px] after:start-[3px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-[18px] after:w-[18px] after:transition-all peer-checked:bg-accent shadow-input"></div>
+        <span class="ms-2 text-sm font-bold" [class.text-accent]="showExtensionFields()" [class.text-neutral-400]="!showExtensionFields()">{{ showExtensionFields() ? 'Sí' : 'No' }}</span>
+      </label>
+    </div>
+    @if (showExtensionFields()) {
+      <div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div>
+          <label class="block text-xs font-bold text-neutral-600 mb-1.5 uppercase tracking-wide">N° Extensión <span class="text-danger">*</span></label>
+          <input formControlName="ext_number" type="text" placeholder="Ej: OT-001"
+            class="w-full px-4 py-2.5 rounded-xl border text-sm text-primary-700 placeholder-neutral-400 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 transition-colors"
+            [class.border-neutral-200]="!isInvalid('ext_number')" [class.focus:ring-accent-200]="!isInvalid('ext_number')" [class.focus:border-accent]="!isInvalid('ext_number')"
+            [class.border-danger]="isInvalid('ext_number')" [class.focus:ring-red-100]="isInvalid('ext_number')" [class.bg-red-50]="isInvalid('ext_number')"/>
+          @if (isInvalid('ext_number')) { <p class="mt-1 text-xs text-danger">El número de extensión es obligatorio</p> }
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-neutral-600 mb-1.5 uppercase tracking-wide">Fecha Extensión <span class="text-danger">*</span></label>
+          <input formControlName="ext_date" type="date" class="w-full px-4 py-2.5 rounded-xl border text-sm text-primary-700 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 transition-colors"
+            [class.border-neutral-200]="!isInvalid('ext_date')" [class.focus:ring-accent-200]="!isInvalid('ext_date')" [class.focus:border-accent]="!isInvalid('ext_date')"
+            [class.border-danger]="isInvalid('ext_date')" [class.focus:ring-red-100]="isInvalid('ext_date')" [class.bg-red-50]="isInvalid('ext_date')"/>
+          @if (isInvalid('ext_date')) { <p class="mt-1 text-xs text-danger">La fecha es obligatoria</p> }
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-neutral-600 mb-1.5 uppercase tracking-wide">Duración extensión (meses)</label>
+          <input formControlName="ext_duration" type="number" min="1" placeholder="Ej: 6"
+            class="w-full px-4 py-2.5 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-400 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+        </div>
+      </div>
+    } @else {
+      <div class="px-6 py-5 flex items-center justify-center gap-2 text-neutral-400">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <span class="text-sm">Activa si este contrato es extensión de otro existente</span>
+      </div>
+    }
+  </div>
+
+  <!-- ⑦ antecedent -->
+  <div class="bg-surface rounded-2xl shadow-card border border-neutral-200 overflow-hidden mb-5">
+    <div class="flex items-center gap-3 px-6 py-4 border-b border-neutral-100 bg-gradient-to-r from-slate-50 to-transparent">
+      <div class="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center flex-shrink-0">
+        <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      </div>
+      <div><h3 class="text-sm font-bold text-primary-700">Antecedentes</h3><p class="text-xs text-neutral-500">Contexto e historia del proyecto</p></div>
+    </div>
+    <div class="p-6">
+      <textarea formControlName="antecedent" rows="3" placeholder="Describa los antecedentes del proyecto..."
+        class="w-full px-4 py-2.5 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-400 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors resize-none"></textarea>
+    </div>
+  </div>
+
+  <!-- ⑧ has_worker_order · number_work_order · project_code · project_name · description · service_* -->
+  <div class="bg-surface rounded-2xl shadow-card border border-neutral-200 overflow-hidden mb-6">
+    <div class="flex items-center gap-3 px-6 py-4 border-b border-neutral-100 bg-gradient-to-r from-violet-50 to-transparent">
+      <div class="w-9 h-9 rounded-xl bg-violet-100 flex items-center justify-center flex-shrink-0">
+        <svg class="w-4 h-4 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+      </div>
+      <div class="flex-1"><h3 class="text-sm font-bold text-primary-700">Orden de Trabajo</h3><p class="text-xs text-neutral-500">Activa si este proyecto tiene orden de trabajo asociada</p></div>
+      <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+        <input type="checkbox" formControlName="has_worker_order" class="sr-only peer"/>
+        <div class="w-12 h-6 bg-neutral-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-accent-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[3px] after:start-[3px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-[18px] after:w-[18px] after:transition-all peer-checked:bg-accent shadow-input"></div>
+        <span class="ms-2 text-sm font-bold" [class.text-accent]="showWorkerOrder()" [class.text-neutral-400]="!showWorkerOrder()">{{ showWorkerOrder() ? 'Sí' : 'No' }}</span>
+      </label>
+    </div>
+    @if (showWorkerOrder()) {
+      <div class="p-6">
+        <label class="block text-xs font-bold text-neutral-600 mb-1.5 uppercase tracking-wide">N° Orden de Trabajo <span class="text-danger">*</span></label>
+        <input formControlName="worker_order" type="text" placeholder="Ej: OT-2026-001"
+          class="w-full px-4 py-2.5 rounded-xl border text-sm text-primary-700 placeholder-neutral-400 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 transition-colors"
+          [class.border-neutral-200]="!isInvalid('worker_order')" [class.focus:ring-accent-200]="!isInvalid('worker_order')" [class.focus:border-accent]="!isInvalid('worker_order')"
+          [class.border-danger]="isInvalid('worker_order')" [class.focus:ring-red-100]="isInvalid('worker_order')" [class.bg-red-50]="isInvalid('worker_order')"/>
+        @if (isInvalid('worker_order')) { <p class="mt-1 text-xs text-danger">El número de orden de trabajo es obligatorio</p> }
+      </div>
+    } @else {
+      <div class="px-6 py-4 text-center text-sm text-neutral-400">Activa la opción si este proyecto tiene una orden de trabajo asociada</div>
+    }
+  </div>
+
+  <!-- Footer -->
+  <div class="flex items-center justify-between py-2">
+    <p class="text-xs text-neutral-400 flex items-center gap-1.5">
+      <svg class="w-3.5 h-3.5 text-success flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+      Datos guardados automáticamente
+    </p>
+    <button type="submit" [disabled]="submitting"
+      class="flex items-center gap-2.5 px-6 py-3 bg-gradient-to-r from-accent to-accent-700 hover:from-accent-600 hover:to-accent-800 text-white text-sm font-bold rounded-xl shadow-md hover:shadow-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed">
+      @if (submitting) {
+        <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+        Guardando...
+      } @else {
+        Siguiente fase
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+      }
+    </button>
+  </div>
+
+</form>
+

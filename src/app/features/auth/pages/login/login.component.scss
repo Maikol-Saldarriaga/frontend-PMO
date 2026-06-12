@@ -1,0 +1,184 @@
+@use '../../../../../styles/tokens' as *;
+
+// ── Contenedor principal ──────────────────────────────────
+.login-bg {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  font-family: $font-family-base;
+  background: linear-gradient(135deg, $color-primary-900 0%, $color-primary-800 40%, $color-primary-700 100%);
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(circle, rgba(14,165,233,0.06) 1px, transparent 1px);
+    background-size: 28px 28px;
+    pointer-events: none;
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    width: 500px;
+    height: 500px;
+    border-radius: 50%;
+    background: $color-accent;
+    opacity: 0.08;
+    filter: blur(90px);
+    top: -130px;
+    right: -130px;
+    pointer-events: none;
+  }
+}
+
+.login-bg .deco-green {
+  position: absolute;
+  width: 380px;
+  height: 380px;
+  border-radius: 50%;
+  background: $color-accent;
+  opacity: 0.06;
+  filter: blur(90px);
+  bottom: -100px;
+  left: -80px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+// ── Card ──────────────────────────────────────
+.login-card {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  width: 100%;
+  max-width: 1300px;
+  min-height: 580px;
+  background: $color-surface;
+  border-radius: $radius-xl;
+  box-shadow: $shadow-card;
+  overflow: hidden;
+}
+
+// ── Columna formulario ────────────────────────
+.form-col {
+  flex: 1;
+  padding: 3rem 2.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
+.logo-icon {
+  background: $color-primary-700;
+  box-shadow: 0 4px 14px 0 rgba(14, 165, 233, 0.20);
+}
+
+.divider-brand {
+  height: 2px;
+  border: none;
+  background: linear-gradient(90deg, $color-primary-700 0%, $color-accent 100%);
+  border-radius: 1px;
+  margin-bottom: 2rem;
+  opacity: 0.5;
+}
+
+.link-accent {
+  color: $color-accent;
+  &:hover { color: $color-accent-hover; }
+}
+
+.pmo-input:focus {
+  outline: none;
+  border-color: $color-accent;
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, $color-accent 0%, $color-accent-700 100%);
+  color: #ffffff !important;
+  transition: opacity 0.2s ease, transform 0.1s ease;
+  box-shadow: 0 4px 14px 0 rgba(14, 165, 233, 0.30);
+
+  &:hover:not(:disabled) { opacity: 0.88; transform: translateY(-1px); }
+  &:active:not(:disabled) { transform: translateY(0); }
+  &:disabled { opacity: 0.45; cursor: not-allowed; }
+}
+
+// ── Columna imagen ────────────────────────────
+.image-col {
+  position: relative;
+  width: 900px;
+  flex-shrink: 0;
+  background: linear-gradient(160deg, $color-primary-100 0%, $color-primary-900 100%);
+  overflow: hidden;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.305);
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  &::before {
+    content: '';
+    position: absolute;
+    bottom: -60px; right: -60px;
+    width: 220px; height: 220px;
+    border-radius: 50%;
+    background: $color-accent;
+    opacity: 0.15;
+    filter: blur(50px);
+    z-index: 3;
+    pointer-events: none;
+  }
+
+  .image-placeholder {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 0;
+  }
+
+  img { position: relative; z-index: 1; }
+}
+
+// ── Responsive ────────────────────────────────
+@media (max-width: 700px) {
+  .image-col { display: none; }
+
+  .login-bg { padding: 1rem 0.75rem; align-items: flex-start; padding-top: 2rem; }
+  .login-card { min-height: unset; border-radius: $radius-lg; }
+
+  .form-col {
+    padding: 2rem 1.5rem;
+    h1           { font-size: 1rem; }
+    p            { font-size: 0.75rem; }
+    h2           { font-size: 1.25rem; }
+    label        { font-size: 0.75rem; }
+    .pmo-input   { font-size: 0.8125rem; padding: 0.625rem 1rem; }
+    .link-accent { font-size: 0.7rem; }
+    .btn-primary { font-size: 0.8125rem; padding-top: 0.7rem; padding-bottom: 0.7rem; }
+    > p          { font-size: 0.65rem; margin-top: 1.25rem; }
+  }
+}
+
+@media (max-width: 380px) {
+  .form-col {
+    padding: 1.5rem 1.25rem;
+    h1         { font-size: 0.9rem; }
+    h2         { font-size: 1.1rem; }
+    .pmo-input { font-size: 0.75rem; }
+  }
+}

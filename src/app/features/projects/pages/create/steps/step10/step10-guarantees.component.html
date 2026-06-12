@@ -1,0 +1,110 @@
+<div>
+  <div class="bg-surface rounded-2xl shadow-card border border-neutral-200 overflow-hidden mb-5">
+
+    <div class="flex items-center gap-3 px-6 py-4 border-b border-neutral-100 bg-gradient-to-r from-accent-50 to-transparent">
+      <div class="w-9 h-9 rounded-xl bg-accent-100 flex items-center justify-center flex-shrink-0">
+        <svg class="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+        </svg>
+      </div>
+      <div class="flex-1">
+        <h3 class="text-sm font-bold text-primary-700">Garantías del Contrato</h3>
+        <p class="text-xs text-neutral-500">Pólizas y amparos exigidos para la ejecución</p>
+      </div>
+    </div>
+
+    <div class="divide-y divide-neutral-100">
+      @for (row of rows(); track $index; let i = $index) {
+        <div class="p-6">
+          <div class="flex items-center justify-between mb-4">
+            <span class="flex items-center gap-2">
+              <span class="w-6 h-6 rounded-full bg-accent flex items-center justify-center text-[10px] font-black text-white">{{ i + 1 }}</span>
+              <span class="text-xs font-semibold text-neutral-600">Garantía {{ i + 1 }}</span>
+            </span>
+            @if (rows().length > 1) {
+              <button type="button" (click)="removeRow(i)"
+                class="flex items-center gap-1 text-xs text-neutral-400 hover:text-danger transition-colors">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                </svg>
+                Eliminar
+              </button>
+            }
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+            <div class="md:col-span-2">
+              <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Tipo de garantía <span class="text-danger">*</span></label>
+              <select [value]="row.type" (change)="update(i, 'type', $any($event.target).value)"
+                class="w-full px-4 py-2.5 rounded-xl border border-neutral-200 text-sm text-primary-700 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors appearance-none">
+                @for (t of guaranteeTypes; track t.value) {
+                  <option [value]="t.value" [selected]="row.type === t.value">{{ t.label }}</option>
+                }
+              </select>
+            </div>
+
+            <div class="md:col-span-2">
+              <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Descripción</label>
+              <textarea rows="2" [value]="row.description" (input)="update(i, 'description', $any($event.target).value)"
+                placeholder="Ej: Póliza de cumplimiento que ampara el correcto desarrollo del objeto contractual"
+                class="w-full px-4 py-2.5 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-400 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors resize-none"></textarea>
+            </div>
+
+            <div>
+              <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Porcentaje (%)</label>
+              <input type="number" min="0" max="100" step="0.01"
+                [value]="row.percentage ?? ''" (input)="update(i, 'percentage', $any($event.target).value ? +$any($event.target).value : null)"
+                placeholder="Ej: 10.00"
+                class="w-full px-4 py-2.5 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-400 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+            </div>
+
+            <div>
+              <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Duración (meses)</label>
+              <input type="number" min="1"
+                [value]="row.duration ?? ''" (input)="update(i, 'duration', $any($event.target).value ? +$any($event.target).value : null)"
+                placeholder="Ej: 12"
+                class="w-full px-4 py-2.5 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-400 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+            </div>
+
+          </div>
+        </div>
+      }
+    </div>
+
+    <div class="px-6 py-4 border-t border-neutral-100 bg-neutral-50/50">
+      <button type="button" (click)="addRow()"
+        class="flex items-center gap-2 text-sm text-accent hover:text-accent-700 font-medium transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        Agregar garantía
+      </button>
+    </div>
+  </div>
+
+  <div class="flex items-center justify-between py-2">
+    <button type="button" (click)="goBack.emit()"
+      class="flex items-center gap-2 px-5 py-2.5 border border-neutral-200 text-neutral-600 text-sm font-semibold rounded-xl hover:bg-neutral-50 transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+      </svg>
+      Fase anterior
+    </button>
+    <button type="button" (click)="onSubmit()" [disabled]="submitting"
+      class="flex items-center gap-2.5 px-6 py-3 bg-gradient-to-r from-accent to-accent-700 hover:from-accent-600 hover:to-accent-800 text-white text-sm font-bold rounded-xl shadow-md hover:shadow-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed">
+      @if (submitting) {
+        <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+        </svg>
+        Guardando...
+      } @else {
+        Finalizar
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+        </svg>
+      }
+    </button>
+  </div>
+</div>

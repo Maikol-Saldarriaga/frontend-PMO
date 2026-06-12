@@ -1,0 +1,381 @@
+<div class="space-y-5">
+
+  <!-- ① PAGE HEADER -->
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-extrabold text-primary-700">Proyectos</h1>
+      <p class="text-sm text-neutral-400 mt-0.5">Gestiona y registra todos los proyectos de la organización</p>
+    </div>
+    <button (click)="createProject()"
+      class="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-accent to-accent-700 hover:from-accent-600 hover:to-accent-800 text-white text-sm font-semibold rounded-xl shadow-md hover:shadow-lg transition-all self-start sm:self-auto">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+      </svg>
+      Nuevo Proyecto
+    </button>
+  </div>
+
+  <!-- ② SEARCH + FILTER BAR (siempre visible) -->
+  <div class="flex flex-col gap-2.5">
+
+    <div class="flex items-center gap-3">
+
+      <!-- Search input -->
+      <div class="relative flex-1 max-w-lg">
+        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+          <svg class="w-4 h-4 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+        </div>
+        <input
+          type="text"
+          [ngModel]="filters().name"
+          (ngModelChange)="onNameInput($event)"
+          placeholder="Buscar por nombre del proyecto..."
+          class="w-full pl-10 pr-10 py-2.5 bg-surface border border-neutral-200 rounded-xl text-sm text-primary-700 placeholder-neutral-400 outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-colors"
+        />
+        @if (filters().name) {
+          <button (click)="clearFilter('name')" class="absolute inset-y-0 right-0 pr-3 flex items-center text-neutral-400 hover:text-neutral-600">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        }
+      </div>
+
+      <!-- Filter toggle -->
+      <button
+        (click)="showFilters.set(!showFilters())"
+        class="relative flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors"
+        [class.bg-accent]="showFilters()"
+        [class.border-accent]="showFilters()"
+        [class.text-white]="showFilters()"
+        [class.bg-surface]="!showFilters()"
+        [class.border-neutral-200]="!showFilters()"
+        [class.text-neutral-600]="!showFilters()"
+        [class.hover:bg-neutral-50]="!showFilters()"
+      >
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z"/>
+        </svg>
+        Filtros
+        @if (activeFilterCount() > 0) {
+          <span class="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-danger text-white text-[10px] font-bold flex items-center justify-center">
+            {{ activeFilterCount() }}
+          </span>
+        }
+      </button>
+
+      @if (activeFilterCount() > 0) {
+        <button (click)="clearAllFilters()" class="text-xs font-medium text-neutral-400 hover:text-danger transition-colors whitespace-nowrap">
+          Limpiar todo
+        </button>
+      }
+
+    </div>
+
+    <!-- Expanded filter panel -->
+    @if (showFilters()) {
+      <div class="bg-surface border border-neutral-200 rounded-2xl p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+
+        <div>
+          <label class="block text-[10px] font-semibold text-neutral-400 uppercase tracking-wide mb-1.5">Tipo</label>
+          <select [ngModel]="filters().type" (ngModelChange)="setType($event)"
+            class="w-full px-3 py-2 rounded-xl border border-neutral-200 bg-neutral-50 text-sm text-primary-700 outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-colors">
+            <option value="">Todos los tipos</option>
+            @for (t of typeOptions; track t) {
+              <option [value]="t" class="capitalize">{{ t }}</option>
+            }
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-[10px] font-semibold text-neutral-400 uppercase tracking-wide mb-1.5">Estado</label>
+          <select [ngModel]="filters().status" (ngModelChange)="setStatus($event)"
+            class="w-full px-3 py-2 rounded-xl border border-neutral-200 bg-neutral-50 text-sm text-primary-700 outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-colors">
+            <option value="">Todos los estados</option>
+            @for (s of statusOptions; track s) {
+              <option [value]="s">{{ statusLabel(s) }}</option>
+            }
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-[10px] font-semibold text-neutral-400 uppercase tracking-wide mb-1.5">Creado desde</label>
+          <input type="date" [ngModel]="filters().date_from" (ngModelChange)="setDateFrom($event)"
+            class="w-full px-3 py-2 rounded-xl border border-neutral-200 bg-neutral-50 text-sm text-primary-700 outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-colors"/>
+        </div>
+
+        <div>
+          <label class="block text-[10px] font-semibold text-neutral-400 uppercase tracking-wide mb-1.5">Creado hasta</label>
+          <input type="date" [ngModel]="filters().date_to" (ngModelChange)="setDateTo($event)"
+            class="w-full px-3 py-2 rounded-xl border border-neutral-200 bg-neutral-50 text-sm text-primary-700 outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-colors"/>
+        </div>
+
+      </div>
+    }
+
+    <!-- Active chips -->
+    @if (activeFilterCount() > 0) {
+      <div class="flex items-center gap-2 flex-wrap">
+        @if (filters().type) {
+          <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-accent-50 border border-accent-200 rounded-full text-xs font-medium text-accent-700">
+            Tipo: {{ filters().type }}
+            <button (click)="clearFilter('type')"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg></button>
+          </span>
+        }
+        @if (filters().status) {
+          <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-accent-50 border border-accent-200 rounded-full text-xs font-medium text-accent-700">
+            Estado: {{ filters().status }}
+            <button (click)="clearFilter('status')"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg></button>
+          </span>
+        }
+        @if (filters().date_from) {
+          <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-accent-50 border border-accent-200 rounded-full text-xs font-medium text-accent-700">
+            Desde: {{ filters().date_from }}
+            <button (click)="clearFilter('date_from')"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg></button>
+          </span>
+        }
+        @if (filters().date_to) {
+          <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-accent-50 border border-accent-200 rounded-full text-xs font-medium text-accent-700">
+            Hasta: {{ filters().date_to }}
+            <button (click)="clearFilter('date_to')"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg></button>
+          </span>
+        }
+      </div>
+    }
+
+  </div>
+
+  <!-- ③ SUMMARY CARDS (siempre visible cuando hay datos) -->
+  @if (summary()) {
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+
+      <div class="bg-surface rounded-2xl border border-neutral-100 shadow-card px-5 py-4 flex items-center gap-4">
+        <div class="w-10 h-10 rounded-xl bg-neutral-100 flex items-center justify-center flex-shrink-0">
+          <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+          </svg>
+        </div>
+        <div>
+          <p class="text-[11px] text-neutral-400 leading-none mb-1">Total</p>
+          <p class="text-2xl font-extrabold text-primary-700 leading-none">{{ summary()!.total }}</p>
+        </div>
+      </div>
+
+      <div class="bg-amber-50/60 rounded-2xl border border-amber-100 shadow-card px-5 py-4 flex items-center gap-4">
+        <div class="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0">
+          <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+          </svg>
+        </div>
+        <div>
+          <p class="text-[11px] text-amber-500 leading-none mb-1">Borrador</p>
+          <p class="text-2xl font-extrabold text-amber-600 leading-none">{{ summary()!.borrador }}</p>
+        </div>
+      </div>
+
+      <div class="bg-emerald-50/60 rounded-2xl border border-emerald-100 shadow-card px-5 py-4 flex items-center gap-4">
+        <div class="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
+          <svg class="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </div>
+        <div>
+          <p class="text-[11px] text-emerald-500 leading-none mb-1">Activos</p>
+          <p class="text-2xl font-extrabold text-emerald-600 leading-none">{{ summary()!.activo }}</p>
+        </div>
+      </div>
+
+      <div class="bg-sky-50/60 rounded-2xl border border-sky-100 shadow-card px-5 py-4 flex items-center gap-4">
+        <div class="w-10 h-10 rounded-xl bg-sky-100 flex items-center justify-center flex-shrink-0">
+          <svg class="w-5 h-5 text-sky-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+          </svg>
+        </div>
+        <div>
+          <p class="text-[11px] text-sky-500 leading-none mb-1">Completados</p>
+          <p class="text-2xl font-extrabold text-sky-600 leading-none">{{ summary()!.completado }}</p>
+        </div>
+      </div>
+
+    </div>
+  }
+
+  <!-- ④ RESULTS AREA: loading / error / empty / list -->
+  <div>
+
+    @if (loading()) {
+      <div class="bg-surface rounded-2xl border border-neutral-100 p-10 text-center shadow-card">
+        <svg class="animate-spin w-7 h-7 text-accent mx-auto" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+        </svg>
+        <p class="mt-3 text-sm text-neutral-400">Cargando proyectos...</p>
+      </div>
+    }
+
+    @if (!loading() && error()) {
+      <div class="bg-red-50 border border-red-100 rounded-2xl p-5 text-center">
+        <p class="text-sm text-danger/80">{{ error() }}</p>
+      </div>
+    }
+
+    @if (!loading() && !error() && projects().length === 0) {
+      <div class="bg-surface rounded-2xl border-2 border-dashed border-neutral-100 p-14 text-center">
+        <div class="w-14 h-14 rounded-2xl bg-neutral-50 border border-neutral-100 flex items-center justify-center mx-auto mb-4">
+          <svg class="w-7 h-7 text-neutral-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+        </div>
+        @if (activeFilterCount() > 0) {
+          <h3 class="text-base font-semibold text-primary-700">Sin resultados</h3>
+          <p class="text-sm text-neutral-400 mt-1.5 max-w-xs mx-auto">No se encontraron proyectos con los filtros aplicados.</p>
+          <button (click)="clearAllFilters()"
+            class="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-600 text-sm font-medium rounded-xl transition-colors">
+            Limpiar filtros
+          </button>
+        } @else {
+          <h3 class="text-base font-semibold text-primary-700">Sin proyectos registrados</h3>
+          <p class="text-sm text-neutral-400 mt-1.5 max-w-xs mx-auto">Crea el primer proyecto de la organización para comenzar el seguimiento.</p>
+          <button (click)="createProject()"
+            class="mt-4 inline-flex items-center gap-2 px-5 py-2.5 bg-accent hover:bg-accent-600 text-white text-sm font-semibold rounded-xl shadow-sm transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+            </svg>
+            Crear primer proyecto
+          </button>
+        }
+      </div>
+    }
+
+    @if (!loading() && projects().length > 0) {
+      <div class="flex flex-col gap-3">
+        @for (project of projects(); track project.id) {
+
+          <div
+            (click)="openProject(project)"
+            class="group flex items-stretch rounded-2xl border cursor-pointer transition-all duration-200 hover:shadow-lg overflow-hidden"
+            [class]="getCardClasses(project.status)"
+          >
+            <div class="w-1 flex-shrink-0 rounded-l-2xl" [class]="getAccentBar(project.status)"></div>
+
+            <div class="flex-1 flex items-center gap-0 min-w-0">
+
+              <!-- SECTION A: Identity -->
+              <div class="flex-1 min-w-0 px-5 py-4">
+                <div class="flex items-center gap-2.5 min-w-0 mb-1.5">
+                  <h3 class="text-sm font-semibold text-primary-800 group-hover:text-primary transition-colors duration-150 truncate">
+                    {{ project.project_name || project.project_number || '—' }}
+                  </h3>
+                  <span class="flex-shrink-0 inline-flex items-center text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-md border" [class]="getStatusBadge(project.status)">
+                    {{ statusLabel(project.status) }}
+                  </span>
+                  <span class="flex-shrink-0 text-[11px] font-mono text-neutral-400 hidden sm:inline">{{ project.project_number }}</span>
+                </div>
+                <p class="text-xs text-neutral-400 leading-relaxed truncate max-w-xl">
+                  {{ truncate(project.object ?? project.description, 100) }}
+                </p>
+                <div class="flex items-center gap-3 mt-2.5 flex-wrap">
+                  <span class="text-xs text-neutral-400 capitalize">{{ project.type }}</span>
+                  <span class="w-px h-3 bg-neutral-200 flex-shrink-0"></span>
+                  <span class="text-xs text-neutral-400">{{ project.created_at | date:'d MMM yyyy' }}</span>
+                  @if (project.responsible) {
+                    <span class="w-px h-3 bg-neutral-200 flex-shrink-0"></span>
+                    <div class="flex items-center gap-2">
+                      @if (resolveImageUrl(project.responsible.image_url); as imgSrc) {
+                        <img [src]="imgSrc" [alt]="project.responsible.name"
+                             class="w-6 h-6 rounded-full object-cover ring-1 ring-neutral-200 flex-shrink-0"
+                             (error)="$any($event.target).style.display='none'; $any($event.target).nextElementSibling.style.display='flex'"/>
+                        <span class="w-6 h-6 rounded-full bg-neutral-200 text-neutral-500 text-[9px] font-bold items-center justify-center flex-shrink-0 hidden">
+                          {{ getResponsibleInitials(project.responsible.name) }}
+                        </span>
+                      } @else {
+                        <span class="w-6 h-6 rounded-full bg-neutral-200 text-neutral-500 text-[9px] font-bold flex items-center justify-center flex-shrink-0">
+                          {{ getResponsibleInitials(project.responsible.name) }}
+                        </span>
+                      }
+                      <span class="text-xs text-neutral-500">{{ project.responsible.name }}</span>
+                    </div>
+                  }
+                </div>
+              </div>
+
+              <div class="w-px self-stretch bg-neutral-100 flex-shrink-0 my-3"></div>
+
+              <!-- SECTION B: Financials -->
+              <div class="hidden lg:flex items-center gap-5 px-6 py-4 flex-shrink-0">
+                <div class="flex items-center gap-2">
+                  <svg class="w-3.5 h-3.5 text-neutral-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                  <div>
+                    <p class="text-[10px] text-neutral-400 leading-none mb-0.5">Presupuesto</p>
+                    <p class="text-xs font-medium text-primary-700">${{ (project.value ?? 0) | number:'1.0-0' }}</p>
+                  </div>
+                </div>
+                <div class="w-px h-6 bg-neutral-100 flex-shrink-0"></div>
+                <div class="flex items-center gap-2">
+                  <svg class="w-3.5 h-3.5 text-neutral-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                  <div>
+                    <p class="text-[10px] text-neutral-400 leading-none mb-0.5">Duración</p>
+                    <p class="text-xs font-medium text-primary-700">{{ project.duration }} meses</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="hidden lg:block w-px self-stretch bg-neutral-100 flex-shrink-0 my-3"></div>
+
+              <!-- SECTION C: Phases -->
+              <div class="hidden md:flex flex-col items-center justify-center px-6 py-4 flex-shrink-0 w-28">
+                <p class="text-[10px] text-neutral-400 mb-1">Fases</p>
+                <div class="flex items-baseline gap-0.5">
+                  <span class="text-xl font-bold leading-none" [class]="getPercentTextColor(project.status)">{{ project.completed_steps }}</span>
+                  <span class="text-sm text-neutral-300 font-normal">/{{ project.total_steps }}</span>
+                </div>
+                <p class="text-[10px] text-neutral-400 mt-1">
+                  @if (project.percent_done >= 100) { completadas } @else { en curso }
+                </p>
+              </div>
+
+              <div class="hidden md:block w-px self-stretch bg-neutral-100 flex-shrink-0 my-3"></div>
+
+              <!-- SECTION D: Donut -->
+              <div class="flex flex-col items-center justify-center px-5 py-4 flex-shrink-0 w-24">
+                <div class="relative w-12 h-12">
+                  <svg class="w-12 h-12 -rotate-90" viewBox="0 0 36 36">
+                    <circle cx="18" cy="18" r="14" fill="none" [attr.stroke]="getTrackColor(project.status)" stroke-width="3"/>
+                    <circle cx="18" cy="18" r="14" fill="none" [attr.stroke]="getProgressStroke(project.status)"
+                      stroke-width="3" stroke-linecap="round" stroke-dasharray="88"
+                      [attr.stroke-dashoffset]="88 - (88 * project.percent_done / 100)"
+                      style="transition: stroke-dashoffset 0.7s ease"/>
+                  </svg>
+                  <div class="absolute inset-0 flex flex-col items-center justify-center">
+                    @if (project.percent_done >= 100) {
+                      <svg class="w-4 h-4 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                      </svg>
+                    } @else {
+                      <span class="text-[11px] font-bold leading-none" [class]="getPercentTextColor(project.status)">{{ project.percent_done }}</span>
+                      <span class="text-neutral-400 leading-none" style="font-size:8px">%</span>
+                    }
+                  </div>
+                </div>
+                <span class="text-[10px] mt-1.5 font-medium"
+                      [class]="project.percent_done >= 100 ? 'text-success/70 group-hover:text-success' : getPercentTextColor(project.status)">
+                  {{ project.percent_done >= 100 ? 'Ver' : 'Continuar' }}
+                </span>
+              </div>
+
+            </div>
+          </div>
+
+        }
+      </div>
+    }
+
+  </div>
+
+</div>

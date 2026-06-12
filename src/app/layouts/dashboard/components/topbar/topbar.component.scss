@@ -1,0 +1,179 @@
+@use '../../../../../styles/tokens' as *;
+
+.topbar {
+  height: 64px;
+  background: $color-surface;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.5rem;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  border-bottom: 1px solid $color-border;
+  box-shadow: $shadow-card;
+
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, $color-primary-700 0%, $color-accent 100%);
+  }
+}
+
+.topbar__left {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+}
+
+.topbar__menu-btn {
+  display: none;
+  width: 36px; height: 36px;
+  border-radius: $radius-md;
+  border: none;
+  background: $color-neutral-100;
+  color: $color-primary-700;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, color 0.2s;
+  &:hover { background: $color-accent; color: #fff; }
+  @media (max-width: 768px) { display: flex; }
+}
+
+.topbar__title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: $color-primary-700;
+  margin: 0;
+}
+
+.topbar__right {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.topbar__icon-btn {
+  position: relative;
+  width: 36px; height: 36px;
+  border-radius: $radius-md;
+  border: none;
+  background: $color-neutral-100;
+  color: $color-neutral-500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, color 0.2s;
+  &:hover { background: $color-primary-700; color: #fff; }
+}
+
+.topbar__badge {
+  position: absolute;
+  top: -4px; right: -4px;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: $color-accent;
+  color: #ffffff;
+  font-size: 0.6rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid $color-surface;
+}
+
+.topbar__divider {
+  width: 1px; height: 28px;
+  background: $color-border;
+}
+
+.topbar__user {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  cursor: pointer;
+  padding: 0.375rem 0.5rem;
+  border-radius: $radius-md;
+  border: none;
+  background: transparent;
+  transition: background 0.2s;
+  &:hover { background: $color-neutral-100; }
+  @media (max-width: 480px) { gap: 0; }
+}
+
+.topbar__avatar {
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  background: $color-primary-700;
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.topbar__user-info {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  @media (max-width: 480px) { display: none; }
+}
+
+.topbar__user-name {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: $color-primary-700;
+  line-height: 1.2;
+}
+
+.topbar__user-role { font-size: 0.7rem; color: $color-neutral-500; }
+
+// ── Notificaciones ────────────────────────────
+.notif-count {
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: $color-accent;
+  color: #ffffff;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+}
+
+.notif-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  transition: background 0.15s;
+  &:hover { background: $color-neutral-50; }
+}
+
+.notif-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 0.3rem;
+  &--accent   { background: $color-accent; }
+  &--warning  { background: $color-warning; }
+  &--primary  { background: $color-primary-700; }
+}
+
+.notif-item__text { font-size: 0.8125rem; color: $color-neutral-800; margin: 0; line-height: 1.4; }
+.notif-item__time { font-size: 0.7rem; color: $color-neutral-400; margin: 0.15rem 0 0; }
+
+// ── Dropdown usuario ──────────────────────────
+.user-menu-item {
+  display: block;
+  padding: 0.5rem 1rem;
+  font-size: 0.8125rem;
+  color: $color-neutral-700;
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+  &:hover { background: $color-neutral-100; color: $color-primary-700; }
+  &--danger { color: $color-danger; &:hover { background: #fff5f5; color: $color-danger; } }
+}

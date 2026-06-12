@@ -1,0 +1,182 @@
+<form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
+
+  <!-- Header info -->
+  <div class="bg-surface rounded-2xl shadow-card border border-neutral-200 overflow-hidden mb-5">
+    <div class="flex items-center gap-3 px-6 py-4 border-b border-neutral-100 bg-gradient-to-r from-accent-50 to-transparent">
+      <div class="w-9 h-9 rounded-xl bg-accent-100 flex items-center justify-center flex-shrink-0">
+        <svg class="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+        </svg>
+      </div>
+      <div class="flex-1">
+        <h3 class="text-sm font-bold text-primary-700">Ubicaciones del Proyecto</h3>
+        <p class="text-xs text-neutral-500">Agrega todos los municipios o zonas donde se ejecutará el proyecto</p>
+      </div>
+    </div>
+
+    <!-- Loading departments -->
+    @if (loadingDepts()) {
+      <div class="px-6 py-8 text-center">
+        <svg class="animate-spin w-6 h-6 text-accent mx-auto" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+        </svg>
+        <p class="mt-2 text-xs text-neutral-400">Cargando departamentos...</p>
+      </div>
+    }
+
+    <!-- Location rows -->
+    @if (!loadingDepts()) {
+      <div formArrayName="locations" class="divide-y divide-neutral-100">
+
+        @for (row of locationsArray.controls; track $index; let i = $index) {
+          <div [formGroupName]="i" class="px-6 py-5">
+
+            <!-- Row header -->
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center gap-2">
+                <div class="w-6 h-6 rounded-full bg-accent flex items-center justify-center flex-shrink-0">
+                  <span class="text-[10px] font-black text-white">{{ i + 1 }}</span>
+                </div>
+                <span class="text-xs font-semibold text-neutral-600">Ubicación {{ i + 1 }}</span>
+              </div>
+              @if (locationsArray.length > 1) {
+                <button type="button" (click)="removeRow(i)"
+                  class="flex items-center gap-1 text-xs text-neutral-400 hover:text-danger transition-colors">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                  </svg>
+                  Eliminar
+                </button>
+              }
+            </div>
+
+            <!-- Fields grid -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+              <!-- País (fixed) -->
+              <div>
+                <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">
+                  País <span class="text-danger">*</span>
+                </label>
+                <div class="px-4 py-2.5 rounded-xl border border-neutral-200 bg-neutral-50 text-sm text-neutral-500 flex items-center gap-2">
+                  <svg class="w-4 h-4 text-neutral-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064"/>
+                  </svg>
+                  Colombia
+                </div>
+              </div>
+
+              <!-- Departamento -->
+              <div>
+                <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">
+                  Departamento <span class="text-danger">*</span>
+                </label>
+                <select formControlName="department"
+                  class="w-full px-4 py-2.5 rounded-xl border text-sm text-primary-700 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 transition-colors appearance-none"
+                  [class.border-neutral-200]="!isInvalid($any(row), 'department')"
+                  [class.focus:ring-accent-200]="!isInvalid($any(row), 'department')"
+                  [class.focus:border-accent]="!isInvalid($any(row), 'department')"
+                  [class.border-danger]="isInvalid($any(row), 'department')"
+                  [class.focus:ring-red-100]="isInvalid($any(row), 'department')"
+                >
+                  <option value="">Selecciona un departamento</option>
+                  @for (dept of departments(); track dept.id) {
+                    <option [value]="dept.name">{{ dept.name }}</option>
+                  }
+                </select>
+                @if (isInvalid($any(row), 'department')) {
+                  <p class="mt-1 text-xs text-danger">El departamento es obligatorio</p>
+                }
+              </div>
+
+              <!-- Municipio -->
+              <div>
+                <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">
+                  Municipio <span class="text-danger">*</span>
+                </label>
+                <select formControlName="municipality"
+                  [disabled]="!$any(row).get('department')?.value"
+                  class="w-full px-4 py-2.5 rounded-xl border text-sm text-primary-700 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 transition-colors appearance-none disabled:opacity-50 disabled:cursor-not-allowed"
+                  [class.border-neutral-200]="!isInvalid($any(row), 'municipality')"
+                  [class.focus:ring-accent-200]="!isInvalid($any(row), 'municipality')"
+                  [class.focus:border-accent]="!isInvalid($any(row), 'municipality')"
+                  [class.border-danger]="isInvalid($any(row), 'municipality')"
+                  [class.focus:ring-red-100]="isInvalid($any(row), 'municipality')"
+                >
+                  <option value="">{{ getCities(i).length ? 'Selecciona un municipio' : 'Primero elige el departamento' }}</option>
+                  @for (city of getCities(i); track city.id) {
+                    <option [value]="city.name">{{ city.name }}</option>
+                  }
+                </select>
+                @if (isInvalid($any(row), 'municipality')) {
+                  <p class="mt-1 text-xs text-danger">El municipio es obligatorio</p>
+                }
+              </div>
+
+              <!-- Vereda / Zona -->
+              <div class="md:col-span-1">
+                <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">
+                  Vereda / Zona
+                </label>
+                <input formControlName="sidewalk" type="text"
+                  placeholder="Ej: Vereda El Pital / Zona Rural Norte"
+                  class="w-full px-4 py-2.5 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-400 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+              </div>
+
+              <!-- Detalles -->
+              <div class="md:col-span-2">
+                <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">
+                  Detalles de la zona de intervención
+                </label>
+                <input formControlName="details" type="text"
+                  placeholder="Ej: Zona de intervención sur, barrios periféricos..."
+                  class="w-full px-4 py-2.5 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-400 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+              </div>
+
+            </div>
+          </div>
+        }
+
+      </div>
+
+      <!-- Add location button (bottom) -->
+      <div class="px-6 py-4 border-t border-neutral-100 bg-neutral-50/50">
+        <button type="button" (click)="addRow()"
+          class="flex items-center gap-2 text-sm text-accent hover:text-accent-700 font-medium transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+          </svg>
+          Agregar otra ubicación
+        </button>
+      </div>
+    }
+  </div>
+
+  <!-- Footer actions -->
+  <div class="flex items-center justify-between py-2">
+    <button type="button" (click)="goBack.emit()"
+      class="flex items-center gap-2 px-5 py-2.5 border border-neutral-200 text-neutral-600 text-sm font-semibold rounded-xl hover:bg-neutral-50 transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+      </svg>
+      Fase anterior
+    </button>
+    <button type="submit" [disabled]="submitting"
+      class="flex items-center gap-2.5 px-6 py-3 bg-gradient-to-r from-accent to-accent-700 hover:from-accent-600 hover:to-accent-800 text-white text-sm font-bold rounded-xl shadow-md hover:shadow-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed">
+      @if (submitting) {
+        <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+        </svg>
+        Guardando...
+      } @else {
+        Siguiente fase
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+        </svg>
+      }
+    </button>
+  </div>
+
+</form>

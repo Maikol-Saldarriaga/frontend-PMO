@@ -1,0 +1,122 @@
+<div class="profile-page">
+
+  <!-- Encabezado -->
+  <div class="profile-header">
+    <div>
+      <h1 class="profile-header__title">Mi perfil</h1>
+      <p class="profile-header__sub">Administra tu información personal</p>
+    </div>
+  </div>
+
+  <hr class="pmo-divider mb-6"/>
+
+  <div class="pmo-card">
+
+    <!-- Cargando -->
+    <div *ngIf="loadingProfile()" class="profile-loading">
+      <svg class="profile-loading__spinner" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="60" stroke-dashoffset="20"/>
+      </svg>
+      <span>Cargando datos del perfil…</span>
+    </div>
+
+    <form *ngIf="!loadingProfile()" [formGroup]="profileForm" (ngSubmit)="onSubmit()" class="profile-form">
+
+      <!-- Avatar -->
+      <div class="profile-avatar-col">
+        <div class="profile-avatar">
+          <img *ngIf="avatarPreview()" [src]="avatarPreview()!" alt="avatar" class="profile-avatar__img"/>
+          <span *ngIf="!avatarPreview()" class="profile-avatar__initials">{{ initials }}</span>
+        </div>
+        <label class="profile-upload-btn" for="avatar-input">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 12V4m0 0L8 8m4-4l4 4"/>
+          </svg>
+          Cambiar foto
+        </label>
+        <input id="avatar-input" type="file" accept="image/*" class="hidden" (change)="onFileChange($event)"/>
+        <p class="profile-avatar__hint">JPG, PNG o WEBP · máx. 2 MB</p>
+      </div>
+
+      <!-- Campos -->
+      <div class="profile-fields">
+
+        <div class="profile-row">
+          <div class="profile-field">
+            <label class="pmo-label">Nombre <span class="required-star">*</span></label>
+            <input type="text" formControlName="first_name" placeholder="Juan"
+              [class]="'pmo-input mt-1' + (profileForm.get('first_name')?.invalid && profileForm.get('first_name')?.touched ? ' input--error' : '')"/>
+            <span class="field-error" *ngIf="profileForm.get('first_name')?.invalid && profileForm.get('first_name')?.touched">
+              Campo obligatorio
+            </span>
+          </div>
+          <div class="profile-field">
+            <label class="pmo-label">Apellido <span class="required-star">*</span></label>
+            <input type="text" formControlName="first_surname" placeholder="Pérez"
+              [class]="'pmo-input mt-1' + (profileForm.get('first_surname')?.invalid && profileForm.get('first_surname')?.touched ? ' input--error' : '')"/>
+            <span class="field-error" *ngIf="profileForm.get('first_surname')?.invalid && profileForm.get('first_surname')?.touched">
+              Campo obligatorio
+            </span>
+          </div>
+        </div>
+
+        <div class="profile-row">
+          <div class="profile-field">
+            <label class="pmo-label">Rol <span class="required-star">*</span></label>
+            <select formControlName="role"
+              [class]="'pmo-input mt-1' + (profileForm.get('role')?.invalid && profileForm.get('role')?.touched ? ' input--error' : '')">
+              <option *ngFor="let r of roles" [value]="r">{{ r }}</option>
+            </select>
+          </div>
+          <div class="profile-field">
+            <label class="pmo-label">Teléfono</label>
+            <input type="tel" formControlName="phone" class="pmo-input mt-1" placeholder="+57 300 000 0000"/>
+          </div>
+        </div>
+
+        <div class="profile-row">
+          <div class="profile-field">
+            <label class="pmo-label">Fecha de nacimiento</label>
+            <input type="date" formControlName="birthdate" class="pmo-input mt-1"/>
+          </div>
+          <div class="profile-field">
+            <label class="pmo-label">Tipo de documento</label>
+            <select formControlName="document_type" class="pmo-input mt-1">
+              <option *ngFor="let d of documentTypes" [value]="d">{{ d }}</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="profile-row">
+          <div class="profile-field profile-field--full">
+            <label class="pmo-label">Número de documento</label>
+            <input type="text" formControlName="identity_document_number" class="pmo-input mt-1" placeholder="1234567890"/>
+          </div>
+        </div>
+
+        <!-- Feedback -->
+        <div *ngIf="saveSuccess()" class="profile-alert profile-alert--success">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+          </svg>
+          Perfil actualizado correctamente.
+        </div>
+        <div *ngIf="saveError()" class="profile-alert profile-alert--error">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+          {{ saveError() }}
+        </div>
+
+        <!-- Acciones -->
+        <div class="profile-actions">
+          <button type="submit" class="pmo-btn-primary" [disabled]="profileForm.invalid || saving()">
+            <span *ngIf="saving()">Guardando…</span>
+            <span *ngIf="!saving()">Guardar cambios</span>
+          </button>
+        </div>
+
+      </div>
+    </form>
+  </div>
+</div>

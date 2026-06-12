@@ -1,0 +1,151 @@
+<!-- Encabezado -->
+<div class="home-header">
+  <div>
+    <h1 class="home-header__title">Resumen general</h1>
+    <p class="home-header__sub">Bienvenido, {{ user?.name }} · {{ today }}</p>
+  </div>
+  <button
+    data-modal-target="new-project-modal"
+    data-modal-toggle="new-project-modal"
+    class="pmo-btn-primary"
+    type="button">
+    + Nuevo proyecto
+  </button>
+</div>
+
+<hr class="pmo-divider mb-6" />
+
+<!-- KPI Cards -->
+<section class="stats-grid">
+  <div class="stat-card" *ngFor="let s of stats" [class.stat-card--accent]="s.accent">
+    <div class="stat-card__icon" [class.stat-card__icon--accent]="s.accent">
+      <ng-container [ngSwitch]="s.icon">
+        <svg *ngSwitchCase="'folder'" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
+        <svg *ngSwitchCase="'check'" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+        <svg *ngSwitchCase="'users'" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        <svg *ngSwitchCase="'chart'" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+      </ng-container>
+    </div>
+    <div class="stat-card__body">
+      <span class="stat-card__value">{{ s.value }}</span>
+      <span class="stat-card__label">{{ s.label }}</span>
+      <span class="stat-card__delta">{{ s.delta }}</span>
+    </div>
+  </div>
+</section>
+
+<!-- Proyectos recientes -->
+<section class="section-block">
+  <div class="section-block__header">
+    <h2 class="section-block__title">Proyectos recientes</h2>
+    <button type="button" class="section-block__link">Ver todos →</button>
+  </div>
+
+  <div class="pmo-card p-0 overflow-hidden">
+    <table class="pmo-table">
+      <thead>
+        <tr>
+          <th>Proyecto</th>
+          <th>Estado</th>
+          <th>Avance</th>
+          <th>Fecha límite</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let p of recentProjects; let i = index">
+          <td class="font-medium text-neutral-900">{{ p.name }}</td>
+          <td><span class="pmo-badge" [ngClass]="statusColor(p.status)">{{ p.status }}</span></td>
+          <td>
+            <div class="progress-cell">
+              <div class="pmo-progress">
+                <div class="pmo-progress__bar" [style.width.%]="p.progress"></div>
+              </div>
+              <span class="progress-cell__pct">{{ p.progress }}%</span>
+            </div>
+          </td>
+          <td class="text-neutral-500 text-sm">{{ p.due }}</td>
+          <td>
+            <button [id]="'row-btn-' + i"
+                    [attr.data-dropdown-toggle]="'row-dd-' + i"
+                    data-dropdown-placement="left"
+                    class="row-action-btn" type="button">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M10 6a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4z"/>
+              </svg>
+            </button>
+            <div [id]="'row-dd-' + i"
+                 class="z-50 hidden bg-white divide-y divide-neutral-100 rounded-xl shadow-lg border border-neutral-200 w-40">
+              <ul class="py-1 text-sm">
+                <li><button type="button" class="user-menu-item w-full text-left">Ver detalle</button></li>
+                <li><button type="button" class="user-menu-item w-full text-left">Editar</button></li>
+                <li><button type="button" class="user-menu-item user-menu-item--danger w-full text-left">Archivar</button></li>
+              </ul>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ── Modal Nuevo Proyecto (Flowbite) ── -->
+<div id="new-project-modal" tabindex="-1" aria-hidden="true"
+     class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full">
+  <div class="relative p-4 w-full max-w-lg max-h-full">
+    <div class="relative bg-white rounded-2xl shadow-lg border border-neutral-200">
+
+      <div class="modal-header">
+        <div class="flex items-center gap-3">
+          <div class="modal-icon">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+            </svg>
+          </div>
+          <h3 class="modal-title">Nuevo proyecto</h3>
+        </div>
+        <button data-modal-hide="new-project-modal" class="modal-close" type="button">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="p-6 space-y-4">
+        <div>
+          <label class="modal-label">Nombre del proyecto</label>
+          <input type="text" placeholder="Ej. Migración Cloud" class="pmo-input mt-1"/>
+        </div>
+        <div>
+          <label class="modal-label">Descripción</label>
+          <textarea rows="3" placeholder="Describe el objetivo del proyecto..." class="pmo-input mt-1 resize-none"></textarea>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="modal-label">Fecha inicio</label>
+            <input type="date" class="pmo-input mt-1"/>
+          </div>
+          <div>
+            <label class="modal-label">Fecha límite</label>
+            <input type="date" class="pmo-input mt-1"/>
+          </div>
+        </div>
+        <div>
+          <label class="modal-label">Responsable</label>
+          <select class="pmo-input mt-1">
+            <option value="">Seleccionar</option>
+            <option>Juan Díaz</option>
+            <option>María López</option>
+            <option>Carlos Ruiz</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button data-modal-hide="new-project-modal" class="pmo-btn-secondary" type="button">Cancelar</button>
+        <button class="pmo-btn-primary" type="button">Crear proyecto</button>
+      </div>
+
+    </div>
+  </div>
+</div>

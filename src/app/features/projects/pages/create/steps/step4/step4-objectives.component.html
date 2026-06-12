@@ -1,0 +1,228 @@
+<form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
+
+  <!-- ── Bloque principal ── -->
+  <div class="bg-surface rounded-2xl shadow-card border border-neutral-200 overflow-hidden mb-5">
+    <div class="flex items-center gap-3 px-6 py-4 border-b border-neutral-100 bg-gradient-to-r from-accent-50 to-transparent">
+      <div class="w-9 h-9 rounded-xl bg-accent-100 flex items-center justify-center flex-shrink-0">
+        <svg class="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+      </div>
+      <div class="flex-1">
+        <h3 class="text-sm font-bold text-primary-700">Necesidades y Objetivos del Proyecto</h3>
+        <p class="text-xs text-neutral-500">Define el diagnóstico, objetivos y resultados esperados</p>
+      </div>
+    </div>
+
+    <div class="p-6 space-y-6">
+
+      <div>
+        <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">
+          Necesidad / Problemática <span class="text-danger">*</span>
+        </label>
+        <textarea formControlName="necessity" rows="3"
+          placeholder="Ej: Falta de cobertura de servicios básicos en zonas rurales"
+          class="w-full px-4 py-2.5 rounded-xl border text-sm text-primary-700 placeholder-neutral-400 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 transition-colors resize-none"
+          [class.border-neutral-200]="!isInvalid('necessity')"
+          [class.focus:ring-accent-200]="!isInvalid('necessity')"
+          [class.focus:border-accent]="!isInvalid('necessity')"
+          [class.border-danger]="isInvalid('necessity')"
+          [class.focus:ring-red-100]="isInvalid('necessity')"
+        ></textarea>
+        @if (isInvalid('necessity')) {
+          <p class="mt-1 text-xs text-danger">La necesidad es obligatoria</p>
+        }
+      </div>
+
+      <div>
+        <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">
+          Objetivo general <span class="text-danger">*</span>
+        </label>
+        <textarea formControlName="general_objective" rows="3"
+          placeholder="Ej: Fortalecer la prestación de servicios de salud y educación"
+          class="w-full px-4 py-2.5 rounded-xl border text-sm text-primary-700 placeholder-neutral-400 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 transition-colors resize-none"
+          [class.border-neutral-200]="!isInvalid('general_objective')"
+          [class.focus:ring-accent-200]="!isInvalid('general_objective')"
+          [class.focus:border-accent]="!isInvalid('general_objective')"
+          [class.border-danger]="isInvalid('general_objective')"
+          [class.focus:ring-red-100]="isInvalid('general_objective')"
+        ></textarea>
+        @if (isInvalid('general_objective')) {
+          <p class="mt-1 text-xs text-danger">El objetivo general es obligatorio</p>
+        }
+      </div>
+
+      <div>
+        <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">
+          Metas <span class="text-danger">*</span>
+        </label>
+        <textarea formControlName="goals" rows="2"
+          placeholder="Ej: Incrementar cobertura de servicios en un 60% en 18 meses"
+          class="w-full px-4 py-2.5 rounded-xl border text-sm text-primary-700 placeholder-neutral-400 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 transition-colors resize-none"
+          [class.border-neutral-200]="!isInvalid('goals')"
+          [class.focus:ring-accent-200]="!isInvalid('goals')"
+          [class.focus:border-accent]="!isInvalid('goals')"
+          [class.border-danger]="isInvalid('goals')"
+          [class.focus:ring-red-100]="isInvalid('goals')"
+        ></textarea>
+        @if (isInvalid('goals')) {
+          <p class="mt-1 text-xs text-danger">Las metas son obligatorias</p>
+        }
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── Causas ── -->
+  <div class="bg-surface rounded-2xl shadow-card border border-neutral-200 overflow-hidden mb-5">
+    <div class="flex items-center gap-3 px-6 py-4 border-b border-neutral-100 bg-gradient-to-r from-warning/10 to-transparent">
+      <div class="w-9 h-9 rounded-xl bg-warning/20 flex items-center justify-center flex-shrink-0">
+        <svg class="w-4 h-4 text-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+      </div>
+      <div class="flex-1">
+        <h3 class="text-sm font-bold text-primary-700">Causas</h3>
+        <p class="text-xs text-neutral-500">Factores que originan la problemática</p>
+      </div>
+    </div>
+    <div class="p-6 space-y-3">
+      @for (item of causes(); track $index; let i = $index) {
+        <div class="flex items-center gap-2">
+          <span class="w-6 h-6 rounded-full bg-warning/20 text-[10px] font-black text-warning flex items-center justify-center flex-shrink-0">{{ i + 1 }}</span>
+          <input type="text" [value]="item"
+            (input)="updateItem(causes, i, $any($event.target).value)"
+            placeholder="Ej: Déficit de infraestructura"
+            class="flex-1 px-4 py-2.5 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-400 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"
+          />
+          @if (causes().length > 1) {
+            <button type="button" (click)="removeItem(causes, i)"
+              class="text-neutral-400 hover:text-danger transition-colors flex-shrink-0">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          }
+        </div>
+      }
+      <button type="button" (click)="addItem(causes)"
+        class="flex items-center gap-1.5 text-xs text-accent hover:text-accent-700 font-medium transition-colors mt-1">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        Agregar causa
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Consecuencias ── -->
+  <div class="bg-surface rounded-2xl shadow-card border border-neutral-200 overflow-hidden mb-5">
+    <div class="flex items-center gap-3 px-6 py-4 border-b border-neutral-100 bg-gradient-to-r from-danger/10 to-transparent">
+      <div class="w-9 h-9 rounded-xl bg-danger/10 flex items-center justify-center flex-shrink-0">
+        <svg class="w-4 h-4 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"/>
+        </svg>
+      </div>
+      <div class="flex-1">
+        <h3 class="text-sm font-bold text-primary-700">Consecuencias</h3>
+        <p class="text-xs text-neutral-500">Efectos derivados de la problemática</p>
+      </div>
+    </div>
+    <div class="p-6 space-y-3">
+      @for (item of consequences(); track $index; let i = $index) {
+        <div class="flex items-center gap-2">
+          <span class="w-6 h-6 rounded-full bg-danger/10 text-[10px] font-black text-danger flex items-center justify-center flex-shrink-0">{{ i + 1 }}</span>
+          <input type="text" [value]="item"
+            (input)="updateItem(consequences, i, $any($event.target).value)"
+            placeholder="Ej: Bajo acceso a educación de calidad"
+            class="flex-1 px-4 py-2.5 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-400 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"
+          />
+          @if (consequences().length > 1) {
+            <button type="button" (click)="removeItem(consequences, i)"
+              class="text-neutral-400 hover:text-danger transition-colors flex-shrink-0">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          }
+        </div>
+      }
+      <button type="button" (click)="addItem(consequences)"
+        class="flex items-center gap-1.5 text-xs text-accent hover:text-accent-700 font-medium transition-colors mt-1">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        Agregar consecuencia
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Objetivos específicos ── -->
+  <div class="bg-surface rounded-2xl shadow-card border border-neutral-200 overflow-hidden mb-5">
+    <div class="flex items-center gap-3 px-6 py-4 border-b border-neutral-100 bg-gradient-to-r from-success/10 to-transparent">
+      <div class="w-9 h-9 rounded-xl bg-success/10 flex items-center justify-center flex-shrink-0">
+        <svg class="w-4 h-4 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+      </div>
+      <div class="flex-1">
+        <h3 class="text-sm font-bold text-primary-700">Objetivos Específicos</h3>
+        <p class="text-xs text-neutral-500">Acciones concretas para alcanzar el objetivo general</p>
+      </div>
+    </div>
+    <div class="p-6 space-y-3">
+      @for (item of specificObjectives(); track $index; let i = $index) {
+        <div class="flex items-center gap-2">
+          <span class="w-6 h-6 rounded-full bg-success/10 text-[10px] font-black text-success flex items-center justify-center flex-shrink-0">{{ i + 1 }}</span>
+          <input type="text" [value]="item"
+            (input)="updateItem(specificObjectives, i, $any($event.target).value)"
+            placeholder="Ej: Construir 5 centros de salud"
+            class="flex-1 px-4 py-2.5 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-400 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"
+          />
+          @if (specificObjectives().length > 1) {
+            <button type="button" (click)="removeItem(specificObjectives, i)"
+              class="text-neutral-400 hover:text-danger transition-colors flex-shrink-0">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          }
+        </div>
+      }
+      <button type="button" (click)="addItem(specificObjectives)"
+        class="flex items-center gap-1.5 text-xs text-accent hover:text-accent-700 font-medium transition-colors mt-1">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        Agregar objetivo específico
+      </button>
+    </div>
+  </div>
+
+  <!-- Footer actions -->
+  <div class="flex items-center justify-between py-2">
+    <button type="button" (click)="goBack.emit()"
+      class="flex items-center gap-2 px-5 py-2.5 border border-neutral-200 text-neutral-600 text-sm font-semibold rounded-xl hover:bg-neutral-50 transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+      </svg>
+      Fase anterior
+    </button>
+    <button type="submit" [disabled]="submitting"
+      class="flex items-center gap-2.5 px-6 py-3 bg-gradient-to-r from-accent to-accent-700 hover:from-accent-600 hover:to-accent-800 text-white text-sm font-bold rounded-xl shadow-md hover:shadow-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed">
+      @if (submitting) {
+        <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+        </svg>
+        Guardando...
+      } @else {
+        Siguiente fase
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+        </svg>
+      }
+    </button>
+  </div>
+
+</form>
