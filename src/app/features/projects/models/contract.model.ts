@@ -215,16 +215,17 @@ export interface ContractActItem {
   responsible?:        string | null;
   objective?:          string | null;
   percentage?:         number;
-  number_checks?:      number;
-  is_completed?:       boolean;
+  budget?:             number | null;
   delete?:             boolean;
 }
 
 export interface ContractStep8Item {
-  id?:       string | null;
-  component: string;
-  acts:      ContractActItem[];
-  delete?:   boolean;
+  id?:         string | null;
+  component:   string;
+  percentage?: number | null;
+  budget?:     number | null;
+  acts:        ContractActItem[];
+  delete?:     boolean;
 }
 
 export type ContractStep8Request = ContractStep8Item[];
@@ -329,14 +330,22 @@ export interface WizardActResponse {
   responsible:           string | null;
   objective:             string | null;
   percentage?:           number | null;
+  budget?:               number | null;
   number_checks?:        number | null;
   is_completed?:         boolean | null;
 }
 
 export interface WizardStep8ComponentResponse {
-  id:        string;
-  component: string;
-  acts:      WizardActResponse[];
+  id:          string;
+  component:   string;
+  percentage?: number | null;
+  budget?:     number | null;
+  acts:        WizardActResponse[];
+}
+
+export interface ContractWizardStep8 {
+  contract_budget: number | null;
+  components:      WizardStep8ComponentResponse[];
 }
 
 export interface WizardIndicator {
@@ -374,7 +383,7 @@ export interface ContractWizardStep4 {
   conditions: WizardCondition[];
 }
 
-export type ContractWizardStep8 = WizardStep8ComponentResponse[];
+// ContractWizardStep8 is now defined above as an interface
 
 export interface ContractWizardResponse {
   progress:    ContractProgressResponse;

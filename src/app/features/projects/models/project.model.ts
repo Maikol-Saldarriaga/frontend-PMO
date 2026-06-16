@@ -435,7 +435,8 @@ export interface GanttActivity {
   end_date:          string | null;
   actual_start_date: string | null;
   actual_end_date:   string | null;
-  percentage:        number | null;
+  percentage:        number | null;  // peso bruto de la actividad (0–100)
+  progress:          number | null;  // avance acumulado por snapshots (0–100)
   responsible:       string | null;
   is_completed:      boolean | null;
 }
@@ -466,7 +467,8 @@ export interface GanttSummaryItem {
   end_date:          string | null;
   actual_start_date: string | null;
   actual_end_date:   string | null;
-  percentage:        number;
+  percentage:        number;   // peso bruto de la actividad (0–100)
+  progress:          number;   // avance acumulado por snapshots (0–100)
   responsible:       string | null;
   is_completed:      boolean;
 }

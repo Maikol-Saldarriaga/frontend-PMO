@@ -269,12 +269,14 @@
           }
           @case (9) {
             <app-step8-scope
-              [savedData]="getStep8SavedData()"
+              [savedData]="getStep8SavedData()?.components"
+              [contractBudget]="getStep8SavedData()?.contract_budget ?? null"
               [submitting]="submitting()"
               (submitted)="onStep8Submit($event)"
               (dataChange)="onStepDataChange($event)"
               (goBack)="goToStep(8)"
               (validationError)="onValidationError($event)"
+              (budgetWarning)="onValidationError($event)"
             />
           }
           @case (10) {
@@ -333,7 +335,9 @@
       </div>
 
       <!-- ===== PANEL LATERAL DERECHO ===== -->
-      <aside class="hidden xl:block w-72 flex-shrink-0 sticky top-6">
+      <aside class="w-72 flex-shrink-0 sticky top-6"
+        [class.hidden]="currentStep() === 9"
+        [class.xl:block]="currentStep() !== 9">
         <div class="bg-surface rounded-2xl shadow-card border border-neutral-200 overflow-hidden">
 
           <!-- Panel Header -->

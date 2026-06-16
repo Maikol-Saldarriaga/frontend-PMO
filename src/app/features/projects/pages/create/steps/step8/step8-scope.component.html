@@ -1,272 +1,453 @@
-<div>
-  <div class="space-y-4 mb-5">
+<div class="flex gap-5 items-start">
 
+  <!-- ══════════════════════════════════════════════════════
+       COLUMNA IZQUIERDA — Formulario
+  ══════════════════════════════════════════════════════════ -->
+  <div class="flex-1 min-w-0 space-y-5">
+
+    <!-- Componentes -->
     @for (comp of rows(); track $index; let ci = $index) {
-      <div class="bg-surface rounded-2xl shadow-card border border-neutral-200 overflow-hidden">
+      <div class="rounded-2xl border border-neutral-200 shadow-sm overflow-hidden">
 
         <!-- Cabecera del componente -->
-        <div class="flex items-center gap-3 px-6 py-4 border-b border-neutral-100 bg-gradient-to-r from-accent-50 to-transparent">
-          <div class="w-8 h-8 rounded-xl bg-accent flex items-center justify-center flex-shrink-0">
-            <span class="text-xs font-black text-white">{{ ci + 1 }}</span>
+        <div class="bg-gradient-to-r from-accent-50 to-white border-b border-neutral-200 px-5 py-3.5">
+          <div class="flex items-center gap-3">
+
+            <div class="w-8 h-8 rounded-xl bg-accent flex items-center justify-center flex-shrink-0 shadow-sm">
+              <span class="text-xs font-black text-white">{{ ci + 1 }}</span>
+            </div>
+
+            <!-- Nombre como input visible -->
+            <div class="flex-1 min-w-0">
+              <label class="block text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-1">Nombre del componente *</label>
+              <input type="text" [value]="comp.componentName"
+                (input)="updateComponentName(ci, $any($event.target).value)"
+                placeholder="Ej: Componente de infraestructura"
+                class="w-full px-3 py-1.5 rounded-lg border border-neutral-200 bg-white text-sm font-semibold text-primary-700 placeholder-neutral-300 outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+            </div>
+
+            <!-- % Equivalencia del componente -->
+            <div class="flex-shrink-0 border-l border-neutral-200 pl-4">
+              <label class="block text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-1">% Equivalencia</label>
+              <div class="relative w-24">
+                <input type="number" min="0" max="100" [value]="comp.percentage"
+                  (input)="updateComponentPercentage(ci, $any($event.target).value)"
+                  placeholder="0"
+                  class="w-full px-3 py-1.5 pr-7 rounded-lg bg-white border border-neutral-200 text-sm font-semibold text-primary-700 placeholder-neutral-300 outline-none focus:ring-2 focus:ring-amber-100 focus:border-amber-400 transition-colors"/>
+                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-neutral-400 pointer-events-none">%</span>
+              </div>
+            </div>
+
+            <!-- Presupuesto del componente -->
+            <div class="flex-shrink-0 border-l border-neutral-200 pl-4">
+              <label class="block text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-1">Presupuesto</label>
+              <div class="relative w-44">
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-neutral-400 pointer-events-none">$</span>
+                <input type="text" inputmode="numeric"
+                  [value]="formatBudget(comp.budget)"
+                  (input)="updateComponentBudget(ci, $any($event.target).value)"
+                  (blur)="$any($event.target).value = formatBudget(comp.budget)"
+                  placeholder="0"
+                  class="w-full pl-7 pr-3 py-1.5 rounded-lg bg-white border text-sm font-semibold text-primary-700 placeholder-neutral-300 outline-none focus:ring-2 transition-colors"
+                  [ngClass]="budgetOverflow(ci) ? 'border-red-300 focus:ring-red-100' : 'border-neutral-200 focus:ring-accent-100 focus:border-accent'"/>
+              </div>
+            </div>
+
+            @if (rows().length > 1) {
+              <button type="button" (click)="removeComponent(ci)"
+                class="flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-neutral-200 text-xs text-neutral-400 hover:border-red-200 hover:text-red-500 hover:bg-red-50 transition-all">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                </svg>
+                Eliminar
+              </button>
+            }
           </div>
-          <div class="flex-1">
-            <input
-              type="text"
-              [value]="comp.componentName"
-              (input)="updateComponentName(ci, $any($event.target).value)"
-              placeholder="Nombre del componente *"
-              class="w-full text-sm font-bold text-primary-700 bg-transparent border-none outline-none placeholder-neutral-400 focus:placeholder-neutral-300"/>
-          </div>
-          @if (rows().length > 1) {
-            <button type="button" (click)="removeComponent(ci)"
-              class="flex items-center gap-1 text-xs text-neutral-400 hover:text-danger transition-colors flex-shrink-0">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-              </svg>
-              Eliminar
-            </button>
-          }
         </div>
 
-        <!-- Actos del componente -->
-        <div class="divide-y divide-neutral-100">
+        <!-- Cards de actividades -->
+        <div class="p-4 space-y-3">
           @for (act of comp.acts; track $index; let ai = $index) {
-            <div class="p-5 space-y-4">
+            <div class="rounded-xl border border-neutral-200 bg-white overflow-hidden">
 
-              <!-- Encabezado del acto -->
-              <div class="flex items-center justify-between">
-                <span class="text-xs font-semibold text-neutral-500 uppercase tracking-wide">Acto {{ ai + 1 }}</span>
+              <!-- Mini header -->
+              <div class="flex items-center justify-between bg-neutral-50 border-b border-neutral-100 px-4 py-2">
+                <div class="flex items-center gap-2">
+                  <span class="w-6 h-6 rounded-md bg-neutral-200 flex items-center justify-center text-[11px] font-bold text-neutral-600">{{ ai + 1 }}</span>
+                  <span class="text-xs font-semibold text-neutral-500">Actividad {{ ai + 1 }}</span>
+                </div>
                 @if (comp.acts.length > 1) {
                   <button type="button" (click)="removeAct(ci, ai)"
-                    class="text-xs text-neutral-400 hover:text-danger transition-colors">
+                    class="flex items-center gap-1 text-xs text-neutral-400 hover:text-red-500 transition-colors">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                     </svg>
+                    Quitar
                   </button>
                 }
               </div>
 
-              <!-- Bloque 1: Info básica -->
-              <div class="rounded-xl border border-neutral-100 bg-neutral-50/60 p-4 space-y-3">
-                <p class="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Información básica</p>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div class="p-4 space-y-3">
 
-                  <div>
-                    <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Acto #</label>
-                    <input type="number" min="1" [value]="act.act"
-                      (input)="updateAct(ci, ai, 'act', +$any($event.target).value)"
-                      class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
-                  </div>
+                <!-- Descripción -->
+                <div>
+                  <label class="block text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-1.5">Descripción <span class="text-danger">*</span></label>
+                  <textarea rows="2" [value]="act.description"
+                    (input)="updateAct(ci, ai, 'description', $any($event.target).value)"
+                    placeholder="Describe la actividad o entregable"
+                    class="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm text-primary-700 placeholder-neutral-300 bg-white outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors resize-none leading-snug"></textarea>
+                </div>
 
+                <!-- Responsable + Objetivo -->
+                <div class="grid grid-cols-2 gap-3">
                   <div>
-                    <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Responsable <span class="text-danger">*</span></label>
+                    <label class="block text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-1.5">Responsable <span class="text-danger">*</span></label>
                     <input type="text" [value]="act.responsible"
                       (input)="updateAct(ci, ai, 'responsible', $any($event.target).value)"
                       placeholder="Ej: Equipo técnico"
-                      class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-400 bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+                      class="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm text-primary-700 placeholder-neutral-300 bg-white outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
                   </div>
-
-                  <div class="md:col-span-2">
-                    <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Descripción <span class="text-danger">*</span></label>
-                    <textarea rows="2" [value]="act.description"
-                      (input)="updateAct(ci, ai, 'description', $any($event.target).value)"
-                      placeholder="Describe la actividad o entregable"
-                      class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-400 bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors resize-none"></textarea>
-                  </div>
-
-                  <div class="md:col-span-2">
-                    <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Objetivo</label>
+                  <div>
+                    <label class="block text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-1.5">Objetivo</label>
                     <input type="text" [value]="act.objective"
                       (input)="updateAct(ci, ai, 'objective', $any($event.target).value)"
-                      placeholder="Ej: Identificar problemas actuales"
-                      class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-400 bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+                      placeholder="Objetivo de la actividad"
+                      class="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm text-primary-700 placeholder-neutral-300 bg-white outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
                   </div>
-
                 </div>
-              </div>
 
-              <!-- Bloque 2: Plan cronológico -->
-              <div class="rounded-xl border border-accent-100 bg-accent-50/30 p-4 space-y-3">
-                <p class="text-[10px] font-bold text-accent-600 uppercase tracking-widest">Plan cronológico</p>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-
-                  <div>
-                    <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Fecha inicio plan <span class="text-danger">*</span></label>
-                    <input type="date" [value]="act.start_date"
-                      (change)="updateAct(ci, ai, 'start_date', $any($event.target).value)"
-                      class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
-                  </div>
-
-                  <div>
-                    <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Fecha fin plan <span class="text-danger">*</span></label>
-                    <input type="date" [value]="act.end_date"
-                      (change)="updateAct(ci, ai, 'end_date', $any($event.target).value)"
-                      class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
-                  </div>
-
-                  <div>
-                    <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Inicio plan (semana)</label>
-                    <input type="number" min="0" [value]="act.start_plan ?? ''"
-                      (input)="updateAct(ci, ai, 'start_plan', $any($event.target).value !== '' ? +$any($event.target).value : null)"
-                      placeholder="0"
-                      class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-400 bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
-                  </div>
-
-                  @if (act.plan_duration !== null && act.plan_duration !== undefined) {
-                    <div class="md:col-span-3 flex items-center gap-2 px-3 py-2 rounded-lg bg-accent-50 border border-accent-100">
-                      <svg class="w-4 h-4 text-accent flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                      </svg>
-                      <span class="text-xs text-accent-700">Duración plan calculada: <strong>{{ act.plan_duration }} semanas</strong></span>
+                <!-- Fechas plan + Fechas real -->
+                <div class="grid grid-cols-2 gap-3">
+                  <div class="rounded-lg border border-sky-100 bg-sky-50/40 p-3 space-y-2">
+                    <p class="text-[10px] font-bold text-sky-500 uppercase tracking-widest">Período plan</p>
+                    <div class="grid grid-cols-2 gap-2">
+                      <div>
+                        <label class="block text-[10px] text-neutral-400 mb-1">Inicio <span class="text-danger">*</span></label>
+                        <input type="date" [value]="act.start_date"
+                          (change)="updateAct(ci, ai, 'start_date', $any($event.target).value)"
+                          class="w-full px-2 py-1.5 rounded-lg border border-neutral-200 bg-white text-sm text-primary-700 outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 transition-colors"/>
+                      </div>
+                      <div>
+                        <label class="block text-[10px] text-neutral-400 mb-1">Fin <span class="text-danger">*</span></label>
+                        <input type="date" [value]="act.end_date"
+                          (change)="updateAct(ci, ai, 'end_date', $any($event.target).value)"
+                          class="w-full px-2 py-1.5 rounded-lg border border-neutral-200 bg-white text-sm text-primary-700 outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 transition-colors"/>
+                      </div>
                     </div>
-                  }
-
-                </div>
-              </div>
-
-              <!-- Bloque 3: Ejecución real (opcional) -->
-              <div class="rounded-xl border border-success/20 bg-success/5 p-4 space-y-3">
-                <div class="flex items-center gap-2">
-                  <p class="text-[10px] font-bold text-success uppercase tracking-widest">Ejecución real</p>
-                  <span class="text-[10px] text-neutral-400">(opcional — si completa uno, complete los tres)</span>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-
-                  <div>
-                    <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Fecha inicio real</label>
-                    <input type="date" [value]="act.actual_start_date"
-                      (change)="updateAct(ci, ai, 'actual_start_date', $any($event.target).value)"
-                      class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 bg-surface outline-none focus:ring-2 focus:ring-success/30 focus:border-success transition-colors"/>
+                    @if (act.plan_duration !== null && act.plan_duration !== undefined) {
+                      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-sky-100 text-[11px] text-sky-600 font-semibold">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        {{ act.plan_duration }} semanas
+                      </span>
+                    }
                   </div>
-
-                  <div>
-                    <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Fecha fin real</label>
-                    <input type="date" [value]="act.actual_end_date"
-                      (change)="updateAct(ci, ai, 'actual_end_date', $any($event.target).value)"
-                      class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 bg-surface outline-none focus:ring-2 focus:ring-success/30 focus:border-success transition-colors"/>
-                  </div>
-
-                  <div>
-                    <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Inicio real (semana)</label>
-                    <input type="number" min="0" [value]="act.actual_start_plan ?? ''"
-                      (input)="updateAct(ci, ai, 'actual_start_plan', $any($event.target).value !== '' ? +$any($event.target).value : null)"
-                      placeholder="0"
-                      class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-400 bg-surface outline-none focus:ring-2 focus:ring-success/30 focus:border-success transition-colors"/>
-                  </div>
-
-                  @if (act.actual_plan_duration !== null && act.actual_plan_duration !== undefined) {
-                    <div class="md:col-span-3 flex items-center gap-2 px-3 py-2 rounded-lg bg-success/10 border border-success/20">
-                      <svg class="w-4 h-4 text-success flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                      </svg>
-                      <span class="text-xs text-success">Duración real calculada: <strong>{{ act.actual_plan_duration }} semanas</strong></span>
+                  <div class="rounded-lg border border-emerald-100 bg-emerald-50/40 p-3 space-y-2">
+                    <p class="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Ejecución real <span class="font-normal text-neutral-400 normal-case">(opcional)</span></p>
+                    <div class="grid grid-cols-2 gap-2">
+                      <div>
+                        <label class="block text-[10px] text-neutral-400 mb-1">Inicio real</label>
+                        <input type="date" [value]="act.actual_start_date"
+                          (change)="updateAct(ci, ai, 'actual_start_date', $any($event.target).value)"
+                          class="w-full px-2 py-1.5 rounded-lg border border-neutral-200 bg-white text-sm text-primary-700 outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400 transition-colors"/>
+                      </div>
+                      <div>
+                        <label class="block text-[10px] text-neutral-400 mb-1">Fin real</label>
+                        <input type="date" [value]="act.actual_end_date"
+                          (change)="updateAct(ci, ai, 'actual_end_date', $any($event.target).value)"
+                          class="w-full px-2 py-1.5 rounded-lg border border-neutral-200 bg-white text-sm text-primary-700 outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400 transition-colors"/>
+                      </div>
                     </div>
-                  }
-
+                    @if (act.actual_plan_duration !== null && act.actual_plan_duration !== undefined) {
+                      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-100 text-[11px] text-emerald-600 font-semibold">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        {{ act.actual_plan_duration }} semanas
+                      </span>
+                    }
+                  </div>
                 </div>
-              </div>
 
-              <!-- Bloque 4: Seguimiento -->
-              <div class="rounded-xl border border-warning/20 bg-warning/5 p-4 space-y-3">
-                <p class="text-[10px] font-bold text-warning uppercase tracking-widest">Seguimiento</p>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-
+                <!-- % Equivalencia + Presupuesto actividad -->
+                <div class="grid grid-cols-2 gap-3">
                   <div>
-                    <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">% Avance</label>
+                    <label class="block text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-1.5">% Equivalencia</label>
                     <div class="relative">
                       <input type="number" min="0" max="100" [value]="act.percentage"
                         (input)="updateAct(ci, ai, 'percentage', +$any($event.target).value)"
                         placeholder="0"
-                        class="w-full px-3 py-2 pr-8 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-400 bg-surface outline-none focus:ring-2 focus:ring-warning/30 focus:border-warning transition-colors"/>
-                      <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-400">%</span>
+                        class="w-full px-3 py-2 pr-8 rounded-lg border border-neutral-200 text-sm text-primary-700 placeholder-neutral-300 bg-white outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-400 transition-colors"/>
+                      <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-neutral-400 pointer-events-none">%</span>
                     </div>
+                    <p class="text-[10px] text-neutral-400 mt-1">Peso de esta actividad en el componente</p>
                   </div>
-
                   <div>
-                    <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">N.° verificaciones</label>
-                    <input type="number" min="0" [value]="act.number_checks"
-                      (input)="updateAct(ci, ai, 'number_checks', +$any($event.target).value)"
-                      placeholder="0"
-                      class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-400 bg-surface outline-none focus:ring-2 focus:ring-warning/30 focus:border-warning transition-colors"/>
+                    <label class="block text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-1.5">Presupuesto actividad</label>
+                    <div class="relative">
+                      <span class="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-neutral-400 pointer-events-none">$</span>
+                      <input type="text" inputmode="numeric"
+                        [value]="formatBudget(act.budget)"
+                        (input)="updateAct(ci, ai, 'budget', $any($event.target).value)"
+                        (blur)="$any($event.target).value = formatBudget(act.budget)"
+                        placeholder="0"
+                        class="w-full pl-7 pr-3 py-2 rounded-lg border border-neutral-200 text-sm font-semibold text-primary-700 placeholder-neutral-300 bg-white outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+                    </div>
+                    <!-- Progreso actividad vs componente -->
+                    @if (comp.budget !== null && comp.budget > 0 && act.budget !== null && act.budget! > 0) {
+                      <div class="mt-1.5">
+                        <div class="flex justify-between text-[10px] mb-0.5">
+                          <span class="text-neutral-400">del componente</span>
+                          <span class="font-semibold" [ngClass]="act.budget! > comp.budget ? 'text-red-500' : 'text-neutral-500'">
+                            {{ (act.budget! / comp.budget * 100) | number:'1.0-0' }}%
+                          </span>
+                        </div>
+                        <div class="h-1 rounded-full bg-neutral-100 overflow-hidden">
+                          <div class="h-full rounded-full transition-all"
+                            [ngClass]="act.budget! > comp.budget ? 'bg-red-400' : 'bg-accent'"
+                            [style.width.%]="act.budget! / comp.budget * 100 > 100 ? 100 : act.budget! / comp.budget * 100">
+                          </div>
+                        </div>
+                      </div>
+                    }
                   </div>
-
-                  <div class="flex flex-col justify-end">
-                    <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Completado</label>
-                    <button type="button"
-                      (click)="updateAct(ci, ai, 'is_completed', !act.is_completed)"
-                      [class]="act.is_completed
-                        ? 'flex items-center gap-2 px-4 py-2 rounded-xl bg-success/10 border border-success/30 text-success text-sm font-semibold transition-all'
-                        : 'flex items-center gap-2 px-4 py-2 rounded-xl bg-neutral-100 border border-neutral-200 text-neutral-500 text-sm font-semibold transition-all hover:bg-neutral-200'">
-                      @if (act.is_completed) {
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                        </svg>
-                        Sí, completado
-                      } @else {
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                        </svg>
-                        En progreso
-                      }
-                    </button>
-                  </div>
-
                 </div>
-              </div>
 
+              </div>
             </div>
           }
         </div>
 
-        <!-- Agregar acto -->
-        <div class="px-5 py-3 border-t border-neutral-100 bg-neutral-50/50">
-          <button type="button" (click)="addAct(ci)"
-            class="flex items-center gap-1.5 text-xs text-accent hover:text-accent-700 font-medium transition-colors">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-            </svg>
-            Agregar acto
-          </button>
+        <!-- Pie del componente -->
+        <div class="px-5 py-3 border-t border-neutral-100 bg-neutral-50/60">
+          <div class="flex items-center justify-between mb-2">
+            <button type="button" (click)="addAct(ci)"
+              class="flex items-center gap-1.5 text-sm text-accent hover:text-accent-700 font-medium transition-colors">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+              </svg>
+              Agregar actividad
+            </button>
+            <span class="text-xs text-neutral-400">{{ comp.acts.length }} actividad{{ comp.acts.length !== 1 ? 'es' : '' }}</span>
+          </div>
+          <!-- Barra equivalencia total -->
+          <div class="flex items-center gap-3">
+            <div class="flex-1 h-1.5 rounded-full bg-neutral-200 overflow-hidden">
+              <div class="h-full rounded-full transition-all duration-500"
+                [ngClass]="componentPercentageTotal(ci) > 100 ? 'bg-red-500' : componentPercentageTotal(ci) === 100 ? 'bg-emerald-500' : 'bg-amber-400'"
+                [style.width.%]="componentPercentageTotal(ci) > 100 ? 100 : componentPercentageTotal(ci)">
+              </div>
+            </div>
+            <span class="text-xs font-bold flex-shrink-0"
+              [ngClass]="componentPercentageTotal(ci) > 100 ? 'text-red-500' : componentPercentageTotal(ci) === 100 ? 'text-emerald-600' : 'text-amber-500'">
+              {{ componentPercentageTotal(ci) }}%
+            </span>
+            @if (componentPercentageTotal(ci) < 100) {
+              <span class="text-xs text-neutral-400 flex-shrink-0">faltan {{ 100 - componentPercentageTotal(ci) }}%</span>
+            } @else if (componentPercentageTotal(ci) === 100) {
+              <span class="text-xs text-emerald-600 font-semibold flex-shrink-0">✓ Completo</span>
+            } @else {
+              <span class="text-xs text-red-500 font-semibold flex-shrink-0">excede {{ componentPercentageTotal(ci) - 100 }}%</span>
+            }
+          </div>
         </div>
 
       </div>
     }
 
+    <!-- Agregar componente -->
+    <button type="button" (click)="addComponent()"
+      class="w-full flex items-center justify-center gap-2 px-4 py-3.5 border-2 border-dashed border-neutral-300 rounded-2xl text-sm text-neutral-500 hover:border-accent-300 hover:text-accent hover:bg-accent-50 font-medium transition-all">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+      </svg>
+      Agregar componente
+    </button>
+
+    <!-- Navegación -->
+    <div class="flex items-center justify-between pt-4 border-t border-neutral-100">
+      <button type="button" (click)="goBack.emit()"
+        class="flex items-center gap-2 px-5 py-2.5 border border-neutral-200 text-neutral-600 text-sm font-semibold rounded-xl hover:bg-neutral-50 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+        Fase anterior
+      </button>
+      <button type="button" (click)="onSubmit()" [disabled]="submitting"
+        class="flex items-center gap-2.5 px-6 py-3 bg-gradient-to-r from-accent to-accent-700 hover:from-accent-600 hover:to-accent-800 text-white text-sm font-bold rounded-xl shadow-sm hover:shadow-md transition-all disabled:opacity-60 disabled:cursor-not-allowed">
+        @if (submitting) {
+          <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+          </svg>
+          Guardando...
+        } @else {
+          Siguiente fase
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+          </svg>
+        }
+      </button>
+    </div>
+
   </div>
 
-  <!-- Agregar componente -->
-  <button type="button" (click)="addComponent()"
-    class="w-full mb-5 flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-accent-300 rounded-2xl text-sm text-accent hover:bg-accent-50 font-medium transition-colors">
-    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-    </svg>
-    Agregar componente
-  </button>
+  <!-- ══════════════════════════════════════════════════════
+       COLUMNA DERECHA — Panel resumen presupuestal (sticky)
+  ══════════════════════════════════════════════════════════ -->
+  <div class="w-72 flex-shrink-0 sticky top-6 space-y-4">
 
-  <!-- Navegación -->
-  <div class="flex items-center justify-between py-2">
-    <button type="button" (click)="goBack.emit()"
-      class="flex items-center gap-2 px-5 py-2.5 border border-neutral-200 text-neutral-600 text-sm font-semibold rounded-xl hover:bg-neutral-50 transition-colors">
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-      </svg>
-      Fase anterior
-    </button>
-    <button type="button" (click)="onSubmit()" [disabled]="submitting"
-      class="flex items-center gap-2.5 px-6 py-3 bg-gradient-to-r from-accent to-accent-700 hover:from-accent-600 hover:to-accent-800 text-white text-sm font-bold rounded-xl shadow-md hover:shadow-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed">
-      @if (submitting) {
-        <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-        </svg>
-        Guardando...
-      } @else {
-        Siguiente fase
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-        </svg>
+    <!-- Header del panel -->
+    <div class="rounded-2xl border border-neutral-200 shadow-sm overflow-hidden">
+      <div class="px-4 py-3 bg-gradient-to-br from-primary-700 to-primary-800">
+        <div class="flex items-center gap-2 mb-0.5">
+          <svg class="w-4 h-4 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+          </svg>
+          <h3 class="text-sm font-bold text-white">Resumen Presupuestal</h3>
+        </div>
+        <p class="text-xs text-neutral-300">Distribución por componentes</p>
+      </div>
+
+      <!-- Presupuesto del contrato -->
+      @if (contractBudget !== null) {
+        <div class="px-4 py-3 border-b border-neutral-100">
+          <p class="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-1">Presupuesto del contrato</p>
+          <p class="text-lg font-bold text-primary-700">{{ contractBudget | currency:'COP':'symbol-narrow':'1.0-0' }}</p>
+          <div class="mt-2">
+            <div class="flex justify-between text-[10px] mb-1">
+              <span class="text-neutral-500">Asignado a componentes</span>
+              <span class="font-bold" [ngClass]="contractBudgetOverflow() ? 'text-red-500' : 'text-neutral-600'">
+                {{ (totalComponentBudget / contractBudget * 100) | number:'1.0-0' }}%
+              </span>
+            </div>
+            <div class="h-2 rounded-full bg-neutral-100 overflow-hidden">
+              <div class="h-full rounded-full transition-all duration-500"
+                [ngClass]="contractBudgetOverflow() ? 'bg-red-500' : 'bg-sky-500'"
+                [style.width.%]="totalComponentBudget / contractBudget * 100 > 100 ? 100 : totalComponentBudget / contractBudget * 100">
+              </div>
+            </div>
+            <div class="flex justify-between text-[10px] mt-1">
+              <span [ngClass]="contractBudgetOverflow() ? 'text-red-500 font-semibold' : 'text-neutral-400'">
+                {{ totalComponentBudget | currency:'COP':'symbol-narrow':'1.0-0' }} asignado
+              </span>
+              <span class="text-neutral-400">
+                {{ (contractBudget - totalComponentBudget) | currency:'COP':'symbol-narrow':'1.0-0' }} libre
+              </span>
+            </div>
+          </div>
+        </div>
       }
-    </button>
+
+      <!-- Lista de componentes -->
+      <div class="divide-y divide-neutral-100 max-h-[55vh] overflow-y-auto">
+        @for (comp of rows(); track $index; let ci = $index) {
+          <div class="px-4 py-3">
+
+            <!-- Nombre del componente -->
+            <div class="flex items-center justify-between gap-2 mb-2">
+              <div class="flex items-center gap-2 min-w-0">
+                <span class="w-5 h-5 rounded-md bg-accent/10 flex items-center justify-center text-[10px] font-bold text-accent flex-shrink-0">{{ ci + 1 }}</span>
+                <span class="text-xs font-semibold text-primary-700 truncate">
+                  {{ comp.componentName || 'Componente ' + (ci + 1) }}
+                </span>
+              </div>
+              @if (comp.percentage !== null && comp.percentage! > 0) {
+                <span class="flex-shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-600 border border-amber-200">
+                  {{ comp.percentage }}%
+                </span>
+              }
+            </div>
+
+            <!-- Presupuesto del componente -->
+            @if (comp.budget !== null && comp.budget > 0) {
+              <p class="text-sm font-bold text-primary-700 mb-1.5">
+                {{ comp.budget | currency:'COP':'symbol-narrow':'1.0-0' }}
+              </p>
+
+              <!-- Barra actividades vs componente -->
+              <div class="h-1.5 rounded-full bg-neutral-100 overflow-hidden mb-1">
+                <div class="h-full rounded-full transition-all duration-500"
+                  [ngClass]="budgetOverflow(ci) ? 'bg-red-400' : 'bg-emerald-400'"
+                  [style.width.%]="componentActBudget(ci) / comp.budget * 100 > 100 ? 100 : componentActBudget(ci) / comp.budget * 100">
+                </div>
+              </div>
+              <div class="flex justify-between text-[10px]">
+                <span [ngClass]="budgetOverflow(ci) ? 'text-red-500 font-semibold' : 'text-neutral-400'">
+                  Act: {{ componentActBudget(ci) | currency:'COP':'symbol-narrow':'1.0-0' }}
+                </span>
+                <span class="text-neutral-400">
+                  {{ (componentActBudget(ci) / comp.budget * 100) | number:'1.0-0' }}%
+                </span>
+              </div>
+
+              <!-- Actividades detalle -->
+              @if (comp.acts.length > 0) {
+                <div class="mt-2 space-y-1">
+                  @for (act of comp.acts; track $index; let ai = $index) {
+                    @if (act.budget !== null && act.budget! > 0) {
+                      <div class="flex items-center justify-between text-[10px] text-neutral-500">
+                        <span class="truncate max-w-[140px]">Act. {{ ai + 1 }}: {{ act.description || '—' }}</span>
+                        <span class="font-semibold flex-shrink-0 ml-1">{{ act.budget | currency:'COP':'symbol-narrow':'1.0-0' }}</span>
+                      </div>
+                    }
+                  }
+                </div>
+              }
+            } @else {
+              <p class="text-[10px] text-neutral-400 italic">Sin presupuesto asignado</p>
+            }
+
+          </div>
+        }
+      </div>
+
+      <!-- Totales -->
+      <div class="px-4 py-3 bg-neutral-50 border-t border-neutral-200 space-y-2">
+
+        <!-- Equivalencia total de componentes -->
+        <div>
+          <div class="flex justify-between items-center mb-1">
+            <span class="text-[10px] font-bold text-neutral-400 uppercase tracking-wide">Equiv. componentes</span>
+            <span class="text-xs font-bold"
+              [ngClass]="totalComponentPercentage > 100 ? 'text-red-500' : totalComponentPercentage === 100 ? 'text-emerald-600' : 'text-amber-500'">
+              {{ totalComponentPercentage }}%
+            </span>
+          </div>
+          <div class="h-1.5 rounded-full bg-neutral-200 overflow-hidden">
+            <div class="h-full rounded-full transition-all duration-500"
+              [ngClass]="totalComponentPercentage > 100 ? 'bg-red-500' : totalComponentPercentage === 100 ? 'bg-emerald-500' : 'bg-amber-400'"
+              [style.width.%]="totalComponentPercentage > 100 ? 100 : totalComponentPercentage">
+            </div>
+          </div>
+          @if (totalComponentPercentage !== 100) {
+            <p class="text-[10px] mt-0.5"
+              [ngClass]="totalComponentPercentage > 100 ? 'text-red-400' : 'text-neutral-400'">
+              {{ totalComponentPercentage > 100 ? 'Excede ' + (totalComponentPercentage - 100) + '%' : 'Faltan ' + (100 - totalComponentPercentage) + '%' }}
+            </p>
+          }
+        </div>
+
+        <!-- Presupuesto total -->
+        <div class="pt-2 border-t border-neutral-200">
+          <div class="flex justify-between items-center">
+            <span class="text-xs font-bold text-neutral-500 uppercase tracking-wide">Total presupuesto</span>
+            <span class="text-sm font-bold"
+              [ngClass]="contractBudgetOverflow() ? 'text-red-600' : 'text-primary-700'">
+              {{ totalComponentBudget | currency:'COP':'symbol-narrow':'1.0-0' }}
+            </span>
+          </div>
+          @if (contractBudget !== null) {
+            <div class="flex justify-between items-center mt-1">
+              <span class="text-[10px] text-neutral-400">Saldo disponible</span>
+              <span class="text-xs font-semibold"
+                [ngClass]="contractBudgetOverflow() ? 'text-red-500' : 'text-emerald-600'">
+                {{ (contractBudget - totalComponentBudget) | currency:'COP':'symbol-narrow':'1.0-0' }}
+              </span>
+            </div>
+          }
+        </div>
+
+      </div>
+    </div>
+
   </div>
 
 </div>

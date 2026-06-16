@@ -11,7 +11,8 @@ import {
   ContractStep3Request, ContractStep5Request, ContractStep6Request,
   ContractStep7Request, ContractStep8Request,
   ContractStep9Request, ContractStep10Request,
-  WizardCondition, WizardActor, WizardIndicator, WizardStep8ComponentResponse,
+  WizardCondition, WizardActor, WizardIndicator,
+  ContractWizardStep8,
   WizardGuarantee,
   ContractBeneficiaryItem,
 } from '../../models/contract.model';
@@ -182,8 +183,8 @@ export class ProjectCreateComponent implements OnInit, OnDestroy {
         // ── Step 7 — actores ──────────────────────────────────────────────────
         if (wizard.step7?.length) stepData['step7'] = wizard.step7 as WizardActor[];
 
-        // ── Step 8 — alcance (array de componentes con actos anidados) ──────
-        if (wizard.step8?.length) stepData['step8'] = wizard.step8 as WizardStep8ComponentResponse[];
+        // ── Step 8 — alcance ({ contract_budget, components }) ──────────────
+        if (wizard.step8) stepData['step8'] = wizard.step8;
 
         // ── Step 9 — indicadores ──────────────────────────────────────────────
         if (wizard.step9?.length) stepData['step9'] = wizard.step9 as WizardIndicator[];
@@ -213,7 +214,7 @@ export class ProjectCreateComponent implements OnInit, OnDestroy {
                       nav = 7; // step 7 hecho → step 8 (Actores) accesible
                       if (wizard.step7?.length) {
                         nav = 8; // step 8 hecho → step 9 (Alcance) accesible
-                        if (wizard.step8?.length) {
+                        if (wizard.step8?.components?.length) {
                           nav = 9; // step 9 hecho → step 10 (Indicadores) accesible
                           if (wizard.step9?.length) {
                             nav = 10; // step 10 (Garantías) accesible
@@ -338,8 +339,8 @@ export class ProjectCreateComponent implements OnInit, OnDestroy {
     return this.stepData()['step7'] as WizardActor[] | undefined;
   }
 
-  getStep8SavedData(): WizardStep8ComponentResponse[] | undefined {
-    return this.stepData()['step8'] as WizardStep8ComponentResponse[] | undefined;
+  getStep8SavedData(): ContractWizardStep8 | undefined {
+    return this.stepData()['step8'] as ContractWizardStep8 | undefined;
   }
 
   getStep9SavedData(): WizardIndicator[] | undefined {
@@ -351,8 +352,8 @@ export class ProjectCreateComponent implements OnInit, OnDestroy {
   }
 
   getStep9Components(): { id: string; name: string }[] {
-    const step8 = this.stepData()['step8'] as WizardStep8ComponentResponse[] | undefined;
-    return step8?.map(c => ({ id: c.id, name: c.component })) ?? [];
+    const step8 = this.stepData()['step8'] as ContractWizardStep8 | undefined;
+    return step8?.components?.map(c => ({ id: c.id, name: c.component })) ?? [];
   }
 
   // ── Handlers de submit ───────────────────────────────────────────────────────

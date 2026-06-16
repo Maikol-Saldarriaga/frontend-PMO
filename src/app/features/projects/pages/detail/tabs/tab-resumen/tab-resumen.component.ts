@@ -35,6 +35,18 @@ export class TabResumenComponent {
     return Math.max(...m.map((x: ProjectMonthlyContribution) => x.counterpart_amount + x.ally_amount), 1);
   }
 
+  // Avance real ponderado: percentage × (progress/100) sumado sobre todas las actividades
+  get realProgress(): number {
+    const summary = this.details?.gantt_summary ?? [];
+    let weightedSum = 0, totalWeight = 0;
+    for (const item of summary) {
+      const pct = item.percentage ?? 0;
+      weightedSum += pct * ((item.progress ?? 0) / 100);
+      totalWeight += pct;
+    }
+    return totalWeight > 0 ? Math.round((weightedSum / totalWeight) * 100) : 0;
+  }
+
   ganttBar(g: GanttSummaryItem): { left: number; width: number } {
     const year = new Date().getFullYear();
     const yearStart = new Date(year, 0, 1).getTime();

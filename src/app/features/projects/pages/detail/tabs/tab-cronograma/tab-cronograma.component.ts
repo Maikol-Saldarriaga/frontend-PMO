@@ -73,14 +73,19 @@ export class TabCronogramaComponent implements OnInit {
 
   activityColor(a: GanttActivity): string {
     if (a.is_completed) return '#10B981';
-    if ((a.percentage ?? 0) > 0) return '#0EA5E9';
+    if ((a.progress ?? 0) > 0) return '#0EA5E9';
     return '#CBD5E1';
   }
 
   activityColorActual(a: GanttActivity): string {
     if (a.is_completed) return '#059669';
-    if ((a.percentage ?? 0) > 0) return '#0284C7';
+    if ((a.progress ?? 0) > 0) return '#0284C7';
     return '#94A3B8';
+  }
+
+  // Avance real que aporta al total: percentage × (progress / 100)
+  realContribution(a: GanttActivity): number {
+    return (a.percentage ?? 0) * ((a.progress ?? 0) / 100);
   }
 
   trackByActivity(_: number, a: GanttActivity) { return a.id; }

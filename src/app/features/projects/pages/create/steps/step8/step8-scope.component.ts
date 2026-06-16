@@ -12,17 +12,13 @@ interface ActRow {
   start_date:        string;
   end_date:          string;
   start_plan:        number | null;
-  // actuales — opcionales, pero si uno va todos van
   actual_start_date: string;
   actual_end_date:   string;
   actual_start_plan: number | null;
-  // extras
   responsible:       string;
   objective:         string;
   percentage:        number;
-  number_checks:     number;
-  is_completed:      boolean;
-  // server-computed (readonly)
+  budget:            number | null;
   plan_duration?:        number | null;
   actual_plan_duration?: number | null;
 }
@@ -30,6 +26,8 @@ interface ActRow {
 interface ComponentRow {
   id?:           string | null;
   componentName: string;
+  percentage:    number | null;
+  budget:        number | null;
   acts:          ActRow[];
 }
 
@@ -38,11 +36,11 @@ const EMPTY_ACT = (): ActRow => ({
   start_plan: null,
   actual_start_date: '', actual_end_date: '', actual_start_plan: null,
   responsible: '', objective: '',
-  percentage: 0, number_checks: 0, is_completed: false,
+  percentage: 0, budget: null,
 });
 
 const EMPTY_COMPONENT = (): ComponentRow => ({
-  componentName: '', acts: [EMPTY_ACT()],
+  componentName: '', percentage: null, budget: null, acts: [EMPTY_ACT()],
 });
 
 @Component({
@@ -57,6 +55,8 @@ export class Step8ScopeComponent {
     this.rows.set(val.map(comp => ({
       id:            comp.id,
       componentName: comp.component,
+      percentage:    comp.percentage ?? null,
+      budget:        comp.budget ?? null,
       acts:          comp.acts.map(a => ({
         id:                  a.id,
         act:                 a.act,
@@ -70,21 +70,58 @@ export class Step8ScopeComponent {
         responsible:         a.responsible         ?? '',
         objective:           a.objective           ?? '',
         percentage:          a.percentage          ?? 0,
-        number_checks:       a.number_checks       ?? 0,
-        is_completed:        a.is_completed        ?? false,
+        budget:              a.budget              ?? null,
         plan_duration:       a.plan_duration,
         actual_plan_duration: a.actual_plan_duration,
       } as ActRow)),
     })));
   }
 
+  @Input() contractBudget: number | null = null;
   @Input() submitting = false;
   @Output() submitted       = new EventEmitter<ContractStep8Request>();
   @Output() dataChange      = new EventEmitter<ContractStep8Request>();
   @Output() goBack          = new EventEmitter<void>();
   @Output() validationError = new EventEmitter<string[]>();
+  @Output() budgetWarning   = new EventEmitter<string[]>();
+
+  // ── Formateo de moneda ─────────────────────────────────────────────────────
+  formatBudget(value: number | null): string {
+    if (value === null || value === undefined || value === 0) return '';
+    return value.toLocaleString('es-CO', { maximumFractionDigits: 0 });
+  }
+
+  parseBudget(formatted: string): number | null {
+    const clean = formatted.replace(/\./g, '').replace(',', '.').trim();
+    const n = parseFloat(clean);
+    return isNaN(n) ? null : n;
+  }
 
   rows: WritableSignal<ComponentRow[]> = signal([EMPTY_COMPONENT()]);
+
+  // ── Presupuesto helpers ────────────────────────────────────────────────────
+  get totalComponentBudget(): number {
+    return this.rows().reduce((s, c) => s + (c.budget ?? 0), 0);
+  }
+
+  componentActBudget(ci: number): number {
+    return this.rows()[ci]?.acts.reduce((s, a) => s + (a.budget ?? 0), 0) ?? 0;
+  }
+
+  componentPercentageTotal(ci: number): number {
+    return this.rows()[ci]?.acts.reduce((s, a) => s + (a.percentage ?? 0), 0) ?? 0;
+  }
+
+  budgetOverflow(ci: number): boolean {
+    const comp = this.rows()[ci];
+    if (!comp?.budget) return false;
+    return this.componentActBudget(ci) > comp.budget;
+  }
+
+  contractBudgetOverflow(): boolean {
+    if (!this.contractBudget) return false;
+    return this.totalComponentBudget > this.contractBudget;
+  }
 
   // ── Componentes ────────────────────────────────────────────────────────────
   addComponent(): void {
@@ -102,7 +139,27 @@ export class Step8ScopeComponent {
     this.emit();
   }
 
-  // ── Actos ──────────────────────────────────────────────────────────────────
+  updateComponentBudget(ci: number, value: string): void {
+    const parsed = this.parseBudget(value);
+    this.rows.update(r => r.map((comp, i) =>
+      i === ci ? { ...comp, budget: parsed } : comp));
+    this.emit();
+    this.checkBudgetWarnings();
+  }
+
+  updateComponentPercentage(ci: number, value: string): void {
+    const n = parseFloat(value);
+    const parsed = isNaN(n) ? null : n;
+    this.rows.update(r => r.map((comp, i) =>
+      i === ci ? { ...comp, percentage: parsed } : comp));
+    this.emit();
+  }
+
+  get totalComponentPercentage(): number {
+    return this.rows().reduce((s, c) => s + (c.percentage ?? 0), 0);
+  }
+
+  // ── Actividades ────────────────────────────────────────────────────────────
   addAct(ci: number): void {
     this.rows.update(r => r.map((comp, i) =>
       i === ci ? { ...comp, acts: [...comp.acts, EMPTY_ACT()] } : comp));
@@ -115,14 +172,17 @@ export class Step8ScopeComponent {
   }
 
   updateAct(ci: number, ai: number, field: keyof ActRow, value: string | number | boolean | null): void {
+    const parsed = field === 'budget' && typeof value === 'string'
+      ? this.parseBudget(value)
+      : value;
     this.rows.update(r => r.map((comp, i) =>
       i === ci
-        ? { ...comp, acts: comp.acts.map((a, j) => j === ai ? { ...a, [field]: value } : a) }
+        ? { ...comp, acts: comp.acts.map((a, j) => j === ai ? { ...a, [field]: parsed } : a) }
         : comp));
     this.emit();
+    if (field === 'budget') this.checkBudgetWarnings();
   }
 
-  /** Determina si la actividad tiene algún campo real de ejecución */
   hasActualData(act: ActRow): boolean {
     return !!(act.actual_start_date || act.actual_end_date || act.actual_start_plan !== null);
   }
@@ -134,8 +194,10 @@ export class Step8ScopeComponent {
   private buildPayload(): ContractStep8Request {
     return this.rows().map(comp => {
       const item: ContractStep8Item = {
-        id:        comp.id ?? null,
-        component: comp.componentName,
+        id:         comp.id ?? null,
+        component:  comp.componentName,
+        percentage: comp.percentage ?? null,
+        budget:     comp.budget ?? null,
         acts: comp.acts.map(a => {
           const hasActual = this.hasActualData(a);
           const act: ContractActItem = {
@@ -148,11 +210,9 @@ export class Step8ScopeComponent {
             responsible:   a.responsible   || null,
             objective:     a.objective     || null,
             percentage:    a.percentage,
-            number_checks: a.number_checks,
-            is_completed:  a.is_completed,
+            budget:        a.budget        ?? null,
             delete:        false,
           };
-          // Si hay datos reales, incluir los tres campos
           if (hasActual) {
             act.actual_start_date = this.dateToISO(a.actual_start_date);
             act.actual_end_date   = this.dateToISO(a.actual_end_date);
@@ -166,6 +226,25 @@ export class Step8ScopeComponent {
     });
   }
 
+  private fmt(n: number): string {
+    return n.toLocaleString('es-CO', { maximumFractionDigits: 0 });
+  }
+
+  checkBudgetWarnings(): void {
+    const warnings: string[] = [];
+    this.rows().forEach((comp, ci) => {
+      if (comp.budget !== null && this.componentActBudget(ci) > comp.budget) {
+        const exceso = this.componentActBudget(ci) - comp.budget;
+        warnings.push(`Componente ${ci + 1} "${comp.componentName || 'sin nombre'}": las actividades exceden el presupuesto en $ ${this.fmt(exceso)}.`);
+      }
+    });
+    if (this.contractBudget !== null && this.totalComponentBudget > this.contractBudget) {
+      const exceso = this.totalComponentBudget - this.contractBudget;
+      warnings.push(`El total de componentes excede el presupuesto del contrato en $ ${this.fmt(exceso)}.`);
+    }
+    if (warnings.length) this.budgetWarning.emit(warnings);
+  }
+
   private emit(): void { this.dataChange.emit(this.buildPayload()); }
 
   onSubmit(): void {
@@ -174,12 +253,11 @@ export class Step8ScopeComponent {
       if (!comp.componentName.trim())
         invalid.push(`Componente ${ci + 1}: nombre del componente requerido`);
       comp.acts.forEach((a, ai) => {
-        const lbl = `Comp. ${ci + 1} — Acto ${ai + 1}`;
+        const lbl = `Comp. ${ci + 1} — Actividad ${ai + 1}`;
         if (!a.description.trim()) invalid.push(`${lbl}: descripción requerida`);
         if (!a.responsible.trim()) invalid.push(`${lbl}: responsable requerido`);
         if (!a.start_date)         invalid.push(`${lbl}: fecha inicio requerida`);
         if (!a.end_date)           invalid.push(`${lbl}: fecha fin requerida`);
-        // Si hay algún campo de ejecución real, los tres deben estar presentes
         const hasActual = this.hasActualData(a);
         if (hasActual) {
           if (!a.actual_start_date) invalid.push(`${lbl}: fecha inicio real requerida cuando hay datos de ejecución`);
@@ -187,7 +265,11 @@ export class Step8ScopeComponent {
           if (a.actual_start_plan === null) invalid.push(`${lbl}: plan inicio real requerido cuando hay datos de ejecución`);
         }
       });
+      if (comp.budget !== null && this.componentActBudget(ci) > comp.budget)
+        invalid.push(`Componente ${ci + 1}: el presupuesto de las actividades supera el del componente`);
     });
+    if (this.contractBudget !== null && this.totalComponentBudget > this.contractBudget)
+      invalid.push('El presupuesto total de componentes supera el presupuesto del contrato');
     if (invalid.length) { this.validationError.emit(invalid); return; }
     this.submitted.emit(this.buildPayload());
   }

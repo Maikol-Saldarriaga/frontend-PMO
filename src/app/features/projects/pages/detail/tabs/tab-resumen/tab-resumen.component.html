@@ -14,11 +14,12 @@
           </svg>
         </div>
       </div>
-      <p class="text-3xl font-black text-gray-900 leading-none">{{ details.overall_progress }}<span class="text-base text-gray-400 font-semibold">%</span></p>
-      <div class="mt-3 h-1.5 rounded-full bg-gray-100 overflow-hidden">
-        <div class="h-full rounded-full bg-gradient-to-r from-sky-400 to-sky-600 transition-all duration-700" [style.width.%]="details.overall_progress"></div>
+      <!-- Avance real ponderado (principal) -->
+      <p class="text-3xl font-black text-gray-900 leading-none">{{ realProgress }}<span class="text-base text-gray-400 font-semibold">%</span></p>
+      <div class="mt-2 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+        <div class="h-full rounded-full bg-gradient-to-r from-sky-400 to-sky-600 transition-all duration-700" [style.width.%]="realProgress"></div>
       </div>
-      <p class="text-[11px] text-gray-400 mt-1">Planificado 100%</p>
+      <p class="text-[11px] text-gray-400 mt-1">Ponderado real · {{ details.overall_progress }}% binario</p>
     </div>
 
     <!-- 2. Presupuesto -->
@@ -131,7 +132,7 @@
                   <div class="py-2 text-center text-[10px] font-semibold text-gray-400 border-l border-gray-100 first:border-l-0">{{ m }}</div>
                 }
               </div>
-              <div class="w-10 shrink-0 py-2 text-center text-[10px] font-semibold text-gray-400">%</div>
+              <div class="w-14 shrink-0 py-2 text-center text-[10px] font-semibold text-gray-400">Avance</div>
             </div>
             @for (g of details.gantt_summary; track trackByGantt($index, g)) {
               <div class="flex items-center border-b border-gray-50 last:border-b-0 hover:bg-gray-50/40 transition-colors">
@@ -148,28 +149,31 @@
                   @if (g.start_date) {
                     <div class="relative h-5">
                       <div class="absolute inset-y-0 rounded-full bg-gray-100" style="left:0;right:0"></div>
+                      <!-- Barra planificada (fondo) -->
                       <div class="absolute inset-y-1 rounded-full opacity-25"
                         [style.left.%]="ganttBar(g).left" [style.width.%]="ganttBar(g).width"
                         [class.bg-emerald-500]="g.is_completed"
-                        [class.bg-sky-500]="!g.is_completed && g.percentage >= 50"
-                        [class.bg-amber-400]="!g.is_completed && g.percentage < 50"></div>
+                        [class.bg-sky-500]="!g.is_completed && g.progress >= 50"
+                        [class.bg-amber-400]="!g.is_completed && g.progress < 50"></div>
+                      <!-- Relleno de progreso real (progress 0–100) -->
                       <div class="absolute inset-y-1 rounded-full transition-all duration-700"
-                        [style.left.%]="ganttBar(g).left" [style.width.%]="ganttBar(g).width * g.percentage / 100"
+                        [style.left.%]="ganttBar(g).left" [style.width.%]="ganttBar(g).width * g.progress / 100"
                         [class.bg-emerald-500]="g.is_completed"
-                        [class.bg-sky-500]="!g.is_completed && g.percentage >= 50"
-                        [class.bg-amber-400]="!g.is_completed && g.percentage < 50"></div>
+                        [class.bg-sky-500]="!g.is_completed && g.progress >= 50"
+                        [class.bg-amber-400]="!g.is_completed && g.progress < 50"></div>
                     </div>
                   } @else {
                     <div class="h-5 flex items-center"><span class="text-[10px] text-gray-300 italic">Sin fechas</span></div>
                   }
                 </div>
-                <div class="w-10 shrink-0 text-center">
+                <div class="w-14 shrink-0 text-center">
                   <span class="text-[11px] font-bold"
                     [class.text-emerald-600]="g.is_completed"
-                    [class.text-sky-600]="!g.is_completed && g.percentage >= 50"
-                    [class.text-amber-500]="!g.is_completed && g.percentage < 50">
-                    {{ g.percentage }}%
+                    [class.text-sky-600]="!g.is_completed && g.progress >= 50"
+                    [class.text-amber-500]="!g.is_completed && g.progress < 50">
+                    {{ g.progress }}%
                   </span>
+                  <p class="text-[9px] text-gray-300 leading-none">peso {{ g.percentage }}%</p>
                 </div>
               </div>
             }
@@ -207,8 +211,9 @@
                 [attr.stroke-dashoffset]="-seg.offset"
                 stroke-linecap="butt" transform="rotate(-90 50 50)"/>
             }
-            <text x="50" y="47" text-anchor="middle" fill="#1e293b" font-size="13" font-weight="700">{{ details.overall_progress }}%</text>
-            <text x="50" y="58" text-anchor="middle" fill="#94a3b8" font-size="7">avance</text>
+            <text x="50" y="45" text-anchor="middle" fill="#1e293b" font-size="13" font-weight="700">{{ realProgress }}%</text>
+            <text x="50" y="55" text-anchor="middle" fill="#94a3b8" font-size="6.5">avance real</text>
+            <text x="50" y="63" text-anchor="middle" fill="#cbd5e1" font-size="6">{{ details.overall_progress }}% binario</text>
           </svg>
           <div class="w-full space-y-2">
             @for (seg of donutSegments; track $index) {
