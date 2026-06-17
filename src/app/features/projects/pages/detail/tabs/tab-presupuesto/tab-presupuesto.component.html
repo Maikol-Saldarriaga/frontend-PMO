@@ -12,12 +12,20 @@
         <h2 class="text-base font-bold text-gray-900">Presupuesto del Proyecto</h2>
         <p class="text-xs text-gray-400 mt-0.5">{{ budgetWizard()!.filled_scopes }} de {{ budgetWizard()!.total_scopes }} alcances con presupuesto asignado</p>
       </div>
-      <button (click)="openBudgetEditor()" class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-600 text-white text-sm font-semibold shadow-sm shadow-sky-200 transition-all active:scale-95 shrink-0">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-        </svg>
-        Editar presupuesto
-      </button>
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <button (click)="openMonthlyEditor()" class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-neutral-50 text-primary-700 border border-neutral-200 text-sm font-semibold shadow-sm transition-all active:scale-95">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+          </svg>
+          Distribución mensual
+        </button>
+        <button (click)="openBudgetEditor()" class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-600 text-white text-sm font-semibold shadow-sm shadow-sky-200 transition-all active:scale-95">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+          </svg>
+          Editar presupuesto
+        </button>
+      </div>
     </div>
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
       <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 border-l-4 border-l-sky-400">
@@ -37,7 +45,7 @@
       </div>
       <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 border-l-4"
         [class.border-l-emerald-400]="budgetWizard()!.is_complete" [class.border-l-amber-400]="!budgetWizard()!.is_complete">
-        <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Estado</p>
+        <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Presupuesto Asignado</p>
         <p class="text-xl font-black" [class.text-emerald-600]="budgetWizard()!.is_complete" [class.text-amber-600]="!budgetWizard()!.is_complete">
           {{ budgetWizard()!.is_complete ? '100%' : ((budgetWizard()!.filled_scopes / budgetWizard()!.total_scopes * 100) | number:'1.0-0') + '%' }}
         </p>
@@ -83,7 +91,7 @@
                 <th class="text-right px-3 py-2.5 font-semibold whitespace-nowrap">Contrapartida</th>
                 <th class="text-right px-3 py-2.5 font-semibold whitespace-nowrap">Aliado</th>
                 <th class="text-right px-5 py-2.5 font-semibold whitespace-nowrap">Total</th>
-                <th class="text-center px-3 py-2.5 font-semibold">Estado</th>
+                <th class="text-center px-3 py-2.5 font-semibold">Presupuesto Asignado</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-50">

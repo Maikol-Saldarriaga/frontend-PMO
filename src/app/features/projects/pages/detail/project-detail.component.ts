@@ -57,6 +57,10 @@ export class ProjectDetailComponent implements OnInit {
   ngOnInit(): void {
     this.projectId = this.route.snapshot.paramMap.get('id') ?? '';
     if (!this.projectId) { this.router.navigate(['/dashboard/projects']); return; }
+
+    const tab = this.route.snapshot.queryParamMap.get('tab');
+    if (tab) this.activeTab.set(tab);
+
     this.service.getProjectDetails(this.projectId).subscribe({
       next:  d => { this.details.set(d); this.loading.set(false); },
       error: () => { this.error.set('No se pudo cargar el proyecto.'); this.loading.set(false); },

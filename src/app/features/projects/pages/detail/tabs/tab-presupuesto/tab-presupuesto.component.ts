@@ -41,7 +41,8 @@ export class TabPresupuestoComponent implements OnInit {
     });
   }
 
-  openBudgetEditor(): void { this.rtr.navigate(['/dashboard/projects', this.projectId, 'budget']); }
+  openBudgetEditor(): void  { this.rtr.navigate(['/dashboard/projects', this.projectId, 'budget']); }
+  openMonthlyEditor(): void { this.rtr.navigate(['/dashboard/projects', this.projectId, 'monthly']); }
 
   formatCurrency(v: number): string {
     return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(v);

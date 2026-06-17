@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, ChangeDetectorRef } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
@@ -6,18 +6,15 @@ import { ProjectService } from '../../services/project.service';
 import {
   BudgetWizardResponse,
   BudgetWizardScope,
-  BudgetMonthlyDistribution,
-  BudgetBulkItem,
+  BudgetItemRequest,
 } from '../../models/project.model';
 
 export interface ActivityRow {
-  // Campos de la actividad/alcance (readonly, vienen del wizard)
   scope_id:          string;
   act:               number;
-  act_description:   string;   // descripción de la actividad
+  act_description:   string;
   start_date:        string | null;
   end_date:          string | null;
-  // Campos del presupuesto (editables)
   concept:                  string;
   budget_description:       string;
   unit_measurement:         string;
@@ -26,12 +23,13 @@ export interface ActivityRow {
   total_value:              number;
   counterpart_contribution: number | null;
   ally_contribution:        number | null;
-  monthly_distributions:    BudgetMonthlyDistribution[];
-  // UI
   active:     boolean;
   expanded:   boolean;
   dirty:      boolean;
-  existingId: string | null;
+  saving:     boolean;
+  existingId:  string | null;
+  rowError:    string | null;
+  rowSuccess:  boolean;
 }
 
 export interface ComponentSection {
@@ -56,7 +54,6 @@ export class BudgetComponent implements OnInit {
 
   wizard  = signal<BudgetWizardResponse | null>(null);
   loading = signal(true);
-  saving  = signal(false);
   error   = signal<string | null>(null);
   saveMsg = signal<string | null>(null);
 
@@ -80,7 +77,6 @@ export class BudgetComponent implements OnInit {
       ? Math.round((this.totalContraparte / this.totalPresupuesto) * 100)
       : 0;
   }
-  get hasDirty(): boolean { return this.allRows.some(r => r.dirty); }
 
   compTotal(s: ComponentSection): number {
     return s.rows.reduce((acc, r) => acc + r.total_value, 0);
@@ -91,13 +87,6 @@ export class BudgetComponent implements OnInit {
   compTotalAlly(s: ComponentSection): number {
     return s.rows.reduce((acc, r) => acc + (r.ally_contribution ?? 0), 0);
   }
-  distTotalCP(row: ActivityRow): number {
-    return row.monthly_distributions.reduce((s, d) => s + d.counterpart_amount, 0);
-  }
-  distTotalAlly(row: ActivityRow): number {
-    return row.monthly_distributions.reduce((s, d) => s + d.ally_amount, 0);
-  }
-
   // ── Init ──────────────────────────────────────────────────────────────────
 
   ngOnInit(): void {
@@ -128,19 +117,21 @@ export class BudgetComponent implements OnInit {
         act_description:          scope.description,
         start_date:               scope.start_date,
         end_date:                 scope.end_date,
-        concept:                  scope.budget?.concept                 ?? '',
-        budget_description:       (scope.budget as any)?.description    ?? '',
-        unit_measurement:         scope.budget?.unit_measurement         ?? '',
-        unit_value:               scope.budget?.unit_value               ?? null,
-        quantity:                 scope.budget?.quantity                 ?? null,
-        total_value:              scope.budget?.total_value              ?? 0,
-        counterpart_contribution: scope.budget?.counterpart_contribution ?? null,
-        ally_contribution:        scope.budget?.ally_contribution        ?? null,
-        monthly_distributions:    [...(scope.budget?.monthly_distributions ?? [])],
+        concept:                  scope.budget?.concept                  ?? '',
+        budget_description:       (scope.budget as any)?.description     ?? '',
+        unit_measurement:         scope.budget?.unit_measurement          ?? '',
+        unit_value:               scope.budget?.unit_value                ?? null,
+        quantity:                 scope.budget?.quantity                  ?? null,
+        total_value:              scope.budget?.total_value               ?? 0,
+        counterpart_contribution: scope.budget?.counterpart_contribution  ?? null,
+        ally_contribution:        scope.budget?.ally_contribution         ?? null,
         active:     scope.budget !== null,
         expanded:   false,
         dirty:      false,
-        existingId: scope.budget?.id ?? null,
+        saving:     false,
+        existingId:  scope.budget?.id ?? null,
+        rowError:    null,
+        rowSuccess:  false,
       } as ActivityRow)),
     }));
   }
@@ -158,72 +149,106 @@ export class BudgetComponent implements OnInit {
     row.concept = ''; row.budget_description = ''; row.unit_measurement = '';
     row.unit_value = null; row.quantity = null; row.total_value = 0;
     row.counterpart_contribution = null; row.ally_contribution = null;
-    row.monthly_distributions = [];
   }
 
-  markDirty(row: ActivityRow): void { row.dirty = true; }
+  markDirty(row: ActivityRow): void { row.dirty = true; row.rowSuccess = false; row.rowError = null; }
 
   recalcTotal(row: ActivityRow): void {
     row.total_value = (row.unit_value ?? 0) * (row.quantity ?? 0);
-    row.dirty = true;
+    row.dirty = true; row.rowSuccess = false; row.rowError = null;
   }
 
   toggleExpand(row: ActivityRow): void { row.expanded = !row.expanded; }
 
-  // ── Distribuciones mensuales ──────────────────────────────────────────────
+  // ── Guardar individual ────────────────────────────────────────────────────
 
-  addMonth(row: ActivityRow): void {
-    const last = row.monthly_distributions.at(-1);
-    let year  = last?.year  ?? new Date().getFullYear();
-    let month = (last?.month ?? 0) + 1;
-    if (month > 12) { month = 1; year++; }
-    row.monthly_distributions.push({ year, month, counterpart_amount: 0, ally_amount: 0 });
-    row.dirty = true;
-  }
+  saveRow(row: ActivityRow): void {
+    if (!row.active || !row.dirty || row.saving) return;
 
-  removeMonth(row: ActivityRow, mi: number): void {
-    row.monthly_distributions.splice(mi, 1);
-    row.dirty = true;
-  }
+    const missing: string[] = [];
+    if (!row.concept?.trim())          missing.push('Concepto');
+    if (!row.unit_measurement?.trim()) missing.push('Unidad de medida');
+    if (!row.quantity)                 missing.push('Cantidad');
+    if (!row.unit_value)               missing.push('Valor unitario');
 
-  // ── Guardar ───────────────────────────────────────────────────────────────
+    if (missing.length) {
+      row.rowError = `Requeridos: ${missing.join(', ')}`;
+      return;
+    }
 
-  saveAll(): void {
-    const items: BudgetBulkItem[] = this.sections.flatMap((sec, si) =>
-      sec.rows.filter(r => r.active).map((row, ri) => ({
-        component_id:             sec.component_id,
-        schedule_activity_id:     row.scope_id,
-        concept:                  row.concept || row.act_description,
-        description:              row.budget_description,
-        unit_measurement:         row.unit_measurement,
-        unit_value:               row.unit_value   ?? 0,
-        quantity:                 row.quantity     ?? 0,
-        total_value:              row.total_value,
-        counterpart_contribution: row.counterpart_contribution ?? 0,
-        ally_contribution:        row.ally_contribution        ?? 0,
-        sort_order:               si * 100 + ri,
-        monthly_distributions:    row.monthly_distributions,
-      }))
-    );
+    row.rowError = null;
+    row.saving = true;
 
-    this.saving.set(true);
-    this.saveMsg.set(null);
-    this.service.saveBudgetBulk(this.projectId, { items }).subscribe({
-      next: () => {
-        this.saving.set(false);
-        this.sections.forEach(s => s.rows.forEach(r => r.dirty = false));
-        this.saveMsg.set('Presupuesto guardado correctamente.');
-        setTimeout(() => this.saveMsg.set(null), 4000);
+    const payload: BudgetItemRequest = {
+      scope_id:                 row.scope_id,
+      concept:                  row.concept.trim(),
+      description:              row.budget_description,
+      unit_measurement:         row.unit_measurement.trim(),
+      unit_value:               row.unit_value   ?? 0,
+      quantity:                 row.quantity     ?? 0,
+      total_value:              row.total_value,
+      counterpart_contribution: row.counterpart_contribution ?? 0,
+      ally_contribution:        row.ally_contribution        ?? 0,
+    };
+
+    const request$ = row.existingId
+      ? this.service.updateBudgetItem(this.projectId, row.existingId, payload)
+      : this.service.createBudgetItem(this.projectId, payload);
+
+    request$.subscribe({
+      next: (res) => {
+        if (!row.existingId) row.existingId = res.id;
+        row.dirty      = false;
+        row.saving     = false;
+        row.rowSuccess = true;
+        row.rowError   = null;
+        this.refreshWizardMeta();
       },
       error: () => {
-        this.saving.set(false);
+        row.saving = false;
         this.saveMsg.set('Error al guardar. Verifica los datos.');
+        setTimeout(() => this.saveMsg.set(null), 4000);
+      },
+    });
+  }
+
+  // ── Eliminar ──────────────────────────────────────────────────────────────
+
+  deleteRow(row: ActivityRow): void {
+    if (!row.existingId) { this.deactivateRow(row); return; }
+
+    this.service.deleteBudgetItem(this.projectId, row.existingId).subscribe({
+      next: () => {
+        row.existingId = null;
+        row.active = false;
+        row.dirty  = false;
+        row.saving = false;
+        row.concept = ''; row.budget_description = ''; row.unit_measurement = '';
+        row.unit_value = null; row.quantity = null; row.total_value = 0;
+        row.counterpart_contribution = null; row.ally_contribution = null;
+        this.refreshWizardMeta();
+      },
+      error: () => {
+        this.saveMsg.set('Error al eliminar el presupuesto.');
+        setTimeout(() => this.saveMsg.set(null), 4000);
+      },
+    });
+  }
+
+  private refreshWizardMeta(): void {
+    this.service.getBudgetWizard(this.projectId).subscribe({
+      next: (w) => {
+        this.wizard.set(w);
+        w.components.forEach(comp => {
+          const sec = this.sections.find(s => s.component_id === comp.component_id);
+          if (sec) sec.is_complete = comp.is_complete;
+        });
       },
     });
   }
 
   goBack(): void {
-    this.router.navigate(['/dashboard/projects', this.projectId]);
+    this.router.navigate(['/dashboard/projects', this.projectId], { queryParams: { tab: 'presupuesto' } });
   }
 
   formatCurrency(v: number): string {
@@ -235,8 +260,6 @@ export class BudgetComponent implements OnInit {
   monthName(m: number): string {
     return ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][m - 1] ?? '';
   }
-
-  months = [1,2,3,4,5,6,7,8,9,10,11,12];
 
   trackByComp(_: number, s: ComponentSection) { return s.component_id; }
   trackByRow (_: number, r: ActivityRow)       { return r.scope_id;     }

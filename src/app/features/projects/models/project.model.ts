@@ -608,85 +608,35 @@ export interface ActivityFormData {
 // ── Budget ────────────────────────────────────────────────────────────────────
 
 export interface BudgetMonthlyDistribution {
+  id?:                 string;
   year:                number;
   month:               number;
   counterpart_amount:  number;
   ally_amount:         number;
+  executed_amount?:    number;
+  billed_amount?:      number;
 }
+
+export interface MonthlyDistributionRequest {
+  year:               number;
+  month:              number;
+  counterpart_amount: number;
+  ally_amount:        number;
+  executed_amount?:   number;
+  billed_amount?:     number;
+}
+
+export interface MonthlyBulkRequest {
+  distributions: MonthlyDistributionRequest[];
+}
+
+export type MonthlyWizardResponse = BudgetWizardResponse;
 
 export interface BudgetItem {
   id:                       string;
-  concept:                  string;
-  unit_measurement:         string;
-  unit_value:               number;
-  quantity:                 number;
-  total_value:              number;
-  counterpart_contribution: number;
-  ally_contribution:        number;
-  monthly_distributions:    BudgetMonthlyDistribution[];
-}
-
-export interface BudgetWizardScope {
-  scope_id:   string;
-  act:        number;
-  description: string;
-  start_date: string | null;
-  end_date:   string | null;
-  budget:     BudgetItem | null;
-}
-
-export interface BudgetWizardComponent {
-  component_id: string;
-  name:         string;
-  is_complete:  boolean;
-  scopes:       BudgetWizardScope[];
-}
-
-export interface BudgetWizardResponse {
-  is_complete:   boolean;
-  total_scopes:  number;
-  filled_scopes: number;
-  components:    BudgetWizardComponent[];
-}
-
-export interface BudgetBulkItem {
+  contract_agreement_id:    string;
   component_id:             string;
-  schedule_activity_id:     string;
-  concept:                  string;
-  description:              string;
-  unit_measurement:         string;
-  unit_value:               number;
-  quantity:                 number;
-  total_value:              number;
-  counterpart_contribution: number;
-  ally_contribution:        number;
-  sort_order:               number;
-  monthly_distributions:    BudgetMonthlyDistribution[];
-}
-
-export interface BudgetBulkRequest {
-  items: BudgetBulkItem[];
-}
-
-export interface PostBudgetItemRequest {
-  component_id?:            string;
-  schedule_activity_id?:    string;
-  concept:                  string;
-  description?:             string;
-  unit_measurement?:        string;
-  unit_value:               number;
-  quantity:                 number;
-  total_value:              number;
-  counterpart_contribution: number;
-  ally_contribution:        number;
-  sort_order?:              number;
-  monthly_distributions?:   BudgetMonthlyDistribution[];
-}
-
-export interface BudgetItemResponse {
-  id:                       string;
-  component_id:             string | null;
-  schedule_activity_id:     string | null;
+  scope_id:                 string;
   concept:                  string;
   description:              string | null;
   unit_measurement:         string | null;
@@ -696,11 +646,89 @@ export interface BudgetItemResponse {
   counterpart_contribution: number;
   ally_contribution:        number;
   sort_order:               number;
+  created_at:               string;
   monthly_distributions:    BudgetMonthlyDistribution[];
 }
 
-export interface BudgetListResponse {
-  items: BudgetItemResponse[];
+export interface BudgetWizardScope {
+  scope_id:     string;
+  act:          number;
+  description:  string;
+  start_date:   string | null;
+  end_date:     string | null;
+  is_completed: boolean;
+  percentage:   number;
+  progress:     number;
+  budget:       BudgetItem | null;
+}
+
+export interface BudgetWizardComponent {
+  component_id: string;
+  name:         string;
+  percentage:   number;
+  progress:     number;
+  is_complete:  boolean;
+  scopes:       BudgetWizardScope[];
+}
+
+export interface BudgetExecutionSummary {
+  total_planeado:   number;
+  total_ejecutado:  number;
+  total_facturado:  number;
+  total_contraparte: number;
+  total_aliado:     number;
+  pct_ejecucion:    number;
+  pct_facturacion:  number;
+}
+
+export interface BudgetExecutionTimeSeries {
+  year:                  number;
+  month:                 number;
+  month_label:           string;
+  planeado:              number;
+  ejecutado:             number;
+  facturado:             number;
+  planeado_acumulado:    number;
+  ejecutado_acumulado:   number;
+  facturado_acumulado:   number;
+}
+
+export interface BudgetExecutionDetail {
+  id:                string;
+  concepto:          string;
+  presupuesto:       number;
+  contraparte:       number;
+  aliado:            number;
+  total_ejecutado:   number;
+  porcentaje_avance: number;
+}
+
+export interface BudgetExecution {
+  summary:     BudgetExecutionSummary;
+  time_series: BudgetExecutionTimeSeries[];
+  details:     BudgetExecutionDetail[];
+}
+
+export interface BudgetWizardResponse {
+  is_complete:   boolean;
+  total_scopes:  number;
+  filled_scopes: number;
+  components:    BudgetWizardComponent[];
+  execution:     BudgetExecution;
+}
+
+export interface BudgetItemRequest {
+  scope_id:                 string;
+  concept:                  string;
+  description?:             string;
+  unit_measurement?:        string;
+  unit_value:               number;
+  quantity:                 number;
+  total_value:              number;
+  counterpart_contribution: number;
+  ally_contribution:        number;
+  sort_order?:              number;
+  monthly_distributions?:   Pick<BudgetMonthlyDistribution, 'year' | 'month' | 'counterpart_amount' | 'ally_amount'>[];
 }
 
 export interface BudgetFormData {

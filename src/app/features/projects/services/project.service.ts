@@ -5,9 +5,12 @@ import { ENDPOINTS } from '../../../../core/api/endpoints';
 import {
   ProjectDetails,
   ProjectComponent,
-  PostBudgetItemRequest,
-  BudgetItemResponse,
-  BudgetListResponse,
+  BudgetItemRequest,
+  BudgetItem,
+  MonthlyWizardResponse,
+  MonthlyBulkRequest,
+  MonthlyDistributionRequest,
+  BudgetMonthlyDistribution,
   ProjectStep1Request,
   ProjectStep2Request,
   ProjectStep2Response,
@@ -26,7 +29,6 @@ import {
   ProjectsPageResponse,
   ProjectWizardResponse,
   BudgetWizardResponse,
-  BudgetBulkRequest,
   GanttResponse,
   GanttFilters,
   ScopeComponent,
@@ -114,8 +116,32 @@ export class ProjectService {
     return this.http.get<BudgetWizardResponse>(ENDPOINTS.projects.budgetWizard(id));
   }
 
-  saveBudgetBulk(id: string, data: BudgetBulkRequest): Observable<void> {
-    return this.http.put<void>(ENDPOINTS.projects.budgetBulk(id), data);
+  createBudgetItem(id: string, data: BudgetItemRequest): Observable<BudgetItem> {
+    return this.http.post<BudgetItem>(ENDPOINTS.projects.budget(id), data);
+  }
+
+  updateBudgetItem(id: string, bid: string, data: BudgetItemRequest): Observable<BudgetItem> {
+    return this.http.put<BudgetItem>(ENDPOINTS.projects.budgetItem(id, bid), data);
+  }
+
+  deleteBudgetItem(id: string, bid: string): Observable<void> {
+    return this.http.delete<void>(ENDPOINTS.projects.budgetItem(id, bid));
+  }
+
+  getMonthlyWizard(id: string): Observable<MonthlyWizardResponse> {
+    return this.http.get<MonthlyWizardResponse>(ENDPOINTS.projects.monthlyWizard(id));
+  }
+
+  saveMonthlyBulk(id: string, bid: string, data: MonthlyBulkRequest): Observable<void> {
+    return this.http.put<void>(ENDPOINTS.projects.monthlyBulk(id, bid), data);
+  }
+
+  updateMonthlyDistribution(id: string, bid: string, did: string, data: MonthlyDistributionRequest): Observable<BudgetMonthlyDistribution> {
+    return this.http.put<BudgetMonthlyDistribution>(ENDPOINTS.projects.monthlySingle(id, bid, did), data);
+  }
+
+  deleteMonthlyDistribution(id: string, bid: string, did: string): Observable<void> {
+    return this.http.delete<void>(ENDPOINTS.projects.monthlySingle(id, bid, did));
   }
 
   getGantt(id: string, filters: GanttFilters = {}): Observable<GanttResponse> {
@@ -156,11 +182,4 @@ export class ProjectService {
     return this.http.get<ProjectComponent[]>(ENDPOINTS.projects.componentsActs(id));
   }
 
-  getBudgetItems(id: string): Observable<BudgetListResponse> {
-    return this.http.get<BudgetListResponse>(ENDPOINTS.projects.budget(id));
-  }
-
-  postBudgetItem(id: string, data: PostBudgetItemRequest): Observable<BudgetItemResponse> {
-    return this.http.post<BudgetItemResponse>(ENDPOINTS.projects.budget(id), data);
-  }
 }

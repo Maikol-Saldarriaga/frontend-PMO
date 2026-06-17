@@ -9,6 +9,7 @@ import { ProjectCreateComponent } from './features/projects/pages/create/project
 import { ProjectDetailComponent } from './features/projects/pages/detail/project-detail.component';
 import { ProjectSummaryComponent } from './features/projects/pages/summary/project-summary.component';
 import { BudgetComponent } from './features/projects/pages/budget/budget.component';
+import { MonthlyComponent } from './features/projects/pages/monthly/monthly.component';
 import { authGuard } from '../core/auth/guards/auth.guard';
 
 export const routes: Routes = [
@@ -28,6 +29,7 @@ export const routes: Routes = [
       { path: 'projects/:id/edit',     component: ProjectCreateComponent },
       { path: 'projects/:id/summary',  component: ProjectSummaryComponent },
       { path: 'projects/:id/budget',   component: BudgetComponent },
+      { path: 'projects/:id/monthly',  component: MonthlyComponent },
     ]
   },
   { path: '**', redirectTo: 'login' }
