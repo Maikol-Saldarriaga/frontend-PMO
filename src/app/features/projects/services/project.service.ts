@@ -4,19 +4,12 @@ import { ApiHttpClient } from '../../../../core/api/http-client';
 import { ENDPOINTS } from '../../../../core/api/endpoints';
 import {
   ProjectDetails,
-<<<<<<< Updated upstream
-  ProjectComponent,
   BudgetItemRequest,
   BudgetItem,
   MonthlyWizardResponse,
   MonthlyBulkRequest,
   MonthlyDistributionRequest,
   BudgetMonthlyDistribution,
-=======
-  PostBudgetItemRequest,
-  BudgetItemResponse,
-  BudgetListResponse,
->>>>>>> Stashed changes
   ProjectStep1Request,
   ProjectStep2Request,
   ProjectStep2Response,
@@ -46,6 +39,7 @@ import {
   Snapshot,
   SnapshotRequest,
   ProjectSnapshotItem,
+  ScopeSnapshotsResponse,
 } from '../models/project.model';
 
 export interface ProjectFilters {
@@ -195,8 +189,8 @@ export class ProjectService {
     return this.http.get<ProjectSnapshotItem[]>(ENDPOINTS.projects.snapshots(id));
   }
 
-  getScopeSnapshots(id: string, sid: string): Observable<Snapshot[]> {
-    return this.http.get<Snapshot[]>(ENDPOINTS.projects.scopeSnapshots(id, sid));
+  getScopeSnapshots(id: string, sid: string): Observable<ScopeSnapshotsResponse> {
+    return this.http.get<ScopeSnapshotsResponse>(ENDPOINTS.projects.scopeSnapshots(id, sid));
   }
 
   upsertSnapshot(id: string, sid: string, data: SnapshotRequest): Observable<Snapshot> {

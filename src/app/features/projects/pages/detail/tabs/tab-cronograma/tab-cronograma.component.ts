@@ -1,7 +1,7 @@
 import { Component, Input, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ProjectService } from '../../../../services/project.service';
-import { GanttResponse, GanttFilters, GanttActivity } from '../../../../models/project.model';
+import { GanttResponse, GanttFilters, GanttActivity, Snapshot } from '../../../../models/project.model';
 
 @Component({
   selector: 'app-tab-cronograma',
@@ -41,6 +41,14 @@ export class TabCronogramaComponent implements OnInit {
     return (this.ganttData()?.components ?? []).reduce((s, c) => s + c.activities.length, 0);
   }
 
+  /** Progreso real = suma de actual_pct de los períodos. Si no hay períodos, usa el dato agregado del backend. */
+  activityProgress(a: GanttActivity): number {
+    const snaps = a.snapshots ?? [];
+    if (!snaps.length) return a.progress ?? 0;
+    const sum = snaps.reduce((s, x) => s + x.actual_pct, 0);
+    return Math.min(Math.round(sum * 10) / 10, 100);
+  }
+
   activityBar(a: GanttActivity, timeline: { year: number; month: number }[]): { left: number; width: number } {
     if (!timeline.length || !a.start_date) return { left: 0, width: 0 };
     const first = timeline[0];
@@ -56,37 +64,43 @@ export class TabCronogramaComponent implements OnInit {
     };
   }
 
-  actualBar(a: GanttActivity, timeline: { year: number; month: number }[]): { left: number; width: number } | null {
-    if (!timeline.length || !a.actual_start_date) return null;
+  /** Posición/ancho de un período (snapshot) dentro del timeline visible. */
+  periodBar(snap: Snapshot, timeline: { year: number; month: number }[]): { left: number; width: number } {
+    if (!timeline.length) return { left: 0, width: 0 };
     const first = timeline[0];
     const last  = timeline[timeline.length - 1];
     const rangeStart = new Date(first.year, first.month - 1, 1).getTime();
     const rangeEnd   = new Date(last.year, last.month - 1 + 1, 0).getTime();
     const total      = rangeEnd - rangeStart;
-    const start = Math.max(new Date(a.actual_start_date).getTime(), rangeStart);
-    const end   = a.actual_end_date ? Math.min(new Date(a.actual_end_date).getTime(), rangeEnd) : Date.now();
+    const start = new Date(snap.start_date).getTime();
+    const end   = new Date(snap.end_date).getTime();
+    if (end < rangeStart || start > rangeEnd) return { left: 0, width: 0 };
+    const clampedStart = Math.max(start, rangeStart);
+    const clampedEnd   = Math.min(end, rangeEnd);
     return {
-      left:  Math.max(0, Math.min(100, (start - rangeStart) / total * 100)),
-      width: Math.max(0.5, Math.min(100 - (start - rangeStart) / total * 100, (end - start) / total * 100)),
+      left:  Math.max(0, Math.min(100, (clampedStart - rangeStart) / total * 100)),
+      width: Math.max(0.5, Math.min(100 - (clampedStart - rangeStart) / total * 100, (clampedEnd - clampedStart) / total * 100)),
     };
+  }
+
+  /** Color del período: rojo atrasado, verde a tiempo, morado si hay exceso (mismo criterio que Seguimiento Técnico). */
+  periodFillColor(snap: Snapshot): string {
+    if (snap.actual_pct > snap.planned_pct) return '#A855F7';
+    if (snap.actual_pct === snap.planned_pct) return '#10B981';
+    return '#F87171';
   }
 
   activityColor(a: GanttActivity): string {
     if (a.is_completed) return '#10B981';
-    if ((a.progress ?? 0) > 0) return '#0EA5E9';
+    if (this.activityProgress(a) > 0) return '#0EA5E9';
     return '#CBD5E1';
-  }
-
-  activityColorActual(a: GanttActivity): string {
-    if (a.is_completed) return '#059669';
-    if ((a.progress ?? 0) > 0) return '#0284C7';
-    return '#94A3B8';
   }
 
   // Avance real que aporta al total: percentage × (progress / 100)
   realContribution(a: GanttActivity): number {
-    return (a.percentage ?? 0) * ((a.progress ?? 0) / 100);
+    return (a.percentage ?? 0) * (this.activityProgress(a) / 100);
   }
 
   trackByActivity(_: number, a: GanttActivity) { return a.id; }
+  trackBySnap(_: number, s: Snapshot) { return s.start_date + s.end_date; }
 }

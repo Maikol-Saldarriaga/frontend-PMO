@@ -439,6 +439,7 @@ export interface GanttActivity {
   progress:          number | null;  // avance acumulado por snapshots (0–100)
   responsible:       string | null;
   is_completed:      boolean | null;
+  snapshots:         Snapshot[];     // períodos individuales (start_date/end_date/planned_pct/actual_pct) para pintar barras por período
 }
 
 export interface GanttComponent {
@@ -602,16 +603,16 @@ export interface ActivityFormData {
 export interface Snapshot {
   id?:          string;
   id_scope?:    string;
-  year:         number;
-  month:        number;
+  start_date:   string;
+  end_date:     string;
   planned_pct:  number;
   actual_pct:   number;
   notes?:       string | null;
 }
 
 export interface SnapshotRequest {
-  year:         number;
-  month:        number;
+  start_date:   string;
+  end_date:     string;
   planned_pct:  number;
   actual_pct:   number;
   notes?:       string | null;
@@ -622,6 +623,15 @@ export interface ProjectSnapshotItem extends Snapshot {
   component_name:   string;
   act:              number;
   description:      string;
+}
+
+export interface ScopeSnapshotsResponse {
+  id_scope:          string;
+  start_date:        string;
+  end_date:          string;
+  actual_start_date: string | null;
+  actual_end_date:   string | null;
+  snapshots:         Snapshot[];
 }
 
 // ── Budget ────────────────────────────────────────────────────────────────────
