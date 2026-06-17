@@ -21,8 +21,13 @@ export const ENDPOINTS = {
     monthlySingle:     (id: string, bid: string, did: string) => `${API_URL}/projects/${id}/budget/${bid}/monthly/${did}`,
     componentsActs:    (id: string) => `${API_URL}/projects/${id}/components/acts`,
     components:        (id: string) => `${API_URL}/projects/${id}/components`,
+    componentById:     (id: string, cid: string) => `${API_URL}/projects/${id}/components/${cid}`,
     componentScopes:   (id: string, cid: string) => `${API_URL}/projects/${id}/components/${cid}/scopes`,
+    scopeById:         (id: string, cid: string, sid: string) => `${API_URL}/projects/${id}/components/${cid}/scopes/${sid}`,
     gantt:             (id: string) => `${API_URL}/projects/${id}/gantt`,
+    snapshots:         (id: string) => `${API_URL}/projects/${id}/snapshots`,
+    scopeSnapshots:    (id: string, sid: string) => `${API_URL}/projects/${id}/scopes/${sid}/snapshots`,
+    scopeSnapshot:     (id: string, sid: string) => `${API_URL}/projects/${id}/scopes/${sid}/snapshot`,
   },
   contracts: {
     list:           `${API_URL}/contracts`,

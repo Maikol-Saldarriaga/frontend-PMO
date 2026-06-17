@@ -4,6 +4,7 @@ import { ApiHttpClient } from '../../../../core/api/http-client';
 import { ENDPOINTS } from '../../../../core/api/endpoints';
 import {
   ProjectDetails,
+<<<<<<< Updated upstream
   ProjectComponent,
   BudgetItemRequest,
   BudgetItem,
@@ -11,6 +12,11 @@ import {
   MonthlyBulkRequest,
   MonthlyDistributionRequest,
   BudgetMonthlyDistribution,
+=======
+  PostBudgetItemRequest,
+  BudgetItemResponse,
+  BudgetListResponse,
+>>>>>>> Stashed changes
   ProjectStep1Request,
   ProjectStep2Request,
   ProjectStep2Response,
@@ -35,7 +41,11 @@ import {
   ScopeActivity,
   ComponentsActsResponse,
   CreateComponentRequest,
-  UpdateScopeRequest,
+  UpdateComponentRequest,
+  ActivityRequest,
+  Snapshot,
+  SnapshotRequest,
+  ProjectSnapshotItem,
 } from '../models/project.model';
 
 export interface ProjectFilters {
@@ -157,29 +167,40 @@ export class ProjectService {
     return this.http.get<ComponentsActsResponse>(ENDPOINTS.projects.componentsActs(id));
   }
 
-  createComponent(id: string, data: CreateComponentRequest): Observable<{ id: string; component: string; acts: unknown[] }> {
-    return this.http.post(ENDPOINTS.projects.components(id), data);
+  createComponent(id: string, data: CreateComponentRequest): Observable<ScopeComponent> {
+    return this.http.post<ScopeComponent>(ENDPOINTS.projects.components(id), data);
   }
 
-  createScope(id: string, cid: string, data: {
-    act?: number | null;
-    description: string;
-    percentage: number;
-    start_date?: string | null;
-    end_date?: string | null;
-    start_plan?: number | null;
-    responsible?: string | null;
-    objective?: string | null;
-  }): Observable<ScopeActivity> {
+  updateComponent(id: string, cid: string, data: UpdateComponentRequest): Observable<ScopeComponent> {
+    return this.http.put<ScopeComponent>(ENDPOINTS.projects.componentById(id, cid), data);
+  }
+
+  deleteComponent(id: string, cid: string): Observable<void> {
+    return this.http.delete<void>(ENDPOINTS.projects.componentById(id, cid));
+  }
+
+  createScope(id: string, cid: string, data: ActivityRequest): Observable<ScopeActivity> {
     return this.http.post<ScopeActivity>(ENDPOINTS.projects.componentScopes(id, cid), data);
   }
 
-  updateComponentScopes(id: string, cid: string, data: UpdateScopeRequest): Observable<ScopeComponent> {
-    return this.http.put<ScopeComponent>(ENDPOINTS.projects.componentScopes(id, cid), data);
+  updateScope(id: string, cid: string, sid: string, data: ActivityRequest): Observable<ScopeActivity> {
+    return this.http.put<ScopeActivity>(ENDPOINTS.projects.scopeById(id, cid, sid), data);
   }
 
-  getComponentsActs(id: string): Observable<ProjectComponent[]> {
-    return this.http.get<ProjectComponent[]>(ENDPOINTS.projects.componentsActs(id));
+  deleteScope(id: string, cid: string, sid: string): Observable<void> {
+    return this.http.delete<void>(ENDPOINTS.projects.scopeById(id, cid, sid));
+  }
+
+  getProjectSnapshots(id: string): Observable<ProjectSnapshotItem[]> {
+    return this.http.get<ProjectSnapshotItem[]>(ENDPOINTS.projects.snapshots(id));
+  }
+
+  getScopeSnapshots(id: string, sid: string): Observable<Snapshot[]> {
+    return this.http.get<Snapshot[]>(ENDPOINTS.projects.scopeSnapshots(id, sid));
+  }
+
+  upsertSnapshot(id: string, sid: string, data: SnapshotRequest): Observable<Snapshot> {
+    return this.http.put<Snapshot>(ENDPOINTS.projects.scopeSnapshot(id, sid), data);
   }
 
 }

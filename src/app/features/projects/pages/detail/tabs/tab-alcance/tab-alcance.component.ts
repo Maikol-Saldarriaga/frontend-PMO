@@ -2,7 +2,7 @@ import { Component, Input, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ProjectService } from '../../../../services/project.service';
-import { ScopeComponent, ScopeActivity, ActivityFormData, UpdateScopeRequest, CreateComponentRequest } from '../../../../models/project.model';
+import { ScopeComponent, ScopeActivity, ActivityFormData, ActivityRequest } from '../../../../models/project.model';
 
 const PALETTE = ['#0EA5E9','#10B981','#F59E0B','#EF4444','#8B5CF6','#EC4899','#14B8A6','#F97316'];
 
@@ -32,17 +32,20 @@ export class TabAlcanceComponent implements OnInit {
   saveError        = signal<string | null>(null);
   expandedComps    = signal<Set<string>>(new Set());
 
-  editingActivityId = signal<string | null>(null);
+  editingActivityId     = signal<string | null>(null);
+  editActivityCompId    = signal<string | null>(null);
   editActivityForm: ActivityFormData = EMPTY_ACTIVITY_FORM();
 
   addingActivityToCompId = signal<string | null>(null);
   newActivityForm: ActivityFormData = EMPTY_ACTIVITY_FORM();
 
-  addingComponent    = signal(false);
-  newComponentName   = signal('');
-  newComponentPct    = signal<number | null>(null);
-  editingCompId      = signal<string | null>(null);
-  editingCompName    = signal('');
+  addingComponent  = signal(false);
+  newComponentName = signal('');
+  newComponentPct  = signal<number | null>(null);
+
+  editingCompId    = signal<string | null>(null);
+  editingCompName  = signal('');
+  editingCompPct   = signal<number | null>(null);
 
   ngOnInit(): void { this.load(); }
 
@@ -50,19 +53,16 @@ export class TabAlcanceComponent implements OnInit {
     this.scopeLoading.set(true);
     this.scopeError.set(null);
     this.svc.getScopeComponents(this.projectId).subscribe({
-      next: (res: any) => {
-        // Soporta shape nuevo { project_progress, components } y el shape plano anterior
-        const raw: any[] = Array.isArray(res) ? res : (res.components ?? []);
+      next: res => {
         this.projectProgress.set(res.project_progress ?? 0);
-
-        const normalized: ScopeComponent[] = raw.map((c: any) => ({
-          id:         c.id ?? c.component_id,
-          name:       c.name ?? c.component,
+        const normalized: ScopeComponent[] = (res.components ?? []).map((c: any) => ({
+          id:         c.id,
+          name:       c.name,
           percentage: c.percentage ?? 0,
+          budget:     c.budget ?? null,
           progress:   c.progress ?? 0,
-          scopes: (c.scopes ?? c.acts ?? []).map((a: any) => ({
+          scopes: (c.scopes ?? []).map((a: any) => ({
             id:                  a.id,
-            contract_agreement_id: a.contract_agreement_id ?? null,
             component_id:        a.component_id ?? null,
             act:                 a.act,
             description:         a.description,
@@ -73,12 +73,15 @@ export class TabAlcanceComponent implements OnInit {
             actual_start_date:   a.actual_start_date ?? null,
             actual_end_date:     a.actual_end_date ?? null,
             start_plan:          a.start_plan ?? null,
+            plan_duration:       a.plan_duration ?? null,
+            actual_start_plan:   a.actual_start_plan ?? null,
+            actual_plan_duration: a.actual_plan_duration ?? null,
             objective:           a.objective ?? null,
             responsible:         a.responsible ?? null,
             is_completed:        a.is_completed ?? false,
-          })),
+            budget:              a.budget ?? null,
+          } as ScopeActivity)),
         }));
-
         this.scopeComponents.set(normalized);
         this.expandedComps.set(new Set(normalized.map(c => c.id)));
         this.scopeLoading.set(false);
@@ -98,10 +101,76 @@ export class TabAlcanceComponent implements OnInit {
     this.expandedComps.set(s);
   }
 
-  // ── Editar actividad existente ───────────────────────────────────────────────
+  // ── Crear componente ─────────────────────────────────────────────────────────
 
-  startEditActivity(act: ScopeActivity): void {
+  saveNewComponent(): void {
+    const name = this.newComponentName().trim();
+    const pct  = this.newComponentPct() ?? 0;
+    if (!name) return;
+    this.scopeSaving.set(true);
+    this.saveError.set(null);
+    this.svc.createComponent(this.projectId, { name, percentage: pct }).subscribe({
+      next: () => {
+        this.addingComponent.set(false);
+        this.newComponentName.set('');
+        this.newComponentPct.set(null);
+        this.load();
+        this.scopeSaving.set(false);
+      },
+      error: err => {
+        this.saveError.set(err?.error?.message ?? 'Error al crear. Verifica que la suma de % no supere 100.');
+        this.scopeSaving.set(false);
+      },
+    });
+  }
+
+  // ── Editar componente ─────────────────────────────────────────────────────────
+
+  startEditComp(comp: ScopeComponent): void {
+    this.editingCompId.set(comp.id);
+    this.editingCompName.set(comp.name);
+    this.editingCompPct.set(comp.percentage);
+    this.saveError.set(null);
+  }
+
+  cancelEditComp(): void { this.editingCompId.set(null); this.saveError.set(null); }
+
+  saveEditComp(comp: ScopeComponent): void {
+    const name = this.editingCompName().trim();
+    const pct  = this.editingCompPct() ?? comp.percentage;
+    if (!name) return;
+    this.scopeSaving.set(true);
+    this.saveError.set(null);
+    this.svc.updateComponent(this.projectId, comp.id, { name, percentage: pct }).subscribe({
+      next: updated => {
+        this.scopeComponents.update(list => list.map(c =>
+          c.id === comp.id ? { ...c, name: updated.name, percentage: updated.percentage } : c
+        ));
+        this.editingCompId.set(null);
+        this.scopeSaving.set(false);
+      },
+      error: err => {
+        this.saveError.set(err?.error?.message ?? 'Error al actualizar el componente.');
+        this.scopeSaving.set(false);
+      },
+    });
+  }
+
+  // ── Eliminar componente ───────────────────────────────────────────────────────
+
+  deleteComponent(comp: ScopeComponent): void {
+    if (!confirm(`¿Eliminar el componente "${comp.name}" y todas sus actividades?`)) return;
+    this.svc.deleteComponent(this.projectId, comp.id).subscribe({
+      next: () => this.scopeComponents.update(list => list.filter(c => c.id !== comp.id)),
+      error: err => this.saveError.set(err?.error?.message ?? 'Error al eliminar el componente.'),
+    });
+  }
+
+  // ── Editar actividad ─────────────────────────────────────────────────────────
+
+  startEditActivity(act: ScopeActivity, compId: string): void {
     this.editingActivityId.set(act.id);
+    this.editActivityCompId.set(compId);
     Object.assign(this.editActivityForm, {
       act:               act.act,
       description:       act.description,
@@ -115,51 +184,45 @@ export class TabAlcanceComponent implements OnInit {
       actual_end_date:   act.actual_end_date   ? act.actual_end_date.slice(0, 10)   : '',
       actual_start_plan: act.actual_start_plan ?? null,
     });
+    this.saveError.set(null);
   }
 
-  cancelEditActivity(): void { this.editingActivityId.set(null); }
+  cancelEditActivity(): void { this.editingActivityId.set(null); this.editActivityCompId.set(null); this.saveError.set(null); }
 
   saveEditActivity(comp: ScopeComponent): void {
     const f   = this.editActivityForm;
-    const req: UpdateScopeRequest = {
-      acts: [{
-        id:                this.editingActivityId()!,
-        description:       f.description,
-        percentage:        f.percentage ?? undefined,
-        start_date:        f.start_date  ? `${f.start_date}T00:00:00Z`  : null,
-        end_date:          f.end_date    ? `${f.end_date}T00:00:00Z`    : null,
-        start_plan:        f.start_plan,
-        responsible:       f.responsible || null,
-        objective:         f.objective   || null,
-        actual_start_date: f.actual_start_date ? `${f.actual_start_date}T00:00:00Z` : null,
-        actual_end_date:   f.actual_end_date   ? `${f.actual_end_date}T00:00:00Z`   : null,
-        actual_start_plan: f.actual_start_plan,
-        delete: false,
-      }],
-    };
+    const sid = this.editingActivityId()!;
+    const req = this.buildActivityRequest(f);
+    if (!req) return;
     this.scopeSaving.set(true);
     this.saveError.set(null);
-    this.svc.updateComponentScopes(this.projectId, comp.id, req).subscribe({
+    this.svc.updateScope(this.projectId, comp.id, sid, req).subscribe({
       next: updated => {
         this.scopeComponents.update(list => list.map(c =>
-          c.id === comp.id ? { ...c, ...updated, scopes: updated.scopes ?? c.scopes } : c
+          c.id === comp.id
+            ? { ...c, scopes: c.scopes.map(a => a.id === sid ? { ...a, ...updated } : a) }
+            : c
         ));
         this.editingActivityId.set(null);
+        this.editActivityCompId.set(null);
         this.scopeSaving.set(false);
       },
-      error: (err) => {
-        this.saveError.set(err?.error?.message ?? 'Error al guardar. Verifica los porcentajes.');
+      error: err => {
+        this.saveError.set(err?.error?.message ?? 'Error al guardar. Verifica los datos.');
         this.scopeSaving.set(false);
       },
     });
   }
 
+  // ── Eliminar actividad ───────────────────────────────────────────────────────
+
   deleteActivity(comp: ScopeComponent, actId: string): void {
     if (!confirm('¿Eliminar esta actividad?')) return;
-    this.svc.updateComponentScopes(this.projectId, comp.id, { acts: [{ id: actId, delete: true }] }).subscribe({
-      next: updated => this.scopeComponents.update(list => list.map(c =>
-        c.id === comp.id ? { ...c, ...updated, scopes: updated.scopes ?? c.scopes } : c
+    this.svc.deleteScope(this.projectId, comp.id, actId).subscribe({
+      next: () => this.scopeComponents.update(list => list.map(c =>
+        c.id === comp.id ? { ...c, scopes: c.scopes.filter(a => a.id !== actId) } : c
       )),
+      error: err => this.saveError.set(err?.error?.message ?? 'Error al eliminar la actividad.'),
     });
   }
 
@@ -178,19 +241,14 @@ export class TabAlcanceComponent implements OnInit {
 
   saveNewActivity(comp: ScopeComponent): void {
     const f = this.newActivityForm;
-    if (!f.description.trim() || !f.start_date || !f.end_date) return;
+    // Número de actividad = máximo act existente + 1, o 1 si no hay ninguno
+    const nextAct = comp.scopes.reduce((max, a) => Math.max(max, a.act ?? 0), 0) + 1;
+    f.act = nextAct;
+    const req = this.buildActivityRequest(f);
+    if (!req) return;
     this.scopeSaving.set(true);
     this.saveError.set(null);
-    this.svc.createScope(this.projectId, comp.id, {
-      act:         f.act ?? 1,
-      description: f.description,
-      percentage:  f.percentage ?? 0,
-      start_date:  `${f.start_date}T00:00:00Z`,
-      end_date:    `${f.end_date}T00:00:00Z`,
-      start_plan:  f.start_plan,
-      responsible: f.responsible || null,
-      objective:   f.objective   || null,
-    }).subscribe({
+    this.svc.createScope(this.projectId, comp.id, req).subscribe({
       next: newAct => {
         this.scopeComponents.update(list => list.map(c =>
           c.id === comp.id ? { ...c, scopes: [...c.scopes, newAct] } : c
@@ -198,61 +256,35 @@ export class TabAlcanceComponent implements OnInit {
         this.addingActivityToCompId.set(null);
         this.scopeSaving.set(false);
       },
-      error: (err) => {
-        this.saveError.set(err?.error?.message ?? 'Error al guardar. Verifica que el % del componente no supere 100.');
-        this.scopeSaving.set(false);
-      },
-    });
-  }
-
-  // ── Editar nombre de componente ──────────────────────────────────────────────
-
-  startEditCompName(comp: ScopeComponent): void {
-    this.editingCompId.set(comp.id);
-    this.editingCompName.set(comp.name);
-  }
-
-  saveCompName(comp: ScopeComponent): void {
-    const name = this.editingCompName().trim();
-    if (!name) return;
-    this.scopeSaving.set(true);
-    this.svc.updateComponentScopes(this.projectId, comp.id, { name, acts: [] }).subscribe({
-      next: updated => {
-        this.scopeComponents.update(list => list.map(c =>
-          c.id === comp.id ? { ...c, name: updated.name } : c
-        ));
-        this.editingCompId.set(null);
-        this.scopeSaving.set(false);
-      },
-      error: () => this.scopeSaving.set(false),
-    });
-  }
-
-  // ── Nuevo componente ─────────────────────────────────────────────────────────
-
-  saveNewComponent(): void {
-    const name = this.newComponentName().trim();
-    const pct  = this.newComponentPct() ?? 0;
-    if (!name) return;
-    const req: CreateComponentRequest = { component_name: name, component_id: null, percentage: pct, acts: [] };
-    this.scopeSaving.set(true);
-    this.saveError.set(null);
-    this.svc.createComponent(this.projectId, req).subscribe({
-      next: () => {
-        this.addingComponent.set(false);
-        this.newComponentName.set('');
-        this.newComponentPct.set(null);
-        this.load();
-        this.scopeSaving.set(false);
-      },
-      error: (err) => {
-        this.saveError.set(err?.error?.message ?? 'Error al crear. Verifica que la suma de % no supere 100.');
+      error: err => {
+        this.saveError.set(err?.error?.message ?? 'Error al guardar. Verifica que el % no supere 100.');
         this.scopeSaving.set(false);
       },
     });
   }
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
+
+  private buildActivityRequest(f: ActivityFormData): ActivityRequest | null {
+    if (!f.description.trim() || !f.start_date || !f.end_date || !f.objective.trim() || !f.responsible.trim()) return null;
+    const hasActual = !!(f.actual_start_date || f.actual_end_date || f.actual_start_plan !== null);
+    const req: ActivityRequest = {
+      act:         f.act ?? 1,
+      description: f.description.trim(),
+      start_date:  `${f.start_date}T00:00:00Z`,
+      end_date:    `${f.end_date}T00:00:00Z`,
+      start_plan:  f.start_plan ?? 0,
+      objective:   f.objective.trim(),
+      responsible: f.responsible.trim(),
+      percentage:  f.percentage ?? 0,
+    };
+    if (hasActual) {
+      req.actual_start_date = f.actual_start_date ? `${f.actual_start_date}T00:00:00Z` : null;
+      req.actual_end_date   = f.actual_end_date   ? `${f.actual_end_date}T00:00:00Z`   : null;
+      req.actual_start_plan = f.actual_start_plan;
+    }
+    return req;
+  }
 
   totalActivities(): number {
     return this.scopeComponents().reduce((s, c) => s + (c.scopes?.length ?? 0), 0);

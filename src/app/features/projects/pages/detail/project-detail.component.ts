@@ -7,6 +7,7 @@ import { TabResumenComponent }    from './tabs/tab-resumen/tab-resumen.component
 import { TabAlcanceComponent }    from './tabs/tab-alcance/tab-alcance.component';
 import { TabCronogramaComponent } from './tabs/tab-cronograma/tab-cronograma.component';
 import { TabPresupuestoComponent } from './tabs/tab-presupuesto/tab-presupuesto.component';
+import { TabSeguimientoTecnicoComponent } from './tabs/tab-seguimiento-tecnico/tab-seguimiento-tecnico.component';
 
 @Component({
   selector: 'app-project-detail',
@@ -17,6 +18,7 @@ import { TabPresupuestoComponent } from './tabs/tab-presupuesto/tab-presupuesto.
     TabAlcanceComponent,
     TabCronogramaComponent,
     TabPresupuestoComponent,
+    TabSeguimientoTecnicoComponent,
   ],
   templateUrl: './project-detail.component.html',
 })
@@ -36,6 +38,7 @@ export class ProjectDetailComponent implements OnInit {
     { id: 'alcance',      label: 'Alcance'      },
     { id: 'cronograma',   label: 'Cronograma'   },
     { id: 'presupuesto',  label: 'Presupuesto'  },
+    { id: 'seguimiento',  label: 'Seguimiento Técnico' },
     { id: 'recursos',     label: 'Recursos'     },
     { id: 'riesgos',      label: 'Riesgos'      },
     { id: 'entregables',  label: 'Entregables'  },

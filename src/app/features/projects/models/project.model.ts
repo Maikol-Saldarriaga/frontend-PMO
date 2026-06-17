@@ -519,31 +519,32 @@ export interface ProjectComponent {
 // ── Scope / Alcance ──────────────────────────────────────────────────────────
 
 export interface ScopeActivity {
-  id:                   string;
-  contract_agreement_id?: string | null;
-  component_id?:        string | null;
-  act:                  number;
-  description:          string;
-  start_date:           string | null;
-  end_date:             string | null;
-  actual_start_date:    string | null;
-  actual_end_date:      string | null;
-  start_plan:           number | null;
-  plan_duration?:       number | null;
-  actual_start_plan?:   number | null;
+  id:                    string;
+  component_id?:         string | null;
+  act:                   number;
+  description:           string;
+  start_date:            string | null;
+  end_date:              string | null;
+  actual_start_date:     string | null;
+  actual_end_date:       string | null;
+  start_plan:            number | null;
+  plan_duration?:        number | null;
+  actual_start_plan?:    number | null;
   actual_plan_duration?: number | null;
-  objective:            string | null;
-  responsible:          string | null;
-  percentage:           number;
-  progress:             number;
-  number_checks?:       number;
-  is_completed:         boolean;
+  objective:             string | null;
+  responsible:           string | null;
+  percentage:            number;
+  progress:              number;
+  is_completed:          boolean;
+  // budget es asignado desde otro módulo — solo lectura
+  budget?:               number | null;
 }
 
 export interface ScopeComponent {
   id:         string;
   name:       string;
   percentage: number;
+  budget?:    number | null;
   progress:   number;
   scopes:     ScopeActivity[];
 }
@@ -553,42 +554,33 @@ export interface ComponentsActsResponse {
   components:       ScopeComponent[];
 }
 
-export interface ScopeActItem {
-  id:                string | null;
-  act?:              number;
-  description?:      string;
-  percentage?:       number | null;
-  start_date?:       string | null;
-  end_date?:         string | null;
-  start_plan?:       number | null;
-  responsible?:      string | null;
-  objective?:        string | null;
+// POST /projects/{id}/components
+export interface CreateComponentRequest {
+  name:       string;
+  percentage: number;
+  budget?:    number | null;
+}
+
+// PUT /projects/{id}/components/{cid}
+export interface UpdateComponentRequest {
+  name:       string;
+  percentage: number;
+  budget?:    number | null;
+}
+
+// POST or PUT /projects/{id}/components/{cid}/scopes[/{sid}]
+export interface ActivityRequest {
+  act:                number;
+  description:        string;
+  start_date:         string;
+  end_date:           string;
+  start_plan:         number;
+  objective:          string;
+  responsible:        string;
+  percentage:         number;
   actual_start_date?: string | null;
   actual_end_date?:   string | null;
   actual_start_plan?: number | null;
-  delete:            boolean;
-}
-
-export interface UpdateScopeRequest {
-  name?:       string;
-  percentage?: number | null;
-  acts:        ScopeActItem[];
-}
-
-export interface CreateComponentRequest {
-  component_name?: string;
-  component_id?:   string | null;
-  percentage:      number;
-  acts: {
-    act:         number;
-    description: string;
-    percentage:  number;
-    start_date:  string | null;
-    end_date:    string | null;
-    start_plan:  number | null;
-    responsible?: string | null;
-    objective?:   string | null;
-  }[];
 }
 
 export interface ActivityFormData {
@@ -603,6 +595,33 @@ export interface ActivityFormData {
   actual_start_date: string;
   actual_end_date:   string;
   actual_start_plan: number | null;
+}
+
+// ── Snapshots de Seguimiento Técnico ─────────────────────────────────────────
+
+export interface Snapshot {
+  id?:          string;
+  id_scope?:    string;
+  year:         number;
+  month:        number;
+  planned_pct:  number;
+  actual_pct:   number;
+  notes?:       string | null;
+}
+
+export interface SnapshotRequest {
+  year:         number;
+  month:        number;
+  planned_pct:  number;
+  actual_pct:   number;
+  notes?:       string | null;
+}
+
+export interface ProjectSnapshotItem extends Snapshot {
+  scope_id:         string;
+  component_name:   string;
+  act:              number;
+  description:      string;
 }
 
 // ── Budget ────────────────────────────────────────────────────────────────────
