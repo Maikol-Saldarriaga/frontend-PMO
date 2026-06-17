@@ -56,7 +56,8 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
 
   constructor(private svc: ProjectService) {}
 
-  allSnapshots   = signal<ProjectSnapshotItem[]>([]);
+  allSnapshots    = signal<ProjectSnapshotItem[]>([]);
+  countsByScope   = signal<Record<string, number>>({});
   scopeComponents = signal<ScopeComponent[]>([]);
   loading        = signal(true);
   error          = signal<string | null>(null);
@@ -89,8 +90,7 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
   snapshotCount = computed(() => this.allSnapshots().length);
 
   activitiesWithSnaps = computed(() => {
-    const ids = new Set(this.allSnapshots().map(s => s.scope_id));
-    return ids.size;
+    return this.activities().filter(a => this.hasSnap(a.componentName, a.id, a.act)).length;
   });
 
   avgCompliance = computed(() => {
@@ -133,7 +133,11 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
     const check = () => { if (++done === 2) this.loading.set(false); };
 
     this.svc.getProjectSnapshots(this.projectId).subscribe({
-      next:  r => { this.allSnapshots.set(r ?? []); check(); },
+      next:  r => {
+        this.allSnapshots.set(r?.snapshots ?? []);
+        this.countsByScope.set(r?.counts_by_scope ?? {});
+        check();
+      },
       error: () => { this.error.set('No se pudieron cargar los snapshots.'); check(); },
     });
 
@@ -284,7 +288,14 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
     return 'bg-red-400';
   }
 
-  hasSnap(actId: string): boolean {
-    return this.allSnapshots().some(s => s.scope_id === actId);
+  /** counts_by_scope ya viene correctamente indexado por scope_id real; se respalda con componente+acto si llegara a faltar. */
+  hasSnap(componentName: string, actId: string, act: number): boolean {
+    return this.snapCount(componentName, actId, act) > 0;
+  }
+
+  snapCount(componentName: string, actId: string, act: number): number {
+    const direct = this.countsByScope()[actId];
+    if (direct !== undefined) return direct;
+    return this.allSnapshots().filter(s => s.component_name === componentName && s.act === act).length;
   }
 }

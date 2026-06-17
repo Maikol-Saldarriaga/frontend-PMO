@@ -87,8 +87,8 @@ export class Step1GeneralInfoComponent implements OnInit, OnChanges {
       this.showWorkerOrder.set(!!val);
       this.applyWorkerOrderValidator(!!val);
       if (!val) {
-        this.form.patchValue({ worker_order: '', project_code: '', project_name: '' }, { emitEvent: false });
-        ['worker_order', 'project_code', 'project_name'].forEach(f => {
+        this.form.patchValue({ worker_order: '', project_code: '' }, { emitEvent: false });
+        ['worker_order', 'project_code'].forEach(f => {
           this.form.get(f)?.markAsUntouched();
           this.form.get(f)?.markAsPristine();
         });

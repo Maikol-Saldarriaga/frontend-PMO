@@ -38,8 +38,12 @@ import {
   ActivityRequest,
   Snapshot,
   SnapshotRequest,
-  ProjectSnapshotItem,
+  ProjectSnapshotsResponse,
   ScopeSnapshotsResponse,
+  Risk,
+  RiskRequest,
+  RiskTrackingItem,
+  RiskTrackingRequest,
 } from '../models/project.model';
 
 export interface ProjectFilters {
@@ -185,8 +189,8 @@ export class ProjectService {
     return this.http.delete<void>(ENDPOINTS.projects.scopeById(id, cid, sid));
   }
 
-  getProjectSnapshots(id: string): Observable<ProjectSnapshotItem[]> {
-    return this.http.get<ProjectSnapshotItem[]>(ENDPOINTS.projects.snapshots(id));
+  getProjectSnapshots(id: string): Observable<ProjectSnapshotsResponse> {
+    return this.http.get<ProjectSnapshotsResponse>(ENDPOINTS.projects.snapshots(id));
   }
 
   getScopeSnapshots(id: string, sid: string): Observable<ScopeSnapshotsResponse> {
@@ -195,6 +199,30 @@ export class ProjectService {
 
   upsertSnapshot(id: string, sid: string, data: SnapshotRequest): Observable<Snapshot> {
     return this.http.put<Snapshot>(ENDPOINTS.projects.scopeSnapshot(id, sid), data);
+  }
+
+  getRisks(id: string): Observable<Risk[]> {
+    return this.http.get<Risk[]>(ENDPOINTS.projects.risks(id));
+  }
+
+  createRisk(id: string, data: RiskRequest): Observable<Risk> {
+    return this.http.post<Risk>(ENDPOINTS.projects.risks(id), data);
+  }
+
+  updateRisk(id: string, rid: string, data: RiskRequest): Observable<Risk> {
+    return this.http.put<Risk>(ENDPOINTS.projects.riskById(id, rid), data);
+  }
+
+  deleteRisk(id: string, rid: string): Observable<void> {
+    return this.http.delete<void>(ENDPOINTS.projects.riskById(id, rid));
+  }
+
+  getRiskTracking(id: string, rid: string): Observable<RiskTrackingItem[]> {
+    return this.http.get<RiskTrackingItem[]>(ENDPOINTS.projects.riskTracking(id, rid));
+  }
+
+  upsertRiskTracking(id: string, rid: string, data: RiskTrackingRequest): Observable<RiskTrackingItem> {
+    return this.http.put<RiskTrackingItem>(ENDPOINTS.projects.riskTracking(id, rid), data);
   }
 
 }

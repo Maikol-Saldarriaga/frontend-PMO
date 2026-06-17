@@ -102,10 +102,10 @@
               <span class="shrink-0 mt-0.5 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold"
                 [class.bg-sky-500]="selectedActivity()?.id === act.id"
                 [class.text-white]="selectedActivity()?.id === act.id"
-                [class.bg-gray-100]="selectedActivity()?.id !== act.id && !hasSnap(act.id)"
-                [class.text-gray-500]="selectedActivity()?.id !== act.id && !hasSnap(act.id)"
-                [class.bg-emerald-100]="selectedActivity()?.id !== act.id && hasSnap(act.id)"
-                [class.text-emerald-600]="selectedActivity()?.id !== act.id && hasSnap(act.id)">
+                [class.bg-gray-100]="selectedActivity()?.id !== act.id && !hasSnap(comp.name, act.id, act.act)"
+                [class.text-gray-500]="selectedActivity()?.id !== act.id && !hasSnap(comp.name, act.id, act.act)"
+                [class.bg-emerald-100]="selectedActivity()?.id !== act.id && hasSnap(comp.name, act.id, act.act)"
+                [class.text-emerald-600]="selectedActivity()?.id !== act.id && hasSnap(comp.name, act.id, act.act)">
                 {{ act.act }}
               </span>
               <div class="flex-1 min-w-0">
@@ -114,8 +114,8 @@
                   [class.text-gray-700]="selectedActivity()?.id !== act.id">
                   {{ act.description }}
                 </p>
-                @if (hasSnap(act.id)) {
-                  <span class="text-[10px] text-emerald-500 font-medium">con registros</span>
+                @if (hasSnap(comp.name, act.id, act.act)) {
+                  <span class="text-[10px] text-emerald-500 font-medium">{{ snapCount(comp.name, act.id, act.act) }} registro{{ snapCount(comp.name, act.id, act.act) !== 1 ? 's' : '' }}</span>
                 } @else {
                   <span class="text-[10px] text-gray-300">sin registros</span>
                 }

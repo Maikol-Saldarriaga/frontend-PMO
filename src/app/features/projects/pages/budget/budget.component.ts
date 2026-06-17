@@ -176,6 +176,12 @@ export class BudgetComponent implements OnInit {
       return;
     }
 
+    const aportes = (row.counterpart_contribution ?? 0) + (row.ally_contribution ?? 0);
+    if (aportes > row.total_value) {
+      row.rowError = `Los aportes (${this.formatCurrency(aportes)}) no pueden superar el total del presupuesto (${this.formatCurrency(row.total_value)}).`;
+      return;
+    }
+
     row.rowError = null;
     row.saving = true;
 

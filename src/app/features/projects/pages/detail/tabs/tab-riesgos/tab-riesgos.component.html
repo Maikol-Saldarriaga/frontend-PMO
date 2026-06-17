@@ -1,0 +1,376 @@
+<!-- ══ LOADING ══════════════════════════════════════════════════════════════ -->
+@if (loading()) {
+  <div class="flex items-center justify-center py-32">
+    <div class="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+  </div>
+} @else if (error()) {
+  <div class="m-6 p-4 rounded-xl bg-red-50 border border-red-100 text-sm text-red-600">{{ error() }}</div>
+} @else {
+
+<!-- ══ KPI CARDS ════════════════════════════════════════════════════════════ -->
+<div class="px-4 grid grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
+
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-center gap-3">
+    <div class="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center shrink-0">
+      <svg class="w-5 h-5 text-violet-500" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+    </div>
+    <div>
+      <p class="text-2xl font-bold text-gray-900 leading-none">{{ totalRisks() }}</p>
+      <p class="text-xs text-gray-400 mt-0.5">Riesgos registrados</p>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-2xl border border-red-100 shadow-sm p-4 flex items-center gap-3">
+    <div class="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
+      <span class="text-sm font-black text-red-600">E</span>
+    </div>
+    <div>
+      <p class="text-2xl font-bold text-red-600 leading-none">{{ byLevel().E }}</p>
+      <p class="text-xs text-gray-400 mt-0.5">Extremo</p>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-2xl border border-orange-100 shadow-sm p-4 flex items-center gap-3">
+    <div class="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center shrink-0">
+      <span class="text-sm font-black text-orange-600">A</span>
+    </div>
+    <div>
+      <p class="text-2xl font-bold text-orange-600 leading-none">{{ byLevel().A }}</p>
+      <p class="text-xs text-gray-400 mt-0.5">Alto</p>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-2xl border border-amber-100 shadow-sm p-4 flex items-center gap-3">
+    <div class="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
+      <span class="text-sm font-black text-amber-600">M</span>
+    </div>
+    <div>
+      <p class="text-2xl font-bold text-amber-600 leading-none">{{ byLevel().M }}</p>
+      <p class="text-xs text-gray-400 mt-0.5">Medio</p>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-2xl border border-emerald-100 shadow-sm p-4 flex items-center gap-3">
+    <div class="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
+      <span class="text-sm font-black text-emerald-600">B</span>
+    </div>
+    <div>
+      <p class="text-2xl font-bold text-emerald-600 leading-none">{{ byLevel().B }}</p>
+      <p class="text-xs text-gray-400 mt-0.5">Bajo</p>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SPLIT LAYOUT ═════════════════════════════════════════════════════════ -->
+<div class="px-4 pb-8 flex gap-4 items-start">
+
+  <!-- ── LEFT: lista de riesgos ───────────────────────────────────────────── -->
+  <div class="w-[380px] shrink-0 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+    <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-2">
+      <div class="flex items-center gap-2">
+        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <span class="text-sm font-semibold text-gray-700">Matriz de riesgos</span>
+      </div>
+      @if (!showForm()) {
+        <button (click)="openNewForm()"
+          class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-600 text-white text-xs font-semibold transition-colors">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+          </svg>
+          Nuevo
+        </button>
+      }
+    </div>
+
+    @if (risks().length === 0) {
+      <p class="text-sm text-gray-400 text-center py-10 px-4">Sin riesgos registrados.</p>
+    } @else {
+      <div class="overflow-y-auto max-h-[calc(100vh-340px)] divide-y divide-gray-50">
+        @for (risk of risks(); track trackByRisk($index, risk)) {
+          <button (click)="selectRisk(risk)"
+            class="w-full text-left px-4 py-3 flex items-start gap-2.5 transition-colors"
+            [class.bg-sky-50]="selectedRisk()?.id === risk.id"
+            [class.hover:bg-gray-50]="selectedRisk()?.id !== risk.id">
+            <span class="shrink-0 mt-0.5 w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-black border"
+              [class]="riskLevelClasses(risk.risk_level)">
+              {{ risk.risk_level }}
+            </span>
+            <div class="flex-1 min-w-0">
+              <p class="text-xs font-medium leading-tight line-clamp-2"
+                [class.text-sky-700]="selectedRisk()?.id === risk.id"
+                [class.text-gray-700]="selectedRisk()?.id !== risk.id">
+                {{ risk.description }}
+              </p>
+              <div class="flex items-center gap-1.5 mt-1 flex-wrap">
+                @if (risk.zone) {
+                  <span class="text-[10px] text-gray-400">{{ risk.zone }}</span>
+                }
+                @if (risk.responsible) {
+                  <span class="text-[10px] text-gray-300">· {{ risk.responsible }}</span>
+                }
+              </div>
+            </div>
+          </button>
+        }
+      </div>
+    }
+  </div>
+
+  <!-- ── RIGHT: detalle / formulario / seguimiento ────────────────────────── -->
+  <div class="flex-1 min-w-0">
+
+    <!-- ── FORMULARIO CREAR/EDITAR RIESGO ───────────────────────────────── -->
+    @if (showForm()) {
+      <div class="bg-white rounded-2xl border border-sky-100 shadow-sm p-5 mb-4">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-sm font-bold text-gray-800">{{ editingRisk() ? 'Editar riesgo' : 'Nuevo riesgo' }}</h3>
+          <button (click)="cancelForm()" class="text-gray-400 hover:text-gray-600 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="space-y-3 mb-3">
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Descripción <span class="text-red-400">*</span></label>
+            <textarea [(ngModel)]="form.description" rows="2" placeholder="Describe el riesgo identificado..."
+              class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 resize-none focus:outline-none focus:ring-2 focus:ring-sky-300"></textarea>
+          </div>
+
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 mb-1">Probabilidad <span class="text-red-400">*</span></label>
+              <select [(ngModel)]="form.probability"
+                class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-sky-300">
+                <option value="" disabled>Selecciona</option>
+                @for (o of PROBABILITY_OPTIONS; track o.value) {
+                  <option [value]="o.value">{{ o.label }} ({{ o.score }})</option>
+                }
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 mb-1">Impacto <span class="text-red-400">*</span></label>
+              <select [(ngModel)]="form.impact"
+                class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-sky-300">
+                <option value="" disabled>Selecciona</option>
+                @for (o of IMPACT_OPTIONS; track o.value) {
+                  <option [value]="o.value">{{ o.label }} ({{ o.score }})</option>
+                }
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 mb-1">Zona <span class="text-gray-300">(opcional)</span></label>
+              <input type="text" [(ngModel)]="form.zone" placeholder="Municipio / zona"
+                class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-sky-300"/>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 mb-1">Responsable <span class="text-gray-300">(opcional)</span></label>
+              <input type="text" [(ngModel)]="form.responsible" placeholder="Responsable del seguimiento"
+                class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-sky-300"/>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Plan de contingencia <span class="text-gray-300">(opcional)</span></label>
+            <textarea [(ngModel)]="form.contingency_plan" rows="2" placeholder="Plan propuesto ante la materialización del riesgo..."
+              class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 resize-none focus:outline-none focus:ring-2 focus:ring-sky-300"></textarea>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Evidencia <span class="text-gray-300">(opcional)</span></label>
+            <input type="text" [(ngModel)]="form.evidence" placeholder="Soporte o evidencia que respalda el plan"
+              class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-sky-300"/>
+          </div>
+        </div>
+
+        @if (saveError()) {
+          <p class="text-xs text-red-500 mb-3">{{ saveError() }}</p>
+        }
+
+        <div class="flex items-center gap-2">
+          <button (click)="saveRisk()" [disabled]="saving()"
+            class="flex items-center gap-2 px-5 py-2 rounded-xl bg-sky-500 hover:bg-sky-600 disabled:opacity-50 text-white text-sm font-semibold transition-colors">
+            @if (saving()) {
+              <div class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+            }
+            Guardar riesgo
+          </button>
+          <button (click)="cancelForm()" class="px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-500 hover:bg-gray-50 transition-colors">Cancelar</button>
+        </div>
+      </div>
+    }
+
+    @if (!selectedRisk() && !showForm()) {
+      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center justify-center py-24 gap-3">
+        <div class="w-16 h-16 rounded-2xl bg-gray-50 flex items-center justify-center">
+          <svg class="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </div>
+        <p class="text-sm font-semibold text-gray-400">Selecciona un riesgo</p>
+        <p class="text-xs text-gray-300">para ver o registrar su seguimiento mensual</p>
+      </div>
+    }
+
+    @if (selectedRisk() && !showForm()) {
+      <!-- header riesgo -->
+      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4">
+        <div class="flex items-start justify-between gap-4">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 mb-1.5">
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border"
+                [class]="riskLevelClasses(selectedRisk()!.risk_level)">
+                Nivel {{ riskLevelLabel(selectedRisk()!.risk_level) }}
+              </span>
+              @if (selectedRisk()!.zone) {
+                <span class="text-[10px] text-gray-400">{{ selectedRisk()!.zone }}</span>
+              }
+            </div>
+            <h2 class="text-sm font-bold text-gray-900 leading-snug">{{ selectedRisk()!.description }}</h2>
+            <div class="flex items-center gap-3 mt-2 flex-wrap text-xs text-gray-500">
+              <span>Probabilidad: <strong class="text-gray-700">{{ probabilityLabel(selectedRisk()!.probability) }}</strong></span>
+              <span>Impacto: <strong class="text-gray-700">{{ impactLabel(selectedRisk()!.impact) }}</strong></span>
+              @if (selectedRisk()!.responsible) {
+                <span>Responsable: <strong class="text-gray-700">{{ selectedRisk()!.responsible }}</strong></span>
+              }
+            </div>
+            @if (selectedRisk()!.contingency_plan) {
+              <p class="text-xs text-gray-500 mt-2"><span class="font-semibold text-gray-600">Plan de contingencia:</span> {{ selectedRisk()!.contingency_plan }}</p>
+            }
+            @if (selectedRisk()!.evidence) {
+              <p class="text-xs text-gray-500 mt-1"><span class="font-semibold text-gray-600">Evidencia:</span> {{ selectedRisk()!.evidence }}</p>
+            }
+          </div>
+          <div class="shrink-0 flex items-center gap-2">
+            <button (click)="openEditForm(selectedRisk()!)"
+              class="p-2 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+              </svg>
+            </button>
+            <button (click)="deleteRisk(selectedRisk()!)"
+              class="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+              </svg>
+            </button>
+            @if (!showTrackingForm()) {
+              <button (click)="openNewTrackingForm()"
+                class="flex items-center gap-2 px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-600 text-white text-sm font-semibold transition-colors shadow-sm shadow-sky-200">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+                </svg>
+                Registrar mes
+              </button>
+            }
+          </div>
+        </div>
+      </div>
+
+      <!-- ── FORMULARIO SEGUIMIENTO ─────────────────────────────────────── -->
+      @if (showTrackingForm()) {
+        <div class="bg-white rounded-2xl border border-sky-100 shadow-sm p-5 mb-4">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-sm font-bold text-gray-800">{{ editingTracking() ? 'Editar seguimiento' : 'Registrar seguimiento mensual' }}</h3>
+            <button (click)="cancelTrackingForm()" class="text-gray-400 hover:text-gray-600 transition-colors">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 mb-1">Año <span class="text-red-400">*</span></label>
+              <select [(ngModel)]="trackingForm.year"
+                class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-sky-300">
+                @for (y of YEARS; track y) { <option [value]="y">{{ y }}</option> }
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 mb-1">Mes <span class="text-red-400">*</span></label>
+              <select [(ngModel)]="trackingForm.month"
+                class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-sky-300">
+                @for (m of MONTHS; track m.val) { <option [value]="m.val">{{ m.label }}</option> }
+              </select>
+            </div>
+            <div class="md:col-span-2">
+              <label class="block text-xs font-semibold text-gray-500 mb-1">Estado <span class="text-red-400">*</span></label>
+              <select [(ngModel)]="trackingForm.status"
+                class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-sky-300">
+                @for (o of STATUS_OPTIONS; track o.value) { <option [value]="o.value">{{ o.label }}</option> }
+              </select>
+            </div>
+          </div>
+
+          <div class="mb-4">
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Observaciones <span class="text-gray-300">(opcional)</span></label>
+            <textarea [(ngModel)]="trackingForm.notes" rows="2" placeholder="Novedades del período..."
+              class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 resize-none focus:outline-none focus:ring-2 focus:ring-sky-300"></textarea>
+          </div>
+
+          @if (trackingSaveError()) {
+            <p class="text-xs text-red-500 mb-3">{{ trackingSaveError() }}</p>
+          }
+
+          <div class="flex items-center gap-2">
+            <button (click)="saveTracking()" [disabled]="trackingSaving()"
+              class="flex items-center gap-2 px-5 py-2 rounded-xl bg-sky-500 hover:bg-sky-600 disabled:opacity-50 text-white text-sm font-semibold transition-colors">
+              @if (trackingSaving()) {
+                <div class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              }
+              Guardar seguimiento
+            </button>
+            <button (click)="cancelTrackingForm()" class="px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-500 hover:bg-gray-50 transition-colors">Cancelar</button>
+          </div>
+        </div>
+      }
+
+      <!-- ── HISTORIAL DE SEGUIMIENTO ───────────────────────────────────── -->
+      @if (trackingLoading()) {
+        <div class="flex items-center justify-center py-12">
+          <div class="w-6 h-6 border-4 border-sky-400 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      } @else if (tracking().length === 0) {
+        <div class="bg-white rounded-2xl border border-dashed border-gray-200 flex flex-col items-center justify-center py-16 gap-2">
+          <p class="text-sm text-gray-400 font-medium">Sin seguimiento registrado</p>
+          <p class="text-xs text-gray-300">Haz clic en "Registrar mes" para agregar el primer seguimiento</p>
+        </div>
+      } @else {
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+            <p class="text-sm font-bold text-gray-700">Historial de seguimiento</p>
+            <span class="text-xs text-gray-400">{{ tracking().length }} registro{{ tracking().length !== 1 ? 's' : '' }}</span>
+          </div>
+          <div class="divide-y divide-gray-50">
+            @for (t of tracking(); track trackByTracking($index, t)) {
+              <div class="px-5 py-3 flex items-center gap-4 flex-wrap">
+                <div class="w-16 shrink-0 text-center">
+                  <p class="text-sm font-bold text-gray-800">{{ monthLabel(t.month) }}</p>
+                  <p class="text-xs text-gray-400">{{ t.year }}</p>
+                </div>
+                <span class="px-2.5 py-1 rounded-full text-xs font-semibold border shrink-0" [class]="statusClasses(t.status)">
+                  {{ statusLabel(t.status) }}
+                </span>
+                <p class="flex-1 text-xs text-gray-500 min-w-[150px]">{{ t.notes || '—' }}</p>
+                <button (click)="openEditTrackingForm(t)"
+                  class="shrink-0 p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                  </svg>
+                </button>
+              </div>
+            }
+          </div>
+        </div>
+      }
+    }
+  </div>
+</div>
+
+}

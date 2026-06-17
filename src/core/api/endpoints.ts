@@ -28,6 +28,9 @@ export const ENDPOINTS = {
     snapshots:         (id: string) => `${API_URL}/projects/${id}/snapshots`,
     scopeSnapshots:    (id: string, sid: string) => `${API_URL}/projects/${id}/scopes/${sid}/snapshots`,
     scopeSnapshot:     (id: string, sid: string) => `${API_URL}/projects/${id}/scopes/${sid}/snapshot`,
+    risks:             (id: string) => `${API_URL}/projects/${id}/risks`,
+    riskById:          (id: string, rid: string) => `${API_URL}/projects/${id}/risks/${rid}`,
+    riskTracking:      (id: string, rid: string) => `${API_URL}/projects/${id}/risks/${rid}/tracking`,
   },
   contracts: {
     list:           `${API_URL}/contracts`,

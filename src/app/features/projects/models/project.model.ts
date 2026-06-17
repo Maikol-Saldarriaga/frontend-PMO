@@ -472,6 +472,7 @@ export interface GanttSummaryItem {
   progress:          number;   // avance acumulado por snapshots (0–100)
   responsible:       string | null;
   is_completed:      boolean;
+  snapshots?:        Snapshot[]; // períodos individuales — pendiente que el backend lo agregue aquí (ya existe en GanttActivity)
 }
 
 export interface ProjectDetails {
@@ -623,6 +624,60 @@ export interface ProjectSnapshotItem extends Snapshot {
   component_name:   string;
   act:              number;
   description:      string;
+}
+
+export interface ProjectSnapshotsResponse {
+  snapshots:        ProjectSnapshotItem[];
+  counts_by_scope:  Record<string, number>;
+}
+
+// ── Riesgos ───────────────────────────────────────────────────────────────────
+
+export type RiskProbability = 'casi_seguro' | 'probable' | 'posible' | 'raro' | 'improbable';
+export type RiskImpact      = 'catastrofico' | 'mayor' | 'moderado' | 'menor' | 'leve';
+export type RiskLevel       = 'E' | 'A' | 'M' | 'B';
+export type RiskTrackingStatus = 'pending' | 'materialized' | 'mitigated' | 'closed';
+
+export interface RiskRequest {
+  description:       string;
+  zone?:             string | null;
+  probability:       RiskProbability;
+  impact:            RiskImpact;
+  contingency_plan?: string | null;
+  evidence?:         string | null;
+  responsible?:      string | null;
+}
+
+export interface Risk {
+  id:                     string;
+  id_company:             string;
+  id_contract_agreement:  string;
+  description:            string;
+  zone:                   string | null;
+  probability:            RiskProbability;
+  impact:                 RiskImpact;
+  risk_level:             RiskLevel;
+  contingency_plan:       string | null;
+  evidence:               string | null;
+  responsible:            string | null;
+  created_at:             string;
+}
+
+export interface RiskTrackingRequest {
+  year:    number;
+  month:   number;
+  status:  RiskTrackingStatus;
+  notes?:  string | null;
+}
+
+export interface RiskTrackingItem {
+  id:         string;
+  id_company: string;
+  id_risk:    string;
+  year:       number;
+  month:      number;
+  status:     RiskTrackingStatus;
+  notes:      string | null;
 }
 
 export interface ScopeSnapshotsResponse {

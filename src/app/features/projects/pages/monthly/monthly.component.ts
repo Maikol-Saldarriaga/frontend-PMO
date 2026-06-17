@@ -6,17 +6,19 @@ import { ProjectService } from '../../services/project.service';
 import { BudgetMonthlyDistribution, BudgetWizardScope } from '../../models/project.model';
 
 export interface MonthlyRow {
-  scope_id:      string;
-  act:           number;
-  description:   string;
-  budget_id:     string | null;
-  concept:       string;
-  distributions: BudgetMonthlyDistribution[];
-  expanded:      boolean;
-  dirty:         boolean;
-  saving:        boolean;
-  rowError:      string | null;
-  rowSuccess:    boolean;
+  scope_id:          string;
+  act:               number;
+  description:       string;
+  budget_id:         string | null;
+  concept:           string;
+  counterpartCap:    number;
+  allyCap:           number;
+  distributions:     BudgetMonthlyDistribution[];
+  expanded:          boolean;
+  dirty:             boolean;
+  saving:            boolean;
+  rowError:          string | null;
+  rowSuccess:        boolean;
 }
 
 export interface MonthlySection {
@@ -59,6 +61,8 @@ export class MonthlyComponent implements OnInit {
             description:   scope.description,
             budget_id:     scope.budget?.id ?? null,
             concept:       scope.budget?.concept ?? '',
+            counterpartCap: scope.budget?.counterpart_contribution ?? 0,
+            allyCap:        scope.budget?.ally_contribution        ?? 0,
             distributions: [...(scope.budget?.monthly_distributions ?? [])],
             expanded:      false,
             dirty:         false,
@@ -98,6 +102,18 @@ export class MonthlyComponent implements OnInit {
 
   saveRow(row: MonthlyRow): void {
     if (!row.budget_id || !row.dirty || row.saving) return;
+
+    const totalCP   = this.distTotalCP(row);
+    const totalAlly = this.distTotalAlly(row);
+    if (totalCP > row.counterpartCap) {
+      row.rowError = `La contrapartida mensual (${this.formatCurrency(totalCP)}) no puede superar el total asignado (${this.formatCurrency(row.counterpartCap)}).`;
+      return;
+    }
+    if (totalAlly > row.allyCap) {
+      row.rowError = `El aporte aliado mensual (${this.formatCurrency(totalAlly)}) no puede superar el total asignado (${this.formatCurrency(row.allyCap)}).`;
+      return;
+    }
+
     row.saving = true; row.rowError = null;
 
     this.service.saveMonthlyBulk(this.projectId, row.budget_id, {

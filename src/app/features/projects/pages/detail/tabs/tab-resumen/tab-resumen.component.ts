@@ -1,6 +1,6 @@
 import { Component, Input, Output, EventEmitter, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ProjectDetails, ProjectComponentDistribution, ProjectMonthlyContribution, GanttSummaryItem } from '../../../../models/project.model';
+import { ProjectDetails, ProjectComponentDistribution, ProjectMonthlyContribution, GanttSummaryItem, Snapshot } from '../../../../models/project.model';
 
 const PALETTE = ['#0EA5E9','#10B981','#F59E0B','#EF4444','#8B5CF6','#EC4899','#14B8A6','#F97316'];
 
@@ -56,6 +56,32 @@ export class TabResumenComponent {
     const end   = g.end_date   ? Math.min(new Date(g.end_date).getTime(), yearEnd)     : yearEnd;
     return { left: Math.max(0, (start - yearStart) / total * 100), width: Math.max(1, (end - start) / total * 100) };
   }
+
+  /** Posición/ancho de un período (snapshot) dentro del año en curso — mismo criterio que Cronograma. */
+  periodBar(snap: Snapshot): { left: number; width: number } {
+    const year = new Date().getFullYear();
+    const yearStart = new Date(year, 0, 1).getTime();
+    const yearEnd   = new Date(year, 11, 31).getTime();
+    const total = yearEnd - yearStart;
+    const start = new Date(snap.start_date).getTime();
+    const end   = new Date(snap.end_date).getTime();
+    if (end < yearStart || start > yearEnd) return { left: 0, width: 0 };
+    const clampedStart = Math.max(start, yearStart);
+    const clampedEnd   = Math.min(end, yearEnd);
+    return {
+      left:  Math.max(0, Math.min(100, (clampedStart - yearStart) / total * 100)),
+      width: Math.max(0.5, Math.min(100 - (clampedStart - yearStart) / total * 100, (clampedEnd - clampedStart) / total * 100)),
+    };
+  }
+
+  /** Color del período: rojo atrasado, verde a tiempo, morado si hay exceso (mismo criterio que Cronograma/Seguimiento Técnico). */
+  periodFillColor(snap: Snapshot): string {
+    if (snap.actual_pct > snap.planned_pct) return '#A855F7';
+    if (snap.actual_pct === snap.planned_pct) return '#10B981';
+    return '#F87171';
+  }
+
+  trackBySnap(_: number, s: Snapshot) { return s.start_date + s.end_date; }
 
   formatCompact(v: number): string {
     if (v >= 1_000_000_000) return `$${(v / 1_000_000_000).toFixed(1)}B`;

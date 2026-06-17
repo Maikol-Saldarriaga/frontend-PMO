@@ -80,7 +80,7 @@
       </div>
       <div class="flex-1 min-w-0">
         <p class="text-xl font-black text-gray-900 leading-none">
-          {{ projectProgress() }}<span class="text-sm font-semibold text-gray-400">%</span>
+          {{ projectProgress() | number:'1.0-2' }}<span class="text-sm font-semibold text-gray-400">%</span>
         </p>
         <p class="text-[11px] text-gray-400 mt-0.5">Avance proyecto</p>
         <div class="h-1 rounded-full bg-gray-100 overflow-hidden mt-1.5">
@@ -229,7 +229,7 @@
                   transform="rotate(-90 22 22)"/>
                 <text x="22" y="26" text-anchor="middle"
                   [attr.fill]="comp.progress >= 100 ? '#059669' : '#0284C7'"
-                  font-size="9" font-weight="700">{{ comp.progress }}%</text>
+                  font-size="9" font-weight="700">{{ comp.progress | number:'1.0-2' }}%</text>
               </svg>
               <span class="text-[9px] text-gray-400 font-medium leading-none">Avance</span>
             </div>
@@ -398,7 +398,7 @@
                             [class.text-emerald-600]="act.is_completed"
                             [class.text-sky-600]="!act.is_completed && act.progress > 0"
                             [class.text-gray-400]="!act.is_completed && act.progress === 0">
-                            {{ act.progress | number:'1.0-1' }}%
+                            {{ act.progress | number:'1.0-2' }}%
                           </span>
                           <div class="w-16 h-1.5 rounded-full bg-gray-100 overflow-hidden">
                             <div class="h-full rounded-full transition-all duration-500"

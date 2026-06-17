@@ -135,7 +135,11 @@
   <app-tab-seguimiento-tecnico [projectId]="projectId" />
 }
 
-@if (activeTab() !== 'resumen' && activeTab() !== 'alcance' && activeTab() !== 'cronograma' && activeTab() !== 'presupuesto' && activeTab() !== 'seguimiento') {
+@if (activeTab() === 'riesgos') {
+  <app-tab-riesgos [projectId]="projectId" />
+}
+
+@if (activeTab() !== 'resumen' && activeTab() !== 'alcance' && activeTab() !== 'cronograma' && activeTab() !== 'presupuesto' && activeTab() !== 'seguimiento' && activeTab() !== 'riesgos') {
   <div class="px-6 py-20">
     <div class="bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center justify-center py-20 gap-3">
       <div class="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center">

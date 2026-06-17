@@ -205,8 +205,16 @@
                           <tfoot>
                             <tr class="bg-neutral-50 border-t-2 border-neutral-200">
                               <td colspan="2" class="px-5 py-2.5 text-[10px] font-bold text-neutral-500 uppercase">Total distribuido</td>
-                              <td class="px-3 py-2.5 text-right text-xs font-bold text-accent">{{ formatCurrency(distTotalCP(row)) }}</td>
-                              <td class="px-3 py-2.5 text-right text-xs font-bold text-success">{{ formatCurrency(distTotalAlly(row)) }}</td>
+                              <td class="px-3 py-2.5 text-right text-xs font-bold"
+                                [class.text-accent]="distTotalCP(row) <= row.counterpartCap"
+                                [class.text-danger]="distTotalCP(row) > row.counterpartCap">
+                                {{ formatCurrency(distTotalCP(row)) }} <span class="text-[10px] text-neutral-400 font-normal">/ {{ formatCurrency(row.counterpartCap) }}</span>
+                              </td>
+                              <td class="px-3 py-2.5 text-right text-xs font-bold"
+                                [class.text-success]="distTotalAlly(row) <= row.allyCap"
+                                [class.text-danger]="distTotalAlly(row) > row.allyCap">
+                                {{ formatCurrency(distTotalAlly(row)) }} <span class="text-[10px] text-neutral-400 font-normal">/ {{ formatCurrency(row.allyCap) }}</span>
+                              </td>
                               <td class="px-3 py-2.5 text-right text-xs font-bold text-primary-600">{{ formatCurrency(distTotalExecuted(row)) }}</td>
                               <td class="px-3 py-2.5 text-right text-xs font-bold text-neutral-600">{{ formatCurrency(distTotalBilled(row)) }}</td>
                               <td></td>
