@@ -23,6 +23,213 @@
   text-transform: capitalize;
 }
 
+// ── Tabs ──────────────────────────────────────
+.tabs-bar {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 1px solid $color-border;
+  margin-bottom: 1.5rem;
+}
+
+.tab-btn {
+  padding: 0.65rem 1.1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: $color-neutral-500;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+
+  &:hover { color: $color-primary-700; }
+
+  &--active {
+    color: $color-accent;
+    border-bottom-color: $color-accent;
+    font-weight: 600;
+  }
+}
+
+// ── Filtro de proyectos ────────────────────────
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.filter-bar__label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: $color-neutral-700;
+}
+
+.filter-bar__select {
+  max-width: 280px;
+}
+
+// ── Charts ──────────────────────────────────────
+.charts-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+
+  @media (max-width: 900px) { grid-template-columns: 1fr; }
+}
+
+.chart-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.chart-card__title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: $color-primary-700;
+  margin: 0;
+  align-self: flex-start;
+}
+
+.donut-wrap {
+  position: relative;
+  width: 180px;
+  height: 180px;
+}
+
+.donut-svg { width: 180px; height: 180px; }
+
+.donut-center {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.donut-center__pct {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: $color-primary-700;
+}
+
+.donut-center__label {
+  font-size: 0.75rem;
+  color: $color-neutral-400;
+}
+
+.chart-card__legend {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+}
+
+.legend-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legend-row__label {
+  color: $color-neutral-600;
+  flex: 1;
+  min-width: 0;
+}
+
+.legend-row__value {
+  font-weight: 600;
+  color: $color-primary-700;
+  white-space: nowrap;
+}
+
+// ── Línea comparativa ───────────────────────────
+.line-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.line-card__stats {
+  display: flex;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+.line-stat {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+
+  &--accent .line-stat__value { color: $color-accent; }
+}
+
+.line-stat__label { color: $color-neutral-500; }
+.line-stat__value { font-weight: 700; color: $color-primary-700; }
+
+.single-bar { display: flex; flex-direction: column; gap: 0.4rem; }
+
+.single-bar__track {
+  position: relative;
+  height: 14px;
+  background: $color-neutral-100;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.single-bar__fill {
+  height: 100%;
+  background: linear-gradient(90deg, $color-accent, $color-accent-hover);
+  border-radius: 999px;
+  transition: width 0.3s;
+}
+
+.single-bar__marker {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  background: $color-neutral-400;
+}
+
+.single-bar__labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: $color-neutral-400;
+}
+
+// ── Placeholder ──────────────────────────────────
+.placeholder-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 4rem 2rem;
+  color: $color-neutral-400;
+
+  svg { width: 40px; height: 40px; }
+}
+
+.placeholder-card__text {
+  font-size: 0.95rem;
+  font-weight: 500;
+  margin: 0;
+}
+
 // ── KPI grid ──────────────────────────────────
 .stats-grid {
   display: grid;
