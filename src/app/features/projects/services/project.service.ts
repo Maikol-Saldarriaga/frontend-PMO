@@ -44,6 +44,9 @@ import {
   RiskRequest,
   RiskTrackingItem,
   RiskTrackingRequest,
+  Beneficiary,
+  BeneficiaryRequest,
+  BeneficiaryPageResponse,
 } from '../models/project.model';
 
 export interface ProjectFilters {
@@ -223,6 +226,24 @@ export class ProjectService {
 
   upsertRiskTracking(id: string, rid: string, data: RiskTrackingRequest): Observable<RiskTrackingItem> {
     return this.http.put<RiskTrackingItem>(ENDPOINTS.projects.riskTracking(id, rid), data);
+  }
+
+  getBeneficiaries(id: string, cursor?: string | null, limit = 50): Observable<BeneficiaryPageResponse> {
+    const params = new URLSearchParams({ is_beneficiary: 'true', limit: String(limit) });
+    if (cursor) params.set('cursor', cursor);
+    return this.http.get<BeneficiaryPageResponse>(`${ENDPOINTS.projects.affiliates(id)}?${params.toString()}`);
+  }
+
+  createBeneficiary(id: string, data: BeneficiaryRequest): Observable<Beneficiary> {
+    return this.http.post<Beneficiary>(ENDPOINTS.projects.affiliates(id), { ...data, is_beneficiary: true });
+  }
+
+  updateBeneficiary(id: string, bid: string, data: BeneficiaryRequest): Observable<Beneficiary> {
+    return this.http.put<Beneficiary>(ENDPOINTS.projects.affiliateById(id, bid), { ...data, is_beneficiary: true });
+  }
+
+  deleteBeneficiary(id: string, bid: string): Observable<void> {
+    return this.http.delete<void>(ENDPOINTS.projects.affiliateById(id, bid));
   }
 
 }

@@ -4,6 +4,7 @@ import {
   ContractStep8Request, ContractStep8Item, ContractActItem,
   WizardStep8ComponentResponse,
 } from '../../../../models/contract.model';
+import { MoneyMaskDirective } from '../../../../../../shared/directives/money-mask.directive';
 
 interface ActRow {
   id?:               string | null;
@@ -46,7 +47,7 @@ const EMPTY_COMPONENT = (): ComponentRow => ({
 @Component({
   selector: 'app-step8-scope',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, MoneyMaskDirective],
   templateUrl: './step8-scope.component.html',
 })
 export class Step8ScopeComponent {
@@ -84,18 +85,6 @@ export class Step8ScopeComponent {
   @Output() goBack          = new EventEmitter<void>();
   @Output() validationError = new EventEmitter<string[]>();
   @Output() budgetWarning   = new EventEmitter<string[]>();
-
-  // ── Formateo de moneda ─────────────────────────────────────────────────────
-  formatBudget(value: number | null): string {
-    if (value === null || value === undefined || value === 0) return '';
-    return value.toLocaleString('es-CO', { maximumFractionDigits: 0 });
-  }
-
-  parseBudget(formatted: string): number | null {
-    const clean = formatted.replace(/\./g, '').replace(',', '.').trim();
-    const n = parseFloat(clean);
-    return isNaN(n) ? null : n;
-  }
 
   rows: WritableSignal<ComponentRow[]> = signal([EMPTY_COMPONENT()]);
 
@@ -139,10 +128,9 @@ export class Step8ScopeComponent {
     this.emit();
   }
 
-  updateComponentBudget(ci: number, value: string): void {
-    const parsed = this.parseBudget(value);
+  updateComponentBudget(ci: number, value: number | null): void {
     this.rows.update(r => r.map((comp, i) =>
-      i === ci ? { ...comp, budget: parsed } : comp));
+      i === ci ? { ...comp, budget: value } : comp));
     this.emit();
     this.checkBudgetWarnings();
   }
@@ -172,12 +160,9 @@ export class Step8ScopeComponent {
   }
 
   updateAct(ci: number, ai: number, field: keyof ActRow, value: string | number | boolean | null): void {
-    const parsed = field === 'budget' && typeof value === 'string'
-      ? this.parseBudget(value)
-      : value;
     this.rows.update(r => r.map((comp, i) =>
       i === ci
-        ? { ...comp, acts: comp.acts.map((a, j) => j === ai ? { ...a, [field]: parsed } : a) }
+        ? { ...comp, acts: comp.acts.map((a, j) => j === ai ? { ...a, [field]: value } : a) }
         : comp));
     this.emit();
     if (field === 'budget') this.checkBudgetWarnings();

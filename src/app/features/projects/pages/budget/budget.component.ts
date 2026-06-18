@@ -8,6 +8,7 @@ import {
   BudgetWizardScope,
   BudgetItemRequest,
 } from '../../models/project.model';
+import { MoneyMaskDirective } from '../../../../shared/directives/money-mask.directive';
 
 export interface ActivityRow {
   scope_id:          string;
@@ -42,7 +43,7 @@ export interface ComponentSection {
 @Component({
   selector: 'app-budget',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, MoneyMaskDirective],
   templateUrl: './budget.component.html',
 })
 export class BudgetComponent implements OnInit {

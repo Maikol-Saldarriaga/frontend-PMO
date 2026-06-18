@@ -4,11 +4,12 @@ import {
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { ProjectStep1Request } from '../../../../models/project.model';
+import { MoneyMaskDirective } from '../../../../../../shared/directives/money-mask.directive';
 
 @Component({
   selector: 'app-step1-general-info',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, MoneyMaskDirective],
   templateUrl: './step1-general-info.component.html',
 })
 export class Step1GeneralInfoComponent implements OnInit, OnChanges {
@@ -41,7 +42,6 @@ export class Step1GeneralInfoComponent implements OnInit, OnChanges {
 
   showExtensionFields  = signal(false);
   showWorkerOrder      = signal(false);
-  budgetDisplay        = signal('');
   durationMonths       = signal(0);
   serviceDurationDays  = signal(0);
 
@@ -67,13 +67,6 @@ export class Step1GeneralInfoComponent implements OnInit, OnChanges {
     ext_duration:       [null as number | null],
     antecedent:         [''],
   });
-
-  formatBudget(raw: string): void {
-    const numeric = raw.replace(/\./g, '').replace(/[^0-9]/g, '');
-    const number  = numeric ? parseInt(numeric, 10) : null;
-    this.budgetDisplay.set(numeric ? Number(numeric).toLocaleString('es-CO') : '');
-    this.form.get('total_budget')?.setValue(number, { emitEvent: true });
-  }
 
   ngOnInit(): void {
     if (this.savedData) this.patchForm(this.savedData);
@@ -123,7 +116,6 @@ export class Step1GeneralInfoComponent implements OnInit, OnChanges {
     if (data.has_worker_order) this.applyWorkerOrderValidator(true);
     if (data.duration_days)    this.durationMonths.set(Math.ceil(data.duration_days / 30));
     if (data.service_duration) this.serviceDurationDays.set(data.service_duration);
-    if (data.total_budget)     this.budgetDisplay.set(Number(data.total_budget).toLocaleString('es-CO'));
   }
 
   private calculateDuration(): void {

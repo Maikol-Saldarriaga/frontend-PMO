@@ -680,6 +680,70 @@ export interface RiskTrackingItem {
   notes:      string | null;
 }
 
+// ── Beneficiarios (affiliates) ──────────────────────────────────────────────
+
+export type BeneficiaryDocumentType = 'CC' | 'CE' | 'TI' | 'PP' | 'RC' | 'NIT' | 'PEP';
+export type BeneficiaryGender = 'M' | 'F' | 'Otro';
+export type BeneficiaryZoneType = 'Urbana' | 'Rural';
+
+export interface BeneficiaryRequest {
+  is_beneficiary:         true;
+  first_name:              string;
+  middle_name?:            string | null;
+  first_surname:           string;
+  second_surname?:         string | null;
+  type_identification:     BeneficiaryDocumentType;
+  identification_number:   string;
+  birthdate?:              string | null;
+  gender?:                 BeneficiaryGender | null;
+  ethnic_affiliation?:     string | null;
+  is_lgbtiq?:              boolean;
+  is_head_of_household?:   boolean;
+  is_victim?:              boolean;
+  profession?:             string | null;
+  type_zone?:              BeneficiaryZoneType | null;
+  entity?:                 string | null;
+  job_title?:              string | null;
+  phone?:                  string | null;
+  email?:                  string | null;
+  department?:             string | null;
+  municipality?:           string | null;
+  sidewalk?:                string | null;
+}
+
+export interface Beneficiary {
+  id:                      string;
+  contract_agreement_id:   string;
+  is_beneficiary:          boolean;
+  first_name:              string;
+  middle_name:             string | null;
+  first_surname:           string;
+  second_surname:          string | null;
+  type_identification:     BeneficiaryDocumentType;
+  identification_number:   string;
+  birthdate:               string | null;
+  gender:                  BeneficiaryGender | null;
+  ethnic_affiliation:      string | null;
+  is_lgbtiq:               boolean;
+  is_head_of_household:    boolean;
+  is_victim:               boolean;
+  profession:              string | null;
+  type_zone:               BeneficiaryZoneType | null;
+  entity:                  string | null;
+  job_title:               string | null;
+  phone:                   string | null;
+  email:                   string | null;
+  department:              string | null;
+  municipality:            string | null;
+  sidewalk:                string | null;
+}
+
+export interface BeneficiaryPageResponse {
+  data:        Beneficiary[];
+  next_cursor: string | null;
+  has_more:    boolean;
+}
+
 export interface ScopeSnapshotsResponse {
   id_scope:          string;
   start_date:        string;

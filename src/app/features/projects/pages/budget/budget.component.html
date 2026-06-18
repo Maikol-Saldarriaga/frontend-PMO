@@ -284,7 +284,7 @@
                                 <!-- Valor unitario -->
                                 <div>
                                   <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Valor unitario</label>
-                                  <input type="number" min="0" [(ngModel)]="row.unit_value" (ngModelChange)="recalcTotal(row)"
+                                  <input type="text" inputmode="numeric" appMoneyMask [(ngModel)]="row.unit_value" (ngModelChange)="recalcTotal(row)"
                                     (click)="$event.stopPropagation()"
                                     placeholder="0"
                                     class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
@@ -301,7 +301,7 @@
                                 <!-- Aporte contrapartida -->
                                 <div>
                                   <label class="block text-[10px] font-bold text-accent uppercase tracking-wide mb-1.5">Aporte contrapartida</label>
-                                  <input type="number" min="0" [(ngModel)]="row.counterpart_contribution" (ngModelChange)="markDirty(row)"
+                                  <input type="text" inputmode="numeric" appMoneyMask [(ngModel)]="row.counterpart_contribution" (ngModelChange)="markDirty(row)"
                                     (click)="$event.stopPropagation()"
                                     placeholder="0"
                                     class="w-full px-3 py-2 rounded-xl border border-accent-200 text-sm text-accent font-semibold placeholder-neutral-300 bg-accent-50/30 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
@@ -310,7 +310,7 @@
                                 <!-- Aporte aliado -->
                                 <div>
                                   <label class="block text-[10px] font-bold text-success uppercase tracking-wide mb-1.5">Aporte aliado</label>
-                                  <input type="number" min="0" [(ngModel)]="row.ally_contribution" (ngModelChange)="markDirty(row)"
+                                  <input type="text" inputmode="numeric" appMoneyMask [(ngModel)]="row.ally_contribution" (ngModelChange)="markDirty(row)"
                                     (click)="$event.stopPropagation()"
                                     placeholder="0"
                                     class="w-full px-3 py-2 rounded-xl border border-success/30 text-sm text-success font-semibold placeholder-neutral-300 bg-success/5 focus:bg-surface outline-none focus:ring-2 focus:ring-success/20 focus:border-success transition-colors"/>

@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { ProjectService } from '../../services/project.service';
 import { BudgetMonthlyDistribution, BudgetWizardScope } from '../../models/project.model';
+import { MoneyMaskDirective } from '../../../../shared/directives/money-mask.directive';
 
 export interface MonthlyRow {
   scope_id:          string;
@@ -30,7 +31,7 @@ export interface MonthlySection {
 @Component({
   selector: 'app-monthly',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, MoneyMaskDirective],
   templateUrl: './monthly.component.html',
 })
 export class MonthlyComponent implements OnInit {

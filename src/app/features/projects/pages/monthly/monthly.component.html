@@ -168,25 +168,25 @@
                                   </select>
                                 </td>
                                 <td class="px-3 py-2.5">
-                                  <input type="number" min="0"
+                                  <input type="text" inputmode="numeric" appMoneyMask
                                     [(ngModel)]="dist.counterpart_amount" (ngModelChange)="markDirty(row)"
                                     (click)="$event.stopPropagation()"
                                     class="w-full px-2 py-1 rounded-lg border border-accent-200 text-xs text-right text-accent bg-accent-50/30 focus:bg-surface outline-none focus:ring-1 focus:ring-accent-200 focus:border-accent transition-colors"/>
                                 </td>
                                 <td class="px-3 py-2.5">
-                                  <input type="number" min="0"
+                                  <input type="text" inputmode="numeric" appMoneyMask
                                     [(ngModel)]="dist.ally_amount" (ngModelChange)="markDirty(row)"
                                     (click)="$event.stopPropagation()"
                                     class="w-full px-2 py-1 rounded-lg border border-success/30 text-xs text-right text-success bg-success/5 focus:bg-surface outline-none focus:ring-1 focus:ring-success/20 focus:border-success transition-colors"/>
                                 </td>
                                 <td class="px-3 py-2.5">
-                                  <input type="number" min="0"
+                                  <input type="text" inputmode="numeric" appMoneyMask
                                     [(ngModel)]="dist.executed_amount" (ngModelChange)="markDirty(row)"
                                     (click)="$event.stopPropagation()"
                                     class="w-full px-2 py-1 rounded-lg border border-primary-200 text-xs text-right text-primary-600 bg-primary-50/20 focus:bg-surface outline-none focus:ring-1 focus:ring-primary-200 focus:border-primary-400 transition-colors"/>
                                 </td>
                                 <td class="px-3 py-2.5">
-                                  <input type="number" min="0"
+                                  <input type="text" inputmode="numeric" appMoneyMask
                                     [(ngModel)]="dist.billed_amount" (ngModelChange)="markDirty(row)"
                                     (click)="$event.stopPropagation()"
                                     class="w-full px-2 py-1 rounded-lg border border-neutral-200 text-xs text-right text-neutral-600 bg-neutral-50 focus:bg-surface outline-none focus:ring-1 focus:ring-neutral-200 focus:border-neutral-400 transition-colors"/>

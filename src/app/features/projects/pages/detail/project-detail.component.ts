@@ -9,6 +9,7 @@ import { TabCronogramaComponent } from './tabs/tab-cronograma/tab-cronograma.com
 import { TabPresupuestoComponent } from './tabs/tab-presupuesto/tab-presupuesto.component';
 import { TabSeguimientoTecnicoComponent } from './tabs/tab-seguimiento-tecnico/tab-seguimiento-tecnico.component';
 import { TabRiesgosComponent } from './tabs/tab-riesgos/tab-riesgos.component';
+import { TabBeneficiariosComponent } from './tabs/tab-beneficiarios/tab-beneficiarios.component';
 
 @Component({
   selector: 'app-project-detail',
@@ -21,6 +22,7 @@ import { TabRiesgosComponent } from './tabs/tab-riesgos/tab-riesgos.component';
     TabPresupuestoComponent,
     TabSeguimientoTecnicoComponent,
     TabRiesgosComponent,
+    TabBeneficiariosComponent,
   ],
   templateUrl: './project-detail.component.html',
 })
@@ -40,6 +42,7 @@ export class ProjectDetailComponent implements OnInit {
     { id: 'alcance',      label: 'Alcance'      },
     { id: 'cronograma',   label: 'Cronograma'   },
     { id: 'presupuesto',  label: 'Presupuesto'  },
+    { id: 'beneficiarios', label: 'Beneficiarios' },
     { id: 'seguimiento',  label: 'Seguimiento Técnico' },
     { id: 'riesgos',      label: 'Riesgos'      },
     { id: 'entregables',  label: 'Entregables'  },
@@ -71,7 +74,15 @@ export class ProjectDetailComponent implements OnInit {
     });
   }
 
-  onTabClick(id: string): void { this.activeTab.set(id); }
+  onTabClick(id: string): void {
+    this.activeTab.set(id);
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { tab: id },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+  }
 
   goBack(): void { this.router.navigate(['/dashboard/projects']); }
 

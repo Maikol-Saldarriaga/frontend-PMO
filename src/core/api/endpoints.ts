@@ -31,6 +31,8 @@ export const ENDPOINTS = {
     risks:             (id: string) => `${API_URL}/projects/${id}/risks`,
     riskById:          (id: string, rid: string) => `${API_URL}/projects/${id}/risks/${rid}`,
     riskTracking:      (id: string, rid: string) => `${API_URL}/projects/${id}/risks/${rid}/tracking`,
+    affiliates:        (id: string) => `${API_URL}/projects/${id}/affiliates`,
+    affiliateById:     (id: string, aid: string) => `${API_URL}/projects/${id}/affiliates/${aid}`,
   },
   contracts: {
     list:           `${API_URL}/contracts`,

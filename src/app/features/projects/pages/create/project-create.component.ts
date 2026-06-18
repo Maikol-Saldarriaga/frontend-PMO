@@ -415,7 +415,7 @@ export class ProjectCreateComponent implements OnInit, OnDestroy {
       next: () => {
         localStorage.removeItem(this.draftKey);
         this.submitting.set(false);
-        this.router.navigate(['/dashboard/projects', id, 'summary']);
+        this.router.navigate(['/dashboard/projects', id]);
       },
       error: (err) => this.handleError(err, 'Error al guardar las garantías.'),
     });
@@ -601,6 +601,12 @@ export class ProjectCreateComponent implements OnInit, OnDestroy {
     if (this.isStepClickable(step)) {
       this.currentStep.set(step);
       this.error.set(null);
+      this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: { step },
+        queryParamsHandling: 'merge',
+        replaceUrl: true,
+      });
     }
   }
 

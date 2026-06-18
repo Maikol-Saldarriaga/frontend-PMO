@@ -44,9 +44,8 @@
               <div class="relative w-44">
                 <span class="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-neutral-400 pointer-events-none">$</span>
                 <input type="text" inputmode="numeric"
-                  [value]="formatBudget(comp.budget)"
-                  (input)="updateComponentBudget(ci, $any($event.target).value)"
-                  (blur)="$any($event.target).value = formatBudget(comp.budget)"
+                  appMoneyMask [appMoneyMaskValue]="comp.budget"
+                  (appMoneyMaskValueChange)="updateComponentBudget(ci, $event)"
                   placeholder="0"
                   class="w-full pl-7 pr-3 py-1.5 rounded-lg bg-white border text-sm font-semibold text-primary-700 placeholder-neutral-300 outline-none focus:ring-2 transition-colors"
                   [ngClass]="budgetOverflow(ci) ? 'border-red-300 focus:ring-red-100' : 'border-neutral-200 focus:ring-accent-100 focus:border-accent'"/>
@@ -184,9 +183,8 @@
                     <div class="relative">
                       <span class="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-neutral-400 pointer-events-none">$</span>
                       <input type="text" inputmode="numeric"
-                        [value]="formatBudget(act.budget)"
-                        (input)="updateAct(ci, ai, 'budget', $any($event.target).value)"
-                        (blur)="$any($event.target).value = formatBudget(act.budget)"
+                        appMoneyMask [appMoneyMaskValue]="act.budget"
+                        (appMoneyMaskValueChange)="updateAct(ci, ai, 'budget', $event)"
                         placeholder="0"
                         class="w-full pl-7 pr-3 py-2 rounded-lg border border-neutral-200 text-sm font-semibold text-primary-700 placeholder-neutral-300 bg-white outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
                     </div>
