@@ -45,6 +45,8 @@ export const ENDPOINTS = {
     scopeVerify:    (id: string, scopeId: string) => `${API_URL}/projects/${id}/scopes/${scopeId}/verifications`,
     scopeVerifyById:(id: string, scopeId: string, vid: string) => `${API_URL}/projects/${id}/scopes/${scopeId}/verifications/${vid}`,
     locations:      (id: string) => `${API_URL}/projects/${id}/locations`,
+    supports:       (id: string, sid: string) => `${API_URL}/projects/${id}/services/${sid}/supports`,
+    supportById:    (id: string, sid: string, spid: string) => `${API_URL}/projects/${id}/services/${sid}/supports/${spid}`,
   },
   tasks: {
     list:   `${API_URL}/tasks`,

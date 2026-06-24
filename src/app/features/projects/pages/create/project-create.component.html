@@ -240,6 +240,8 @@
           @case (6) {
             <app-step5-conditions
               [savedData]="getStep5SavedData()"
+              [projectId]="projectId() ?? ''"
+              [serviceId]="serviceId() ?? ''"
               [submitting]="submitting()"
               (submitted)="onStep5Submit($event)"
               (dataChange)="onStepDataChange($event)"

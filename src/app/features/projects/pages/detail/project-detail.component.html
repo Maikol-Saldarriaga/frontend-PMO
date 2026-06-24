@@ -93,16 +93,31 @@
 
     </div>
 
-    <nav class="flex items-center overflow-x-auto scrollbar-none -mb-px">
+    <nav class="flex items-end gap-1 overflow-x-auto scrollbar-none pt-2 -mx-1 px-1">
       @for (tab of TABS; track tab.id) {
         <button (click)="onTabClick(tab.id)"
-          class="px-4 py-3 text-sm font-medium border-b-2 transition-all whitespace-nowrap"
+          class="group flex flex-col items-center gap-1.5 px-3.5 py-2.5 rounded-t-xl transition-all duration-200 whitespace-nowrap flex-shrink-0 border-b-2 hover:opacity-90"
+          [class.bg-sky-500]="activeTab() === tab.id"
           [class.border-sky-500]="activeTab() === tab.id"
-          [class.text-sky-600]="activeTab() === tab.id"
-          [class.font-semibold]="activeTab() === tab.id"
-          [class.border-transparent]="activeTab() !== tab.id"
-          [class.text-gray-400]="activeTab() !== tab.id">
-          {{ tab.label }}
+          [class.shadow-md]="activeTab() === tab.id"
+          [class.shadow-sky-200]="activeTab() === tab.id"
+          [class.bg-gray-50]="activeTab() !== tab.id"
+          [class.border-transparent]="activeTab() !== tab.id">
+
+          <!-- Icono -->
+          <svg class="w-4 h-4 flex-shrink-0 transition-colors"
+            [class.text-white]="activeTab() === tab.id"
+            [class.text-gray-400]="activeTab() !== tab.id"
+            fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"
+            [innerHTML]="safeIcon(tab.icon)">
+          </svg>
+
+          <!-- Label -->
+          <span class="text-[10px] font-semibold leading-none tracking-wide transition-colors"
+            [class.text-white]="activeTab() === tab.id"
+            [class.text-gray-500]="activeTab() !== tab.id">
+            {{ tab.label }}
+          </span>
         </button>
       }
     </nav>

@@ -142,12 +142,13 @@ export interface ContractObjective {
 }
 
 export interface ContractConditionItem {
-  id?:                string;
-  condition:          string;
-  fulfillment_date?:  string | null;
-  number_supports:    number;
-  description?:       string | null;
-  delete?:            boolean;
+  id?:              string;
+  condition:        string;
+  type_compliance:  string;
+  compliance_value: string | null;
+  number_supports?: number;
+  description?:     string | null;
+  delete?:          boolean;
 }
 
 export interface ContractStep4Request {
@@ -295,13 +296,24 @@ export interface WizardObjective {
   goal:                string[];
 }
 
+export interface SupportResponse {
+  id:           string;
+  project_service_id: string;
+  support_type: string;
+  name:         string;
+  support_url:  string;
+  state:        boolean;
+}
+
 export interface WizardCondition {
   id:                 string;
   project_service_id: string;
   condition:          string;
-  fulfillment_date:   string | null;
+  type_compliance:    string;
+  compliance_value:   string | null;
   number_supports:    number;
   description:        string | null;
+  supports?:          SupportResponse[];
 }
 
 export interface WizardActor {

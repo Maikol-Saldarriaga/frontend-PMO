@@ -12,7 +12,7 @@
       </div>
       <div class="flex-1">
         <h3 class="text-sm font-bold text-primary-700">Alineación Estratégica</h3>
-        <p class="text-xs text-neutral-500">Indicador, curso de acción y justificación del proyecto</p>
+        <p class="text-xs text-neutral-500">Indicador, Línea de Actuación y justificación del proyecto</p>
       </div>
     </div>
 
@@ -37,10 +37,10 @@
         }
       </div>
 
-      <!-- Curso de acción -->
+      <!-- Línea de Actuación -->
       <div>
         <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">
-          Curso de acción <span class="text-danger">*</span>
+          Línea de Actuación <span class="text-danger">*</span>
         </label>
         <textarea formControlName="course_action" rows="3"
           placeholder="Ej: Fortalecer capacidades técnicas en gestión de proyectos"
@@ -52,7 +52,7 @@
           [class.focus:ring-red-100]="isInvalid('course_action')"
         ></textarea>
         @if (isInvalid('course_action')) {
-          <p class="mt-1 text-xs text-danger">El curso de acción es obligatorio</p>
+          <p class="mt-1 text-xs text-danger">La Línea de Actuación es obligatoria</p>
         }
       </div>
 

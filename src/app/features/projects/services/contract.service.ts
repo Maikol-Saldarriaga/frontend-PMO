@@ -18,6 +18,7 @@ import {
   ContractProgressResponse,
   ContractServiceResponse,
   ContractWizardResponse,
+  SupportResponse,
 } from '../models/contract.model';
 
 @Injectable({ providedIn: 'root' })
@@ -83,5 +84,13 @@ export class ContractService {
 
   updateStep10(id: string, data: ContractStep10Request): Observable<ContractProgressResponse> {
     return this.http.put<ContractProgressResponse>(ENDPOINTS.contracts.stepById(id, 10), data);
+  }
+
+  uploadSupport(id: string, sid: string, form: FormData): Observable<SupportResponse> {
+    return this.http.post<SupportResponse>(ENDPOINTS.contracts.supports(id, sid), form);
+  }
+
+  deleteSupport(id: string, sid: string, spid: string): Observable<void> {
+    return this.http.delete<void>(ENDPOINTS.contracts.supportById(id, sid, spid));
   }
 }
