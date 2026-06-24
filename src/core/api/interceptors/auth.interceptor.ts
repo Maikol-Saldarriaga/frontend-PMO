@@ -9,7 +9,8 @@ export const authInterceptor: HttpInterceptorFn = (
   const authStore = inject(AuthStore);
   const token     = authStore.token();
 
-  if (!token || req.url.includes('datos.gov.co')) return next(req);
+  const isExternal = req.url.includes('datos.gov.co') || req.url.includes('prosperidadsocial.gov.co');
+  if (!token || isExternal) return next(req);
 
   const authReq = req.clone({
     setHeaders: { Authorization: `Bearer ${token}` }

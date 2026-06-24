@@ -1,14 +1,13 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, shareReplay } from 'rxjs';
+import { Observable, map, shareReplay } from 'rxjs';
 
 export interface SocrataDept      { cod_dpto: string; nom_dpto: string; }
 export interface SocrataMunicipio { cod_mpio: string; nom_mpio: string; }
 export interface SocrataVereda    { cod_vere: string; nom_vere: string; }
 
-// SODA v2 endpoint — supports $select, $where, $group, $order, $limit
-const BASE  = 'https://www.datos.gov.co/resource/ijj8-hnqp.json';
-const TOKEN = 'c3lGkEH9p9QVmsDy9PWfb7hGS';
+// ArcGIS REST — Prosperidad Social (cubre los 33 departamentos de Colombia)
+const BASE = 'https://gis.prosperidadsocial.gov.co/arcgis/rest/services/Migracion/Veredas/FeatureServer/0/query';
 
 @Injectable({ providedIn: 'root' })
 export class SocrataGeoService {
@@ -20,31 +19,46 @@ export class SocrataGeoService {
 
   getDepartamentos(): Observable<SocrataDept[]> {
     if (!this.depts$) {
-      this.depts$ = this.http.get<SocrataDept[]>(BASE, {
+      this.depts$ = this.http.get<any>(BASE, {
         params: {
-          '$$app_token': TOKEN,
-          '$select': 'cod_dpto, nom_dpto',
-          '$group':  'cod_dpto, nom_dpto',
-          '$order':  'nom_dpto',
-          '$limit':  '100',
+          where:                 '1=1',
+          returnDistinctValues:  'true',
+          returnGeometry:        'false',
+          outFields:             'COD_DPTO,NOM_DEP',
+          orderByFields:         'NOM_DEP',
+          resultRecordCount:     '100',
+          f:                     'json',
         },
-      }).pipe(shareReplay(1));
+      }).pipe(
+        map(res => (res.features as any[]).map(f => ({
+          cod_dpto: f.attributes.COD_DPTO,
+          nom_dpto: f.attributes.NOM_DEP,
+        }))),
+        shareReplay(1),
+      );
     }
     return this.depts$;
   }
 
   getMunicipios(codDpto: string): Observable<SocrataMunicipio[]> {
     if (!this.mpiosCache.has(codDpto)) {
-      const obs$ = this.http.get<SocrataMunicipio[]>(BASE, {
+      const obs$ = this.http.get<any>(BASE, {
         params: {
-          '$$app_token': TOKEN,
-          '$select': 'cod_mpio, nom_mpio',
-          '$where':  `cod_dpto='${codDpto}'`,
-          '$group':  'cod_mpio, nom_mpio',
-          '$order':  'nom_mpio',
-          '$limit':  '300',
+          where:                `COD_DPTO='${codDpto}'`,
+          returnDistinctValues: 'true',
+          returnGeometry:       'false',
+          outFields:            'DPTOMPIO,NOMB_MPIO',
+          orderByFields:        'NOMB_MPIO',
+          resultRecordCount:    '500',
+          f:                    'json',
         },
-      }).pipe(shareReplay(1));
+      }).pipe(
+        map(res => (res.features as any[]).map(f => ({
+          cod_mpio: f.attributes.DPTOMPIO,
+          nom_mpio: f.attributes.NOMB_MPIO,
+        }))),
+        shareReplay(1),
+      );
       this.mpiosCache.set(codDpto, obs$);
     }
     return this.mpiosCache.get(codDpto)!;
@@ -52,16 +66,22 @@ export class SocrataGeoService {
 
   getVeredas(codMpio: string): Observable<SocrataVereda[]> {
     if (!this.veredasCache.has(codMpio)) {
-      const obs$ = this.http.get<SocrataVereda[]>(BASE, {
+      const obs$ = this.http.get<any>(BASE, {
         params: {
-          '$$app_token': TOKEN,
-          '$select': 'cod_vere, nom_vere',
-          '$where':  `cod_mpio='${codMpio}' AND estado='ACTIVO'`,
-          '$group':  'cod_vere, nom_vere',
-          '$order':  'nom_vere',
-          '$limit':  '1000',
+          where:          `DPTOMPIO='${codMpio}'`,
+          returnGeometry: 'false',
+          outFields:         'CODIGO_VER,NOMBRE_VER',
+          orderByFields:     'NOMBRE_VER',
+          resultRecordCount: '2000',
+          f:                 'json',
         },
-      }).pipe(shareReplay(1));
+      }).pipe(
+        map(res => (res.features as any[]).map(f => ({
+          cod_vere: f.attributes.CODIGO_VER,
+          nom_vere: f.attributes.NOMBRE_VER,
+        }))),
+        shareReplay(1),
+      );
       this.veredasCache.set(codMpio, obs$);
     }
     return this.veredasCache.get(codMpio)!;
