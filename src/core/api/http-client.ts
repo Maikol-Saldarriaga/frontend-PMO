@@ -30,4 +30,8 @@ export class ApiHttpClient {
   delete<T>(url: string, options?: RequestOptions): Observable<T> {
     return this.http.delete<T>(url, options);
   }
+
+  getBlob(url: string, options?: RequestOptions): Observable<Blob> {
+    return this.http.get(url, { ...options, responseType: 'blob' });
+  }
 }

@@ -60,6 +60,7 @@ export class ProjectCreateComponent implements OnInit, OnDestroy {
   validationErrors = signal<string[]>([]);
   draftLoaded      = signal(false);
   stepData         = signal<Record<string, unknown>>({});
+  showDraftPrompt  = signal(false);
 
   private toastTimer:  ReturnType<typeof setTimeout> | null = null;
   private navTimer:    ReturnType<typeof setTimeout> | null = null;
@@ -84,9 +85,19 @@ export class ProjectCreateComponent implements OnInit, OnDestroy {
     if (idParam) {
       this.projectId.set(idParam);
       this.loadFromServer(idParam, stepParam ? +stepParam : null);
-    } else {
-      this.loadDraft(NEW_DRAFT, null);
+    } else if (this.readStoredDraft(NEW_DRAFT)) {
+      this.showDraftPrompt.set(true);
     }
+  }
+
+  resumeDraft(): void {
+    this.showDraftPrompt.set(false);
+    this.loadDraft(NEW_DRAFT, null);
+  }
+
+  discardDraft(): void {
+    localStorage.removeItem(NEW_DRAFT);
+    this.showDraftPrompt.set(false);
   }
 
   ngOnDestroy(): void {
@@ -428,7 +439,11 @@ export class ProjectCreateComponent implements OnInit, OnDestroy {
     this.draftChange$.next();
     this.contractSvc.updateStep8(id, data).subscribe({
       next: (res) => {
-        this.stepData.update(d => ({ ...d, step8: res }));
+        this.stepData.update(d => {
+          const prev = d['step8'] as ContractWizardStep8 | undefined;
+          const step8: ContractWizardStep8 = { contract_budget: prev?.contract_budget ?? null, components: res };
+          return { ...d, step8 };
+        });
         this.handleServiceResponse(10, 'Alcance guardado correctamente.');
       },
       error: (err) => this.handleError(err, 'Error al guardar el alcance.'),
@@ -607,7 +622,18 @@ export class ProjectCreateComponent implements OnInit, OnDestroy {
         queryParamsHandling: 'merge',
         replaceUrl: true,
       });
+      if (step === 8) this.refreshStep8Data();
     }
+  }
+
+  private refreshStep8Data(): void {
+    const id = this.projectId();
+    if (!id) return;
+    this.contractSvc.getWizard(id).subscribe({
+      next: wizard => {
+        if (wizard.step8) this.stepData.update(d => ({ ...d, step8: wizard.step8 }));
+      },
+    });
   }
 
   clearDraft(): void {

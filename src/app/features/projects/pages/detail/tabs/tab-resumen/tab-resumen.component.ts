@@ -74,7 +74,7 @@ export class TabResumenComponent {
     };
   }
 
-  /** Color del período: rojo atrasado, verde a tiempo, morado si hay exceso (mismo criterio que Cronograma/Seguimiento Técnico). */
+  /** Color del período: rojo atrasado, verde a tiempo, morado si hay adelanto (mismo criterio que Cronograma/Seguimiento Técnico). */
   periodFillColor(snap: Snapshot): string {
     if (snap.actual_pct > snap.planned_pct) return '#A855F7';
     if (snap.actual_pct === snap.planned_pct) return '#10B981';

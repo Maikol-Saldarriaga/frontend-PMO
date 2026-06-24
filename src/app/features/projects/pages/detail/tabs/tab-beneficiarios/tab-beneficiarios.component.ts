@@ -5,6 +5,9 @@ import { from, Observable } from 'rxjs';
 import { concatMap, toArray, catchError } from 'rxjs/operators';
 import * as XLSX from 'xlsx';
 import { ProjectService } from '../../../../services/project.service';
+import { TemplateService } from '../../../../../../core/services/template.service';
+
+const BENEFICIARIOS_TEMPLATE = 'beneficiarios_template.xlsx';
 import {
   Beneficiary, BeneficiaryRequest, BeneficiaryDocumentType, BeneficiaryGender, BeneficiaryZoneType,
 } from '../../../../models/project.model';
@@ -57,7 +60,10 @@ const emptyForm = (): BeneficiaryForm => ({
 export class TabBeneficiariosComponent implements OnInit {
   @Input() projectId!: string;
 
-  constructor(private svc: ProjectService) {}
+  constructor(private svc: ProjectService, private templateSvc: TemplateService) {}
+
+  downloadingTemplate = signal(false);
+  templateError       = signal<string | null>(null);
 
   readonly DOCUMENT_TYPES: { value: BeneficiaryDocumentType; label: string }[] = [
     { value: 'CC',  label: 'Cédula de ciudadanía' },
@@ -111,6 +117,26 @@ export class TabBeneficiariosComponent implements OnInit {
   importError     = signal<string | null>(null);
 
   ngOnInit(): void { this.load(); }
+
+  downloadTemplate(): void {
+    this.templateError.set(null);
+    this.downloadingTemplate.set(true);
+    this.templateSvc.download(BENEFICIARIOS_TEMPLATE).subscribe({
+      next: blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = BENEFICIARIOS_TEMPLATE;
+        a.click();
+        URL.revokeObjectURL(url);
+        this.downloadingTemplate.set(false);
+      },
+      error: () => {
+        this.templateError.set('No se pudo descargar la plantilla.');
+        this.downloadingTemplate.set(false);
+      },
+    });
+  }
 
   load(): void {
     this.loading.set(true);

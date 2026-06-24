@@ -41,9 +41,18 @@ export class MoneyMaskDirective implements ControlValueAccessor, OnChanges {
   @HostListener('input', ['$event'])
   onInput(event: Event): void {
     const input = event.target as HTMLInputElement;
-    const digits = input.value.replace(/[^0-9]/g, '');
-    const numeric = digits ? Number(digits) : null;
-    input.value = digits ? Number(digits).toLocaleString('es-CO') : '';
+    // Solo dígitos y una coma decimal; "." lo pone el formateo automático (miles).
+    let raw = input.value.replace(/[^0-9,]/g, '');
+    const hasComma = raw.includes(',');
+    let [intPart, decPart] = raw.split(',');
+    if (hasComma) decPart = (decPart ?? '').slice(0, 2);
+
+    const formattedInt = intPart ? Number(intPart).toLocaleString('es-CO') : '';
+    input.value = hasComma ? `${formattedInt},${decPart}` : formattedInt;
+
+    const numeric = intPart || decPart
+      ? Number(`${intPart || '0'}.${decPart || '0'}`)
+      : null;
     this.onChange(numeric);
     this.manualValueChange.emit(numeric);
   }
@@ -53,7 +62,7 @@ export class MoneyMaskDirective implements ControlValueAccessor, OnChanges {
 
   private render(value: number | null): void {
     this.el.nativeElement.value = value !== null && value !== undefined
-      ? Number(value).toLocaleString('es-CO')
+      ? Number(value).toLocaleString('es-CO', { maximumFractionDigits: 2 })
       : '';
   }
 }

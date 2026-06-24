@@ -315,7 +315,7 @@
                     <p class="text-[10px] text-gray-400">→ {{ snap.end_date | date:'dd MMM, y':'UTC' }}</p>
                   </div>
 
-                  <!-- Barra: escala fija = planeado (100%); real se rellena hasta su tope, exceso se marca aparte -->
+                  <!-- Barra: escala fija = planeado (100%); real se rellena hasta su tope, adelantado se marca aparte -->
                   <div class="flex-1 min-w-[200px]">
                     <div class="flex items-center gap-2">
                       <div class="relative h-3 rounded-full overflow-hidden flex-1">
@@ -327,7 +327,7 @@
                       </div>
                       @if (variacion(snap) > 0) {
                         <span class="shrink-0 text-[10px] font-bold text-purple-600 bg-purple-50 border border-purple-200 px-1.5 py-0.5 rounded-full">
-                          +{{ variacion(snap) }}% exceso
+                          +{{ variacion(snap) }}% adelantado
                         </span>
                       }
                     </div>

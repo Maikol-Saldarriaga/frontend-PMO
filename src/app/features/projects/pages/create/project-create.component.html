@@ -269,6 +269,7 @@
           }
           @case (9) {
             <app-step8-scope
+              [projectId]="projectId()"
               [savedData]="getStep8SavedData()?.components"
               [contractBudget]="getStep8SavedData()?.contract_budget ?? null"
               [submitting]="submitting()"
@@ -465,3 +466,22 @@
   </div>
 
 </div>
+
+@if (showDraftPrompt()) {
+  <div class="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4">
+    <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6">
+      <h3 class="text-base font-bold text-gray-900 mb-2">Tienes un borrador sin terminar</h3>
+      <p class="text-sm text-gray-500 mb-5">Hay datos guardados de un proyecto que no llegaste a crear. ¿Quieres continuar donde lo dejaste o empezar de cero?</p>
+      <div class="flex items-center gap-2">
+        <button (click)="resumeDraft()"
+          class="flex-1 px-4 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-600 text-white text-sm font-semibold transition-colors">
+          Continuar borrador
+        </button>
+        <button (click)="discardDraft()"
+          class="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
+          Empezar de cero
+        </button>
+      </div>
+    </div>
+  </div>
+}

@@ -10,6 +10,7 @@ import { TabPresupuestoComponent } from './tabs/tab-presupuesto/tab-presupuesto.
 import { TabSeguimientoTecnicoComponent } from './tabs/tab-seguimiento-tecnico/tab-seguimiento-tecnico.component';
 import { TabRiesgosComponent } from './tabs/tab-riesgos/tab-riesgos.component';
 import { TabBeneficiariosComponent } from './tabs/tab-beneficiarios/tab-beneficiarios.component';
+import { TabUbicacionesComponent } from './tabs/tab-ubicaciones/tab-ubicaciones.component';
 
 @Component({
   selector: 'app-project-detail',
@@ -23,6 +24,7 @@ import { TabBeneficiariosComponent } from './tabs/tab-beneficiarios/tab-benefici
     TabSeguimientoTecnicoComponent,
     TabRiesgosComponent,
     TabBeneficiariosComponent,
+    TabUbicacionesComponent,
   ],
   templateUrl: './project-detail.component.html',
 })
@@ -40,6 +42,7 @@ export class ProjectDetailComponent implements OnInit {
   readonly TABS = [
     { id: 'resumen',      label: 'Resumen'      },
     { id: 'alcance',      label: 'Alcance'      },
+    { id: 'ubicaciones',  label: 'Ubicaciones'  },
     { id: 'cronograma',   label: 'Cronograma'   },
     { id: 'presupuesto',  label: 'Presupuesto'  },
     { id: 'beneficiarios', label: 'Beneficiarios' },
@@ -68,6 +71,10 @@ export class ProjectDetailComponent implements OnInit {
     const tab = this.route.snapshot.queryParamMap.get('tab');
     if (tab) this.activeTab.set(tab);
 
+    this.refreshDetails();
+  }
+
+  private refreshDetails(): void {
     this.service.getProjectDetails(this.projectId).subscribe({
       next:  d => { this.details.set(d); this.loading.set(false); },
       error: () => { this.error.set('No se pudo cargar el proyecto.'); this.loading.set(false); },
@@ -82,6 +89,7 @@ export class ProjectDetailComponent implements OnInit {
       queryParamsHandling: 'merge',
       replaceUrl: true,
     });
+    this.refreshDetails();
   }
 
   goBack(): void { this.router.navigate(['/dashboard/projects']); }

@@ -13,6 +13,10 @@ export interface LoginResponse {
   image_url:     string | null;
 }
 
+export interface RefreshResponse {
+  access_token: string;
+}
+
 export interface UserProfile {
   id:        string;
   name:      string;

@@ -281,7 +281,7 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
     return Math.min((snap.actual_pct / snap.planned_pct) * 100, 100);
   }
 
-  /** Color del relleno según estado: rojo atrasado, verde a tiempo, morado si hay exceso. */
+  /** Color del relleno según estado: rojo atrasado, verde a tiempo, morado si hay adelanto. */
   barFillColor(snap: Snapshot): string {
     if (snap.actual_pct > snap.planned_pct) return 'bg-purple-400';
     if (snap.actual_pct === snap.planned_pct) return 'bg-emerald-500';

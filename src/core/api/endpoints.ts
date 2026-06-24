@@ -44,6 +44,7 @@ export const ENDPOINTS = {
     step4:          (id: string, sid: string) => `${API_URL}/projects/${id}/steps/4/${sid}`,
     scopeVerify:    (id: string, scopeId: string) => `${API_URL}/projects/${id}/scopes/${scopeId}/verifications`,
     scopeVerifyById:(id: string, scopeId: string, vid: string) => `${API_URL}/projects/${id}/scopes/${scopeId}/verifications/${vid}`,
+    locations:      (id: string) => `${API_URL}/projects/${id}/locations`,
   },
   tasks: {
     list:   `${API_URL}/tasks`,
@@ -52,6 +53,9 @@ export const ENDPOINTS = {
   users: {
     get:    (id: string) => `${API_URL}/users/${id}`,
     update: (id: string) => `${API_URL}/users/${id}`,
+  },
+  templates: {
+    download: (name: string) => `${API_URL}/templates/${name}`,
   },
   supervisors: {
     list:            `${API_URL}/projects/supervisors`,

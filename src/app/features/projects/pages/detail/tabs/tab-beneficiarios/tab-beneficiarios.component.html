@@ -25,6 +25,18 @@
     <div class="flex items-center gap-2">
       <input type="text" [ngModel]="search()" (ngModelChange)="search.set($event)" placeholder="Buscar por nombre o identificación..."
         class="w-64 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-sky-300"/>
+      <button (click)="downloadTemplate()" [disabled]="downloadingTemplate()"
+        class="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 text-sm font-semibold transition-colors disabled:opacity-50">
+        @if (downloadingTemplate()) {
+          <div class="w-3.5 h-3.5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+        } @else {
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M12 3v12m0 0l-4-4m4 4l4-4"/>
+          </svg>
+        }
+        Descargar plantilla
+      </button>
+
       <input #excelInput type="file" accept=".xlsx,.xls" class="hidden" (change)="onExcelSelected($event)"/>
       <button (click)="excelInput.click()" [disabled]="importing()"
         class="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-sm font-semibold transition-colors disabled:opacity-50">
@@ -48,6 +60,15 @@
       }
     </div>
   </div>
+
+  @if (templateError()) {
+    <div class="mb-4 p-4 rounded-xl bg-red-50 border border-red-100 text-sm text-red-600 flex items-center justify-between gap-3">
+      {{ templateError() }}
+      <button (click)="templateError.set(null)" class="text-red-400 hover:text-red-600 shrink-0">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+  }
 
   @if (importError()) {
     <div class="mb-4 p-4 rounded-xl bg-red-50 border border-red-100 text-sm text-red-600 flex items-center justify-between gap-3">

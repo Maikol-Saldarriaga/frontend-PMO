@@ -1,0 +1,177 @@
+@if (loading()) {
+  <div class="flex items-center justify-center py-32">
+    <div class="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+  </div>
+} @else if (error()) {
+  <div class="m-6 p-4 rounded-xl bg-red-50 border border-red-100 text-sm text-red-600">{{ error() }}</div>
+} @else {
+
+<div class="px-4 pb-8">
+
+  <!-- ══ HEADER ═══════════════════════════════════════════════════════════ -->
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-4 flex items-center justify-between gap-3 flex-wrap">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-sky-50 flex items-center justify-center shrink-0">
+        <svg class="w-5 h-5 text-sky-500" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+        </svg>
+      </div>
+      <div>
+        <p class="text-sm font-bold text-gray-800">Ubicaciones del Proyecto</p>
+        <p class="text-xs text-gray-400">Municipios o zonas donde se ejecuta el proyecto</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ FORM ═════════════════════════════════════════════════════════════ -->
+  <form [formGroup]="form" (ngSubmit)="save()" novalidate>
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mb-4">
+
+      <div formArrayName="locations" class="divide-y divide-gray-100">
+        @for (row of locationsArray.controls; track $index; let i = $index) {
+          <div [formGroupName]="i" class="px-5 py-5">
+
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center gap-2">
+                <div class="w-6 h-6 rounded-full bg-sky-500 flex items-center justify-center flex-shrink-0">
+                  <span class="text-[10px] font-black text-white">{{ i + 1 }}</span>
+                </div>
+                <span class="text-xs font-semibold text-gray-600">Ubicación {{ i + 1 }}</span>
+              </div>
+              @if (locationsArray.length > 1) {
+                <button type="button" (click)="removeRow(i)"
+                  class="flex items-center gap-1 text-xs text-gray-400 hover:text-red-500 transition-colors">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                  </svg>
+                  Eliminar
+                </button>
+              }
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+              <!-- País (fijo) -->
+              <div>
+                <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">
+                  País <span class="text-red-500">*</span>
+                </label>
+                <div class="px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-500 flex items-center gap-2">
+                  <svg class="w-4 h-4 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064"/>
+                  </svg>
+                  Colombia
+                </div>
+              </div>
+
+              <!-- Departamento -->
+              <div>
+                <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">
+                  Departamento <span class="text-red-500">*</span>
+                </label>
+                <select formControlName="department"
+                  class="w-full px-4 py-2.5 rounded-xl border text-sm text-gray-800 bg-gray-50 focus:bg-white outline-none focus:ring-2 transition-colors appearance-none"
+                  [class.border-gray-200]="!isInvalid($any(row), 'department')"
+                  [class.focus:ring-sky-200]="!isInvalid($any(row), 'department')"
+                  [class.focus:border-sky-400]="!isInvalid($any(row), 'department')"
+                  [class.border-red-300]="isInvalid($any(row), 'department')"
+                  [class.focus:ring-red-100]="isInvalid($any(row), 'department')"
+                >
+                  <option value="">Selecciona un departamento</option>
+                  @for (dept of departments(); track dept.id) {
+                    <option [value]="dept.name">{{ dept.name }}</option>
+                  }
+                </select>
+                @if (isInvalid($any(row), 'department')) {
+                  <p class="mt-1 text-xs text-red-500">El departamento es obligatorio</p>
+                }
+              </div>
+
+              <!-- Municipio -->
+              <div>
+                <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">
+                  Municipio <span class="text-red-500">*</span>
+                </label>
+                <select formControlName="municipality"
+                  [disabled]="!$any(row).get('department')?.value"
+                  class="w-full px-4 py-2.5 rounded-xl border text-sm text-gray-800 bg-gray-50 focus:bg-white outline-none focus:ring-2 transition-colors appearance-none disabled:opacity-50 disabled:cursor-not-allowed"
+                  [class.border-gray-200]="!isInvalid($any(row), 'municipality')"
+                  [class.focus:ring-sky-200]="!isInvalid($any(row), 'municipality')"
+                  [class.focus:border-sky-400]="!isInvalid($any(row), 'municipality')"
+                  [class.border-red-300]="isInvalid($any(row), 'municipality')"
+                  [class.focus:ring-red-100]="isInvalid($any(row), 'municipality')"
+                >
+                  <option value="">{{ getCities(i).length ? 'Selecciona un municipio' : 'Primero elige el departamento' }}</option>
+                  @for (city of getCities(i); track city.id) {
+                    <option [value]="city.name">{{ city.name }}</option>
+                  }
+                </select>
+                @if (isInvalid($any(row), 'municipality')) {
+                  <p class="mt-1 text-xs text-red-500">El municipio es obligatorio</p>
+                }
+              </div>
+
+              <!-- Vereda / Zona -->
+              <div class="md:col-span-1">
+                <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">
+                  Vereda / Zona
+                </label>
+                <input formControlName="sidewalk" type="text"
+                  placeholder="Ej: Vereda El Pital / Zona Rural Norte"
+                  class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-800 placeholder-gray-400 bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 transition-colors"/>
+              </div>
+
+              <!-- Detalles -->
+              <div class="md:col-span-2">
+                <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">
+                  Detalles de la zona de intervención
+                </label>
+                <input formControlName="details" type="text"
+                  placeholder="Ej: Zona de intervención sur, barrios periféricos..."
+                  class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-800 placeholder-gray-400 bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 transition-colors"/>
+              </div>
+
+            </div>
+          </div>
+        }
+      </div>
+
+      <!-- Agregar ubicación -->
+      <div class="px-5 py-4 border-t border-gray-100 bg-gray-50/50">
+        <button type="button" (click)="addRow()"
+          class="flex items-center gap-2 text-sm text-sky-600 hover:text-sky-700 font-semibold transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+          </svg>
+          Agregar otra ubicación
+        </button>
+      </div>
+    </div>
+
+    <!-- Feedback -->
+    @if (saveError()) {
+      <div class="mb-4 p-3 rounded-xl bg-red-50 border border-red-100 text-sm text-red-600">{{ saveError() }}</div>
+    }
+    @if (saveSuccess()) {
+      <div class="mb-4 p-3 rounded-xl bg-emerald-50 border border-emerald-100 text-sm text-emerald-600">Ubicaciones guardadas correctamente.</div>
+    }
+
+    <!-- Guardar -->
+    <div class="flex items-center justify-end">
+      <button type="submit" [disabled]="saving()"
+        class="flex items-center gap-2.5 px-6 py-3 bg-sky-500 hover:bg-sky-600 text-white text-sm font-bold rounded-xl shadow-sm shadow-sky-200 transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+        @if (saving()) {
+          <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+          Guardando...
+        } @else {
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+          </svg>
+          Guardar ubicaciones
+        }
+      </button>
+    </div>
+  </form>
+
+</div>
+}

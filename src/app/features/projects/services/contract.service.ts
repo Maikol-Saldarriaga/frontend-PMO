@@ -6,6 +6,7 @@ import {
   ContractStep1Request, ContractStep1Response,
   ContractStep1bRequest,
   ContractStep2Request,
+  ContractLocationItem,
   ContractStep3Request,
   ContractStep4Request,
   ContractStep5Request,
@@ -41,6 +42,15 @@ export class ContractService {
 
   updateStep2(id: string, data: ContractStep2Request): Observable<ContractProgressResponse> {
     return this.http.put<ContractProgressResponse>(ENDPOINTS.contracts.stepById(id, 2), data);
+  }
+
+  getLocations(id: string): Observable<ContractLocationItem[]> {
+    return this.http.get<ContractLocationItem[]>(ENDPOINTS.contracts.locations(id));
+  }
+
+  /** Reemplaza todas las ubicaciones del proyecto (usado fuera del wizard, ej. tab de detalle). */
+  updateLocations(id: string, data: ContractStep2Request): Observable<ContractProgressResponse> {
+    return this.http.put<ContractProgressResponse>(ENDPOINTS.contracts.locations(id), data);
   }
 
   updateStep3(id: string, data: ContractStep3Request): Observable<ContractServiceResponse> {

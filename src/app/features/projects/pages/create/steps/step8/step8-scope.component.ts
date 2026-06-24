@@ -1,10 +1,11 @@
-import { Component, Input, Output, EventEmitter, signal, WritableSignal } from '@angular/core';
+import { Component, Input, Output, EventEmitter, signal, WritableSignal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {
   ContractStep8Request, ContractStep8Item, ContractActItem,
   WizardStep8ComponentResponse,
 } from '../../../../models/contract.model';
 import { MoneyMaskDirective } from '../../../../../../shared/directives/money-mask.directive';
+import { ProjectService } from '../../../../services/project.service';
 
 interface ActRow {
   id?:               string | null;
@@ -51,6 +52,10 @@ const EMPTY_COMPONENT = (): ComponentRow => ({
   templateUrl: './step8-scope.component.html',
 })
 export class Step8ScopeComponent {
+  private svc = inject(ProjectService);
+
+  @Input() projectId: string | null = null;
+
   @Input() set savedData(val: WizardStep8ComponentResponse[] | undefined) {
     if (!val?.length) return;
     this.rows.set(val.map(comp => ({
@@ -87,6 +92,7 @@ export class Step8ScopeComponent {
   @Output() budgetWarning   = new EventEmitter<string[]>();
 
   rows: WritableSignal<ComponentRow[]> = signal([EMPTY_COMPONENT()]);
+  deleteError = signal<string | null>(null);
 
   // ── Presupuesto helpers ────────────────────────────────────────────────────
   get totalComponentBudget(): number {
@@ -118,6 +124,22 @@ export class Step8ScopeComponent {
   }
 
   removeComponent(ci: number): void {
+    const comp = this.rows()[ci];
+    this.deleteError.set(null);
+
+    if (comp?.id && this.projectId) {
+      this.svc.deleteComponent(this.projectId, comp.id).subscribe({
+        next: () => {
+          this.rows.update(r => r.filter((_, i) => i !== ci));
+          this.emit();
+        },
+        error: err => {
+          this.deleteError.set(err?.error?.message ?? 'No se pudo eliminar el componente en el servidor.');
+        },
+      });
+      return;
+    }
+
     this.rows.update(r => r.filter((_, i) => i !== ci));
     this.emit();
   }
@@ -219,13 +241,13 @@ export class Step8ScopeComponent {
     const warnings: string[] = [];
     this.rows().forEach((comp, ci) => {
       if (comp.budget !== null && this.componentActBudget(ci) > comp.budget) {
-        const exceso = this.componentActBudget(ci) - comp.budget;
-        warnings.push(`Componente ${ci + 1} "${comp.componentName || 'sin nombre'}": las actividades exceden el presupuesto en $ ${this.fmt(exceso)}.`);
+        const adelantado = this.componentActBudget(ci) - comp.budget;
+        warnings.push(`Componente ${ci + 1} "${comp.componentName || 'sin nombre'}": las actividades exceden el presupuesto en $ ${this.fmt(adelantado)}.`);
       }
     });
     if (this.contractBudget !== null && this.totalComponentBudget > this.contractBudget) {
-      const exceso = this.totalComponentBudget - this.contractBudget;
-      warnings.push(`El total de componentes excede el presupuesto del contrato en $ ${this.fmt(exceso)}.`);
+      const adelantado = this.totalComponentBudget - this.contractBudget;
+      warnings.push(`El total de componentes excede el presupuesto del contrato en $ ${this.fmt(adelantado)}.`);
     }
     if (warnings.length) this.budgetWarning.emit(warnings);
   }
