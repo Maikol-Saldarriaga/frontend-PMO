@@ -154,6 +154,163 @@
   white-space: nowrap;
 }
 
+// ── Comparativo: facturado vs planeado por proyecto ──
+.chart-card--list {
+  align-items: stretch;
+}
+
+.proj-compare-list {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.proj-compare-row__head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.3rem;
+}
+
+.proj-compare-row__name {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.8125rem;
+  color: $color-neutral-600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.proj-compare-row__pct {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: $color-primary-700;
+  white-space: nowrap;
+}
+
+.proj-compare-bar {
+  height: 10px;
+  border-radius: 999px;
+  background: $color-neutral-100;
+  overflow: hidden;
+}
+
+.proj-compare-bar__fill {
+  height: 100%;
+  border-radius: 999px;
+  cursor: default;
+  transition: opacity 0.15s, width 0.3s;
+  &:hover { opacity: 0.8; }
+}
+
+// ── Combo chart (barras + líneas) ────────────────
+.combo-chart {
+  width: 100%;
+}
+
+.combo-chart__svg {
+  width: 100%;
+  aspect-ratio: 768 / 200;
+  height: auto;
+  display: block;
+}
+
+.combo-chart__labels {
+  font-size: 0.65rem;
+}
+
+// ── Alianzas: tabla + gráfica lado a lado ────────
+.ally-row {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+  align-items: start;
+
+  @media (max-width: 1100px) { grid-template-columns: 1fr; }
+}
+
+.ally-row__table { overflow-x: auto; }
+.ally-row__chart { align-items: stretch; }
+
+.ally-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+
+  th {
+    text-align: left;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    color: $color-neutral-400;
+    text-transform: uppercase;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid $color-border;
+  }
+
+  th:not(:first-child), td:not(:first-child) {
+    text-align: right;
+  }
+
+  td {
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid $color-neutral-100;
+  }
+}
+
+.ally-table__cat-row {
+  cursor: pointer;
+  font-weight: 700;
+  color: $color-primary-700;
+  background: $color-neutral-50;
+  transition: background 0.15s;
+  &:hover { background: $color-neutral-100; }
+}
+
+.ally-table__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  color: $color-primary-700;
+  cursor: pointer;
+}
+
+.ally-table__chevron {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: $color-neutral-400;
+  transition: transform 0.15s;
+  &--open { transform: rotate(90deg); }
+}
+
+.ally-table__item-row {
+  color: $color-neutral-600;
+
+  .ally-table__item-name {
+    padding-left: 2.25rem;
+  }
+}
+
+.ally-table__diff--pos { color: #16a34a; font-weight: 600; }
+.ally-table__diff--neg { color: #dc2626; font-weight: 600; }
+
+.combo-chart__labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  color: $color-neutral-400;
+  padding: 0 0.25rem;
+}
+
 // ── Línea comparativa ───────────────────────────
 .line-card {
   display: flex;

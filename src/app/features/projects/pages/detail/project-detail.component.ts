@@ -12,6 +12,7 @@ import { TabSeguimientoTecnicoComponent } from './tabs/tab-seguimiento-tecnico/t
 import { TabRiesgosComponent } from './tabs/tab-riesgos/tab-riesgos.component';
 import { TabBeneficiariosComponent } from './tabs/tab-beneficiarios/tab-beneficiarios.component';
 import { TabUbicacionesComponent } from './tabs/tab-ubicaciones/tab-ubicaciones.component';
+import { TabCondicionesComponent } from './tabs/tab-condiciones/tab-condiciones.component';
 
 @Component({
   selector: 'app-project-detail',
@@ -26,6 +27,7 @@ import { TabUbicacionesComponent } from './tabs/tab-ubicaciones/tab-ubicaciones.
     TabRiesgosComponent,
     TabBeneficiariosComponent,
     TabUbicacionesComponent,
+    TabCondicionesComponent,
   ],
   templateUrl: './project-detail.component.html',
 })
@@ -57,6 +59,10 @@ export class ProjectDetailComponent implements OnInit {
     {
       id: 'ubicaciones', label: 'Ubicaciones', color: 'emerald',
       icon: `<path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>`,
+    },
+    {
+      id: 'condiciones', label: 'Condiciones', color: 'orange',
+      icon: `<path stroke-linecap="round" stroke-linejoin="round" d="M20.618 5.984A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>`,
     },
     {
       id: 'cronograma', label: 'Cronograma', color: 'blue',

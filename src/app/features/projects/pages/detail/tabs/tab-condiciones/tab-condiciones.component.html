@@ -1,0 +1,316 @@
+@if (loading()) {
+  <div class="flex items-center justify-center py-32">
+    <div class="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+  </div>
+} @else if (error()) {
+  <div class="m-6 p-4 rounded-xl bg-red-50 border border-red-100 text-sm text-red-600">{{ error() }}</div>
+} @else {
+
+<div class="px-4 pb-8">
+
+  <!-- ══ HEADER ═══════════════════════════════════════════════════════════ -->
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-4 flex items-center justify-between gap-3 flex-wrap">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-sky-50 flex items-center justify-center shrink-0">
+        <svg class="w-5 h-5 text-sky-500" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M20.618 5.984A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+        </svg>
+      </div>
+      <div>
+        <p class="text-sm font-bold text-gray-800">Condiciones y Restricciones</p>
+        <p class="text-xs text-gray-400">Requisitos mínimos, exclusiones, supuestos y restricciones</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ LISTA DE CONDICIONES ═════════════════════════════════════════════ -->
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mb-4">
+    <div class="divide-y divide-gray-100">
+      @for (row of rows(); track $index; let i = $index) {
+        <div class="p-5" [class.opacity-50]="row.deleting">
+
+          <!-- Row header -->
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+              <span class="w-6 h-6 rounded-full bg-sky-500 flex items-center justify-center text-[10px] font-black text-white">{{ i + 1 }}</span>
+              <span class="text-xs font-semibold text-gray-600">Condición {{ i + 1 }}</span>
+            </div>
+            <button type="button" (click)="removeRow(i)" [disabled]="row.deleting"
+              class="flex items-center gap-1 text-xs text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+              {{ row.deleting ? 'Eliminando...' : 'Eliminar' }}
+            </button>
+          </div>
+
+          <!-- ── Campos de la condición ─────────────────────────────── -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+            <div class="md:col-span-2">
+              <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Tipo <span class="text-red-500">*</span></label>
+              <select [value]="row.condition" (change)="updateField(i,'condition',$any($event.target).value)"
+                class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-800 bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 transition-colors appearance-none">
+                @for (t of conditionTypes; track t.value) {
+                  <option [value]="t.value" [selected]="row.condition === t.value">{{ t.label }}</option>
+                }
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Tipo de cumplimiento <span class="text-red-500">*</span></label>
+              <select [value]="row.type_compliance" (change)="updateField(i,'type_compliance',$any($event.target).value)"
+                class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-800 bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 transition-colors appearance-none">
+                @for (c of complianceTypes; track c) {
+                  <option [value]="c" [selected]="row.type_compliance === c">{{ c }}</option>
+                }
+              </select>
+            </div>
+
+            <div>
+              @if (row.type_compliance === 'Fecha específica') {
+                <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Fecha de cumplimiento</label>
+                <input type="date" [value]="row.compliance_value"
+                  (change)="updateField(i,'compliance_value',$any($event.target).value)"
+                  class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-800 bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 transition-colors"/>
+              }
+              @if (row.type_compliance === 'Hito del proyecto') {
+                <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Hito del proyecto</label>
+                <select [value]="row.compliance_value" (change)="updateField(i,'compliance_value',$any($event.target).value)"
+                  class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-800 bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 transition-colors appearance-none">
+                  <option value="">Selecciona una etapa</option>
+                  @for (h of hitos; track h) {
+                    <option [value]="h" [selected]="row.compliance_value === h">{{ h }}</option>
+                  }
+                </select>
+              }
+              @if (row.type_compliance === 'Periodicidad') {
+                <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Periodicidad</label>
+                <select [value]="row.compliance_value" (change)="updateField(i,'compliance_value',$any($event.target).value)"
+                  class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-800 bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 transition-colors appearance-none">
+                  <option value="">Selecciona la periodicidad</option>
+                  @for (p of periodicidades; track p) {
+                    <option [value]="p" [selected]="row.compliance_value === p">{{ p }}</option>
+                  }
+                </select>
+              }
+              @if (row.type_compliance === 'Permanente') {
+                <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Cumplimiento</label>
+                <div class="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-400">
+                  <svg class="w-4 h-4 text-sky-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                  Permanente — sin valor adicional
+                </div>
+              }
+            </div>
+
+            <div class="md:col-span-2">
+              <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Descripción adicional</label>
+              <input type="text" [value]="row.description"
+                (input)="updateField(i,'description',$any($event.target).value)"
+                placeholder="Ej: Resolución de aprobación presupuestal"
+                class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-800 placeholder-gray-400 bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 transition-colors"/>
+            </div>
+
+          </div>
+
+          <!-- ── Sección de Soportes ────────────────────────────────── -->
+          <div class="mt-5 rounded-xl border overflow-hidden transition-colors"
+            [class.border-sky-200]="row.hasSupports"
+            [class.border-gray-200]="!row.hasSupports">
+
+            <!-- Toggle check -->
+            <label class="flex items-center gap-3 px-4 py-3 cursor-pointer select-none transition-colors"
+              [class.bg-sky-50]="row.hasSupports"
+              [class.bg-gray-50]="!row.hasSupports">
+              <div class="relative flex-shrink-0">
+                <input type="checkbox" class="sr-only peer" [checked]="row.hasSupports"
+                  (change)="updateField(i, 'hasSupports', $any($event.target).checked)"/>
+                <div class="w-9 h-5 rounded-full transition-colors peer-checked:bg-sky-500 bg-gray-300"></div>
+                <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform peer-checked:translate-x-4"></div>
+              </div>
+              <div class="flex-1">
+                <span class="text-xs font-bold uppercase tracking-wide transition-colors"
+                  [class.text-sky-600]="row.hasSupports"
+                  [class.text-gray-500]="!row.hasSupports">Soportes adjuntos</span>
+                <p class="text-[10px] text-gray-400">{{ row.hasSupports ? 'Activo — puedes adjuntar documentos a esta condición' : 'Activa si esta condición requiere documentos de soporte' }}</p>
+              </div>
+              @if (row.supports.length > 0) {
+                <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-sky-100 text-sky-600">{{ row.supports.length }}</span>
+              }
+            </label>
+
+            @if (row.hasSupports) {
+              <div class="border-t border-sky-100"></div>
+
+            <!-- Soportes existentes -->
+            @if (row.supports.length > 0) {
+              <div class="divide-y divide-gray-100">
+                @for (sup of row.supports; track sup.id) {
+                  <div class="flex items-center gap-3 px-4 py-3">
+                    <div class="w-8 h-8 rounded-lg bg-sky-50 flex items-center justify-center flex-shrink-0">
+                      <svg class="w-4 h-4 text-sky-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                      </svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <p class="text-xs font-semibold text-gray-800 truncate">{{ sup.name }}</p>
+                      <p class="text-[10px] text-gray-400">{{ supportLabel(sup.support_type) }}</p>
+                    </div>
+                    <a [href]="sup.support_url" target="_blank"
+                      class="p-1.5 rounded-lg text-gray-400 hover:text-sky-500 hover:bg-sky-50 transition-colors">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                      </svg>
+                    </a>
+                    <button type="button" (click)="deleteSupport(i, sup)"
+                      class="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                      </svg>
+                    </button>
+                  </div>
+                }
+              </div>
+            }
+
+            <!-- Formulario de nuevo soporte -->
+            <div class="p-4">
+              @if (!row.id) {
+                <p class="text-xs text-gray-400 text-center py-2">
+                  Guarda la condición primero para poder adjuntar soportes.
+                </p>
+              } @else {
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+
+                  <!-- Tipo de soporte -->
+                  <div>
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Tipo de soporte</label>
+                    <select [value]="row.upload.support_type"
+                      (change)="updateUploadField(i,'support_type',$any($event.target).value)"
+                      class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-800 bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 transition-colors appearance-none">
+                      <option value="">Selecciona un tipo</option>
+                      @for (key of supportTypeKeys; track key) {
+                        <option [value]="key" [selected]="row.upload.support_type === key">{{ supportTypeLabels[key] }}</option>
+                      }
+                    </select>
+                  </div>
+
+                  <!-- Nombre del documento -->
+                  <div>
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Nombre del documento</label>
+                    <select [value]="row.upload.name"
+                      [attr.disabled]="!row.upload.support_type ? '' : null"
+                      (change)="updateUploadField(i,'name',$any($event.target).value)"
+                      class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-800 bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 transition-colors appearance-none disabled:opacity-50 disabled:cursor-not-allowed">
+                      <option value="">{{ row.upload.support_type ? 'Selecciona un documento' : 'Primero elige el tipo' }}</option>
+                      @for (name of getSupportNames(i); track name) {
+                        <option [value]="name" [selected]="row.upload.name === name">{{ name }}</option>
+                      }
+                    </select>
+                  </div>
+
+                </div>
+
+                <!-- Zona de archivos -->
+                <div class="mb-3">
+                  <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Archivos adjuntos</label>
+                  <label class="flex flex-col items-center justify-center gap-2 px-4 py-5 rounded-xl border-2 border-dashed border-gray-200 hover:border-sky-400 cursor-pointer transition-colors bg-gray-50 hover:bg-sky-50">
+                    <svg class="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                    </svg>
+                    <span class="text-xs text-gray-400">Haz clic para adjuntar o arrastra archivos aquí</span>
+                    <span class="text-[10px] text-gray-300">PDF, imágenes, Word, Excel...</span>
+                    <input type="file" multiple accept="*/*" class="hidden" (change)="onFilesSelected(i, $event)"/>
+                  </label>
+                </div>
+
+                <!-- Lista de archivos seleccionados -->
+                @if (row.upload.files.length > 0) {
+                  <div class="mb-3 space-y-1.5">
+                    @for (file of row.upload.files; track $index; let fi = $index) {
+                      <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-sky-50 border border-sky-100">
+                        <svg class="w-4 h-4 text-sky-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                        <span class="flex-1 text-xs text-gray-800 truncate">{{ fileName(file) }}</span>
+                        <span class="text-[10px] text-gray-400 flex-shrink-0">{{ fileSize(file) }}</span>
+                        <button type="button" (click)="removeFile(i, fi)" class="text-gray-400 hover:text-red-500 transition-colors">
+                          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                          </svg>
+                        </button>
+                      </div>
+                    }
+                  </div>
+                }
+
+                <!-- Error -->
+                @if (row.upload.error) {
+                  <p class="mb-2 text-xs text-red-500">{{ row.upload.error }}</p>
+                }
+
+                <!-- Botón subir -->
+                <button type="button" (click)="uploadSupports(i)"
+                  [disabled]="!canUpload(row) || row.upload.uploading"
+                  class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  [class.bg-sky-500]="canUpload(row) && !row.upload.uploading"
+                  [class.text-white]="canUpload(row) && !row.upload.uploading"
+                  [class.hover:bg-sky-600]="canUpload(row) && !row.upload.uploading"
+                  [class.bg-gray-100]="!canUpload(row) || row.upload.uploading"
+                  [class.text-gray-400]="!canUpload(row) || row.upload.uploading">
+                  @if (row.upload.uploading) {
+                    <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                    </svg>
+                    Subiendo...
+                  } @else {
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                    </svg>
+                    Subir {{ row.upload.files.length > 1 ? row.upload.files.length + ' archivos' : 'archivo' }}
+                  }
+                </button>
+              }
+            </div>
+            } <!-- end @if hasSupports -->
+          </div>
+
+        </div>
+      }
+    </div>
+
+    <!-- Agregar condición -->
+    <div class="px-5 py-4 border-t border-gray-100 bg-gray-50/50">
+      <button type="button" (click)="addRow()"
+        class="flex items-center gap-2 text-sm text-sky-600 hover:text-sky-700 font-semibold transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        Agregar condición
+      </button>
+    </div>
+  </div>
+
+  <!-- Feedback -->
+  @if (saveError()) {
+    <div class="mb-4 p-3 rounded-xl bg-red-50 border border-red-100 text-sm text-red-600">{{ saveError() }}</div>
+  }
+  @if (saveSuccess()) {
+    <div class="mb-4 p-3 rounded-xl bg-emerald-50 border border-emerald-100 text-sm text-emerald-600">Condiciones guardadas correctamente.</div>
+  }
+
+  <!-- Guardar -->
+  <div class="flex items-center justify-end">
+    <button type="button" (click)="save()" [disabled]="saving()"
+      class="flex items-center gap-2.5 px-6 py-3 bg-sky-500 hover:bg-sky-600 text-white text-sm font-bold rounded-xl shadow-sm shadow-sky-200 transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+      @if (saving()) {
+        <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+        Guardando...
+      } @else {
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        Guardar condiciones
+      }
+    </button>
+  </div>
+
+</div>
+}
