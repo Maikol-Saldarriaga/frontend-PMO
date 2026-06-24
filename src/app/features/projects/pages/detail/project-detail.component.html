@@ -93,19 +93,20 @@
 
     </div>
 
-    <nav class="flex items-end gap-1 overflow-x-auto scrollbar-none pt-2 -mx-1 px-1">
+    <nav class="flex items-end gap-1.5 overflow-x-auto scrollbar-none pt-3 -mx-1 px-1">
       @for (tab of TABS; track tab.id) {
         <button (click)="onTabClick(tab.id)"
-          class="group flex flex-col items-center gap-1.5 px-3.5 py-2.5 rounded-t-xl transition-all duration-200 whitespace-nowrap flex-shrink-0 border-b-2 hover:opacity-90"
+          class="group flex flex-col items-center gap-2 px-5 py-3.5 rounded-t-xl transition-all duration-200 whitespace-nowrap flex-shrink-0 border-b-2 hover:opacity-90 min-w-[72px]"
           [class.bg-sky-500]="activeTab() === tab.id"
           [class.border-sky-500]="activeTab() === tab.id"
           [class.shadow-md]="activeTab() === tab.id"
           [class.shadow-sky-200]="activeTab() === tab.id"
           [class.bg-gray-50]="activeTab() !== tab.id"
-          [class.border-transparent]="activeTab() !== tab.id">
+          [class.border-transparent]="activeTab() !== tab.id"
+          [class.hover:bg-gray-100]="activeTab() !== tab.id">
 
           <!-- Icono -->
-          <svg class="w-4 h-4 flex-shrink-0 transition-colors"
+          <svg class="w-5 h-5 flex-shrink-0 transition-colors"
             [class.text-white]="activeTab() === tab.id"
             [class.text-gray-400]="activeTab() !== tab.id"
             fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"
@@ -113,7 +114,7 @@
           </svg>
 
           <!-- Label -->
-          <span class="text-[10px] font-semibold leading-none tracking-wide transition-colors"
+          <span class="text-[11px] font-semibold leading-none tracking-wide transition-colors"
             [class.text-white]="activeTab() === tab.id"
             [class.text-gray-500]="activeTab() !== tab.id">
             {{ tab.label }}

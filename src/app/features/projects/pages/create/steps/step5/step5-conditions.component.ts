@@ -26,11 +26,27 @@ interface ConditionRow {
   upload:           PendingUpload;
 }
 
-const CONDITION_TYPES: { value: ConditionType; label: string }[] = [
-  { value: 'requisito_minimo', label: 'Requisito Mínimo' },
-  { value: 'supuesto',         label: 'Supuesto'         },
-  { value: 'exclusion',        label: 'Exclusión'        },
-  { value: 'restriccion',      label: 'Restricción'      },
+const CONDITION_TYPES: { value: ConditionType; label: string; description: string }[] = [
+  {
+    value: 'requisito_minimo',
+    label: 'Requisito Mínimo',
+    description: 'Condición o capacidad que debe estar presente en un producto, servicio o resultado para satisfacer una necesidad de negocio.',
+  },
+  {
+    value: 'supuesto',
+    label: 'Supuesto',
+    description: 'Condición o compromiso que se le promete al proyecto y se considera verdadera, real o cierta, sin prueba ni demostración.',
+  },
+  {
+    value: 'restriccion',
+    label: 'Restricción',
+    description: 'Factor limitante que afecta la ejecución de un proyecto, programa, portafolio o proceso.',
+  },
+  {
+    value: 'exclusion',
+    label: 'Exclusión',
+    description: 'Identifica lo que está excluido del proyecto. Establece explícitamente lo que está fuera del alcance del proyecto o de un producto, resultado o servicio.',
+  },
 ];
 
 const COMPLIANCE_TYPES: ComplianceType[] = [
@@ -236,6 +252,10 @@ export class Step5ConditionsComponent {
 
   onSubmit(): void {
     this.submitted.emit(this.buildPayload());
+  }
+
+  conditionDescription(value: string): string {
+    return CONDITION_TYPES.find(t => t.value === value)?.description ?? '';
   }
 
   supportLabel(key: string): string {
