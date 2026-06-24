@@ -1,7 +1,7 @@
 import { Component, Input, Output, EventEmitter, OnInit, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormArray, FormGroup, Validators } from '@angular/forms';
-import { ColombiaApiService, ColombiaDepartment, ColombiaCity } from '../../../../../../core/services/colombia-api.service';
+import { SocrataGeoService, SocrataDept, SocrataMunicipio, SocrataVereda } from '../../../../../../core/services/socrata-geo.service';
 import { ContractLocation, ContractLocationItem } from '../../../../models/contract.model';
 
 @Component({
@@ -19,11 +19,16 @@ export class Step2LocationComponent implements OnInit {
   @Output() validationError = new EventEmitter<string[]>();
 
   private fb  = inject(FormBuilder);
-  private api = inject(ColombiaApiService);
+  private geo = inject(SocrataGeoService);
 
-  departments   = signal<ColombiaDepartment[]>([]);
-  citiesMap     = signal<Record<number, ColombiaCity[]>>({});
-  loadingDepts  = signal(true);
+  departments     = signal<SocrataDept[]>([]);
+  municipiosMap   = signal<Record<number, SocrataMunicipio[]>>({});
+  veredasMap      = signal<Record<number, SocrataVereda[]>>({});
+  loadingVeredasMap = signal<Record<number, boolean>>({});
+  loadingDepts    = signal(true);
+
+  private deptCodes: Record<number, string> = {};
+  private mpioCodes: Record<number, string> = {};
 
   form = this.fb.group({
     locations: this.fb.array<FormGroup>([]),
@@ -32,7 +37,7 @@ export class Step2LocationComponent implements OnInit {
   get locationsArray(): FormArray { return this.form.get('locations') as FormArray; }
 
   ngOnInit(): void {
-    this.api.getDepartments().subscribe({
+    this.geo.getDepartamentos().subscribe({
       next: depts => {
         this.departments.set(depts);
         this.loadingDepts.set(false);
@@ -69,16 +74,47 @@ export class Step2LocationComponent implements OnInit {
     this.locationsArray.push(row);
     const idx = this.locationsArray.length - 1;
 
-    // Pre-load cities if department already set
+    // Pre-load municipios and veredas for saved rows
     if (loc?.department) {
-      const dept = this.departments().find(d => d.name === loc.department);
-      if (dept) this.loadCities(dept.id, idx);
+      const dept = this.departments().find(d => d.nom_dpto === loc.department);
+      if (dept) {
+        this.deptCodes[idx] = dept.cod_dpto;
+        this.geo.getMunicipios(dept.cod_dpto).subscribe(mpios => {
+          this.municipiosMap.update(m => ({ ...m, [idx]: mpios }));
+          if (loc.municipality) {
+            const mpio = mpios.find(m => m.nom_mpio === loc.municipality);
+            if (mpio) {
+              this.mpioCodes[idx] = mpio.cod_mpio;
+              this.loadVeredas(mpio.cod_mpio, idx);
+            }
+          }
+        });
+      }
     }
 
     row.get('department')?.valueChanges.subscribe(deptName => {
-      const dept = this.departments().find(d => d.name === deptName);
+      const dept = this.departments().find(d => d.nom_dpto === deptName);
       row.get('municipality')?.setValue('');
-      if (dept) this.loadCities(dept.id, idx);
+      row.get('sidewalk')?.setValue('');
+      this.municipiosMap.update(m => ({ ...m, [idx]: [] }));
+      this.veredasMap.update(v => ({ ...v, [idx]: [] }));
+      if (dept) {
+        this.deptCodes[idx] = dept.cod_dpto;
+        this.geo.getMunicipios(dept.cod_dpto).subscribe(mpios => {
+          this.municipiosMap.update(m => ({ ...m, [idx]: mpios }));
+        });
+      }
+    });
+
+    row.get('municipality')?.valueChanges.subscribe(mpioName => {
+      row.get('sidewalk')?.setValue('');
+      this.veredasMap.update(v => ({ ...v, [idx]: [] }));
+      const mpios = this.municipiosMap()[idx] ?? [];
+      const mpio = mpios.find(m => m.nom_mpio === mpioName);
+      if (mpio) {
+        this.mpioCodes[idx] = mpio.cod_mpio;
+        this.loadVeredas(mpio.cod_mpio, idx);
+      }
     });
   }
 
@@ -87,15 +123,20 @@ export class Step2LocationComponent implements OnInit {
     this.dataChange.emit(this.buildPayload());
   }
 
-  private loadCities(deptId: number, rowIndex: number): void {
-    this.api.getCities(deptId).subscribe(cities => {
-      this.citiesMap.update(m => ({ ...m, [rowIndex]: cities }));
+  private loadVeredas(codMpio: string, rowIndex: number): void {
+    this.loadingVeredasMap.update(m => ({ ...m, [rowIndex]: true }));
+    this.geo.getVeredas(codMpio).subscribe({
+      next: veredas => {
+        this.veredasMap.update(v => ({ ...v, [rowIndex]: veredas }));
+        this.loadingVeredasMap.update(m => ({ ...m, [rowIndex]: false }));
+      },
+      error: () => this.loadingVeredasMap.update(m => ({ ...m, [rowIndex]: false })),
     });
   }
 
-  getCities(rowIndex: number): ColombiaCity[] {
-    return this.citiesMap()[rowIndex] ?? [];
-  }
+  getMunicipios(rowIndex: number): SocrataMunicipio[] { return this.municipiosMap()[rowIndex] ?? []; }
+  getVeredas(rowIndex: number): SocrataVereda[]       { return this.veredasMap()[rowIndex]    ?? []; }
+  isLoadingVeredas(rowIndex: number): boolean         { return this.loadingVeredasMap()[rowIndex] ?? false; }
 
   isInvalid(group: FormGroup, field: string): boolean {
     const ctrl = group.get(field);
@@ -120,7 +161,7 @@ export class Step2LocationComponent implements OnInit {
     if (this.form.invalid) {
       const missing: string[] = [];
       this.locationsArray.controls.forEach((grp, i) => {
-        const g = grp as import('@angular/forms').FormGroup;
+        const g = grp as FormGroup;
         if (g.get('department')?.invalid)   missing.push(`Ubicación ${i + 1}: Departamento`);
         if (g.get('municipality')?.invalid) missing.push(`Ubicación ${i + 1}: Municipio`);
       });

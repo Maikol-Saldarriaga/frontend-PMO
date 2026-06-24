@@ -78,8 +78,8 @@
                   [class.focus:ring-red-100]="isInvalid($any(row), 'department')"
                 >
                   <option value="">Selecciona un departamento</option>
-                  @for (dept of departments(); track dept.id) {
-                    <option [value]="dept.name">{{ dept.name }}</option>
+                  @for (dept of departments(); track dept.cod_dpto) {
+                    <option [value]="dept.nom_dpto">{{ dept.nom_dpto }}</option>
                   }
                 </select>
                 @if (isInvalid($any(row), 'department')) {
@@ -93,7 +93,7 @@
                   Municipio <span class="text-red-500">*</span>
                 </label>
                 <select formControlName="municipality"
-                  [disabled]="!$any(row).get('department')?.value"
+                  [attr.disabled]="!$any(row).get('department')?.value ? '' : null"
                   class="w-full px-4 py-2.5 rounded-xl border text-sm text-gray-800 bg-gray-50 focus:bg-white outline-none focus:ring-2 transition-colors appearance-none disabled:opacity-50 disabled:cursor-not-allowed"
                   [class.border-gray-200]="!isInvalid($any(row), 'municipality')"
                   [class.focus:ring-sky-200]="!isInvalid($any(row), 'municipality')"
@@ -101,9 +101,9 @@
                   [class.border-red-300]="isInvalid($any(row), 'municipality')"
                   [class.focus:ring-red-100]="isInvalid($any(row), 'municipality')"
                 >
-                  <option value="">{{ getCities(i).length ? 'Selecciona un municipio' : 'Primero elige el departamento' }}</option>
-                  @for (city of getCities(i); track city.id) {
-                    <option [value]="city.name">{{ city.name }}</option>
+                  <option value="">{{ getMunicipios(i).length ? 'Selecciona un municipio' : 'Primero elige el departamento' }}</option>
+                  @for (mpio of getMunicipios(i); track mpio.cod_mpio) {
+                    <option [value]="mpio.nom_mpio">{{ mpio.nom_mpio }}</option>
                   }
                 </select>
                 @if (isInvalid($any(row), 'municipality')) {
@@ -111,14 +111,29 @@
                 }
               </div>
 
-              <!-- Vereda / Zona -->
+              <!-- Vereda -->
               <div class="md:col-span-1">
                 <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">
                   Vereda / Zona
                 </label>
-                <input formControlName="sidewalk" type="text"
-                  placeholder="Ej: Vereda El Pital / Zona Rural Norte"
-                  class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-800 placeholder-gray-400 bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 transition-colors"/>
+                @if (isLoadingVeredas(i)) {
+                  <div class="px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-400 flex items-center gap-2">
+                    <div class="w-4 h-4 border-2 border-sky-400 border-t-transparent rounded-full animate-spin flex-shrink-0"></div>
+                    Cargando veredas...
+                  </div>
+                } @else if (getVeredas(i).length > 0) {
+                  <select formControlName="sidewalk"
+                    class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-800 bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 transition-colors appearance-none">
+                    <option value="">Selecciona una vereda</option>
+                    @for (v of getVeredas(i); track v.cod_vere) {
+                      <option [value]="v.nom_vere">{{ v.nom_vere }}</option>
+                    }
+                  </select>
+                } @else {
+                  <input formControlName="sidewalk" type="text"
+                    placeholder="Ej: Vereda El Pital / Zona Rural Norte"
+                    class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-800 placeholder-gray-400 bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 transition-colors"/>
+                }
               </div>
 
               <!-- Detalles -->

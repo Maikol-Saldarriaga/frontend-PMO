@@ -1,7 +1,7 @@
 import { Component, Input, OnInit, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormArray, FormGroup, Validators } from '@angular/forms';
-import { ColombiaApiService, ColombiaDepartment, ColombiaCity } from '../../../../../../core/services/colombia-api.service';
+import { SocrataGeoService, SocrataDept, SocrataMunicipio, SocrataVereda } from '../../../../../../core/services/socrata-geo.service';
 import { ContractService } from '../../../../services/contract.service';
 import { ContractLocation, ContractLocationItem } from '../../../../models/contract.model';
 
@@ -15,17 +15,22 @@ export class TabUbicacionesComponent implements OnInit {
   @Input() projectId!: string;
 
   private fb  = inject(FormBuilder);
-  private api = inject(ColombiaApiService);
+  private geo = inject(SocrataGeoService);
   private contractSvc = inject(ContractService);
 
-  loading       = signal(true);
-  error         = signal<string | null>(null);
-  departments   = signal<ColombiaDepartment[]>([]);
-  citiesMap     = signal<Record<number, ColombiaCity[]>>({});
+  loading     = signal(true);
+  error       = signal<string | null>(null);
+  departments = signal<SocrataDept[]>([]);
+  municipiosMap     = signal<Record<number, SocrataMunicipio[]>>({});
+  veredasMap        = signal<Record<number, SocrataVereda[]>>({});
+  loadingVeredasMap = signal<Record<number, boolean>>({});
 
   saving      = signal(false);
   saveError   = signal<string | null>(null);
   saveSuccess = signal(false);
+
+  private deptCodes: Record<number, string> = {};
+  private mpioCodes: Record<number, string> = {};
 
   form = this.fb.group({
     locations: this.fb.array<FormGroup>([]),
@@ -36,9 +41,16 @@ export class TabUbicacionesComponent implements OnInit {
   ngOnInit(): void {
     this.contractSvc.getLocations(this.projectId).subscribe({
       next: saved => {
-        this.api.getDepartments().subscribe({
-          next: depts => { this.departments.set(depts); this.initRows(saved ?? []); this.loading.set(false); },
-          error: () => { this.initRows(saved ?? []); this.loading.set(false); },
+        this.geo.getDepartamentos().subscribe({
+          next: depts => {
+            this.departments.set(depts);
+            this.initRows(saved ?? []);
+            this.loading.set(false);
+          },
+          error: () => {
+            this.initRows(saved ?? []);
+            this.loading.set(false);
+          },
         });
       },
       error: () => {
@@ -71,15 +83,47 @@ export class TabUbicacionesComponent implements OnInit {
     this.locationsArray.push(row);
     const idx = this.locationsArray.length - 1;
 
+    // Pre-load municipios and veredas for saved rows
     if (loc?.department) {
-      const dept = this.departments().find(d => d.name === loc.department);
-      if (dept) this.loadCities(dept.id, idx);
+      const dept = this.departments().find(d => d.nom_dpto === loc.department);
+      if (dept) {
+        this.deptCodes[idx] = dept.cod_dpto;
+        this.geo.getMunicipios(dept.cod_dpto).subscribe(mpios => {
+          this.municipiosMap.update(m => ({ ...m, [idx]: mpios }));
+          if (loc.municipality) {
+            const mpio = mpios.find(m => m.nom_mpio === loc.municipality);
+            if (mpio) {
+              this.mpioCodes[idx] = mpio.cod_mpio;
+              this.loadVeredas(mpio.cod_mpio, idx);
+            }
+          }
+        });
+      }
     }
 
     row.get('department')?.valueChanges.subscribe(deptName => {
-      const dept = this.departments().find(d => d.name === deptName);
+      const dept = this.departments().find(d => d.nom_dpto === deptName);
       row.get('municipality')?.setValue('');
-      if (dept) this.loadCities(dept.id, idx);
+      row.get('sidewalk')?.setValue('');
+      this.municipiosMap.update(m => ({ ...m, [idx]: [] }));
+      this.veredasMap.update(v => ({ ...v, [idx]: [] }));
+      if (dept) {
+        this.deptCodes[idx] = dept.cod_dpto;
+        this.geo.getMunicipios(dept.cod_dpto).subscribe(mpios => {
+          this.municipiosMap.update(m => ({ ...m, [idx]: mpios }));
+        });
+      }
+    });
+
+    row.get('municipality')?.valueChanges.subscribe(mpioName => {
+      row.get('sidewalk')?.setValue('');
+      this.veredasMap.update(v => ({ ...v, [idx]: [] }));
+      const mpios = this.municipiosMap()[idx] ?? [];
+      const mpio = mpios.find(m => m.nom_mpio === mpioName);
+      if (mpio) {
+        this.mpioCodes[idx] = mpio.cod_mpio;
+        this.loadVeredas(mpio.cod_mpio, idx);
+      }
     });
   }
 
@@ -87,15 +131,20 @@ export class TabUbicacionesComponent implements OnInit {
     this.locationsArray.removeAt(index);
   }
 
-  private loadCities(deptId: number, rowIndex: number): void {
-    this.api.getCities(deptId).subscribe(cities => {
-      this.citiesMap.update(m => ({ ...m, [rowIndex]: cities }));
+  private loadVeredas(codMpio: string, rowIndex: number): void {
+    this.loadingVeredasMap.update(m => ({ ...m, [rowIndex]: true }));
+    this.geo.getVeredas(codMpio).subscribe({
+      next: veredas => {
+        this.veredasMap.update(v => ({ ...v, [rowIndex]: veredas }));
+        this.loadingVeredasMap.update(m => ({ ...m, [rowIndex]: false }));
+      },
+      error: () => this.loadingVeredasMap.update(m => ({ ...m, [rowIndex]: false })),
     });
   }
 
-  getCities(rowIndex: number): ColombiaCity[] {
-    return this.citiesMap()[rowIndex] ?? [];
-  }
+  getMunicipios(rowIndex: number): SocrataMunicipio[] { return this.municipiosMap()[rowIndex] ?? []; }
+  getVeredas(rowIndex: number): SocrataVereda[]       { return this.veredasMap()[rowIndex]    ?? []; }
+  isLoadingVeredas(rowIndex: number): boolean         { return this.loadingVeredasMap()[rowIndex] ?? false; }
 
   isInvalid(group: FormGroup, field: string): boolean {
     const ctrl = group.get(field);
