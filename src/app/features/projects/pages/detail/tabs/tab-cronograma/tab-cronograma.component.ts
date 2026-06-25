@@ -45,7 +45,7 @@ export class TabCronogramaComponent implements OnInit {
   activityProgress(a: GanttActivity): number {
     const snaps = a.snapshots ?? [];
     if (!snaps.length) return a.progress ?? 0;
-    const sum = snaps.reduce((s, x) => s + x.actual_pct, 0);
+    const sum = snaps.reduce((s, x) => s + (x.actual_pct ?? 0), 0);
     return Math.min(Math.round(sum * 10) / 10, 100);
   }
 
@@ -85,8 +85,9 @@ export class TabCronogramaComponent implements OnInit {
 
   /** Color del período: rojo atrasado, verde a tiempo, morado si hay adelanto (mismo criterio que Seguimiento Técnico). */
   periodFillColor(snap: Snapshot): string {
-    if (snap.actual_pct > snap.planned_pct) return '#A855F7';
-    if (snap.actual_pct === snap.planned_pct) return '#10B981';
+    const actual = snap.actual_pct ?? 0;
+    if (actual > snap.planned_pct) return '#A855F7';
+    if (actual === snap.planned_pct) return '#10B981';
     return '#F87171';
   }
 

@@ -76,8 +76,9 @@ export class TabResumenComponent {
 
   /** Color del período: rojo atrasado, verde a tiempo, morado si hay adelanto (mismo criterio que Cronograma/Seguimiento Técnico). */
   periodFillColor(snap: Snapshot): string {
-    if (snap.actual_pct > snap.planned_pct) return '#A855F7';
-    if (snap.actual_pct === snap.planned_pct) return '#10B981';
+    const actual = snap.actual_pct ?? 0;
+    if (actual > snap.planned_pct) return '#A855F7';
+    if (actual === snap.planned_pct) return '#10B981';
     return '#F87171';
   }
 

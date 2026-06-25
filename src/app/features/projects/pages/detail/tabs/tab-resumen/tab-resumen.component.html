@@ -159,7 +159,7 @@
                           <div class="absolute inset-y-1 rounded-sm transition-all duration-700"
                             [style.left.%]="periodBar(snap).left" [style.width.%]="periodBar(snap).width"
                             [style.background]="periodFillColor(snap)"
-                            [title]="(snap.start_date | date:'dd MMM, y':'UTC') + ' → ' + (snap.end_date | date:'dd MMM, y':'UTC') + ' · Planeado ' + snap.planned_pct + '% · Real ' + snap.actual_pct + '%'">
+                            [title]="(snap.start_date | date:'dd MMM, y':'UTC') + ' → ' + (snap.end_date | date:'dd MMM, y':'UTC') + ' · Planeado ' + snap.planned_pct + '% · Real ' + (snap.actual_pct ?? '—') + '%'">
                           </div>
                         }
                       } @else {

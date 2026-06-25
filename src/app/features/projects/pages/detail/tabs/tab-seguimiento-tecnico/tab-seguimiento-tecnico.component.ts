@@ -2,6 +2,7 @@ import { Component, Input, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ProjectService } from '../../../../services/project.service';
+import { ServerTimeService } from '../../../../../../core/services/server-time.service';
 import {
   ProjectSnapshotItem, Snapshot, SnapshotRequest, ScopeSnapshotsResponse,
   ScopeComponent, ScopeActivity,
@@ -33,16 +34,12 @@ interface SnapshotForm {
   start_date:   string;
   end_date:     string;
   planned_pct:  number | null;
-  actual_pct:   number | null;
-  notes:        string;
 }
 
 const emptyForm = (): SnapshotForm => ({
   start_date:  '',
   end_date:    '',
   planned_pct: null,
-  actual_pct:  null,
-  notes:       '',
 });
 
 @Component({
@@ -54,7 +51,10 @@ const emptyForm = (): SnapshotForm => ({
 export class TabSeguimientoTecnicoComponent implements OnInit {
   @Input() projectId!: string;
 
-  constructor(private svc: ProjectService) {}
+  constructor(private svc: ProjectService, private timeSvc: ServerTimeService) {}
+
+  /** Hora real (internet, vía NTP en el backend / worldtimeapi en el front), no el reloj local. */
+  nowDate = signal<Date>(new Date());
 
   allSnapshots    = signal<ProjectSnapshotItem[]>([]);
   countsByScope   = signal<Record<string, number>>({});
@@ -94,9 +94,9 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
   });
 
   avgCompliance = computed(() => {
-    const snaps = this.allSnapshots().filter(s => s.planned_pct > 0);
+    const snaps = this.allSnapshots().filter(s => s.actual_pct !== null && s.planned_pct > 0);
     if (!snaps.length) return 0;
-    const sum = snaps.reduce((acc, s) => acc + (s.actual_pct / s.planned_pct) * 100, 0);
+    const sum = snaps.reduce((acc, s) => acc + (s.actual_pct! / s.planned_pct) * 100, 0);
     return Math.round(sum / snaps.length);
   });
 
@@ -109,7 +109,7 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
     return Math.round(sum * 10) / 10;
   });
   totalActual = computed(() => {
-    const sum = this.activitySnaps().reduce((s, x) => s + x.actual_pct, 0);
+    const sum = this.activitySnaps().reduce((s, x) => s + (x.actual_pct ?? 0), 0);
     return Math.round(sum * 10) / 10;
   });
 
@@ -124,7 +124,19 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
     return b ? toDateOnly(b.actual_end_date || b.end_date) : null;
   });
 
-  ngOnInit(): void { this.load(); }
+  ngOnInit(): void {
+    this.load();
+    this.timeSvc.getNow().subscribe(now => this.nowDate.set(now));
+  }
+
+  /** Igual que en Entregables: si ya pasó el end_date y ya tiene actual_pct registrado, el backend rechaza la edición de fechas. */
+  isSnapshotLocked(snap: Snapshot): boolean {
+    if (snap.actual_pct === null || snap.actual_pct === undefined) return false;
+    const end = toDateOnly(snap.end_date);
+    if (!end) return false;
+    const today = this.nowDate().toISOString().slice(0, 10);
+    return end < today;
+  }
 
   load(): void {
     this.loading.set(true);
@@ -138,7 +150,7 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
         this.countsByScope.set(r?.counts_by_scope ?? {});
         check();
       },
-      error: () => { this.error.set('No se pudieron cargar los snapshots.'); check(); },
+      error: () => { this.error.set('No se pudieron cargar los períodos.'); check(); },
     });
 
     this.svc.getScopeComponents(this.projectId).subscribe({
@@ -177,12 +189,11 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
   }
 
   openEditForm(snap: Snapshot): void {
+    if (this.isSnapshotLocked(snap)) return;
     this.form = {
       start_date:  toDateOnly(snap.start_date) ?? '',
       end_date:    toDateOnly(snap.end_date)   ?? '',
       planned_pct: snap.planned_pct,
-      actual_pct:  snap.actual_pct,
-      notes:       snap.notes ?? '',
     };
     this.editingSnap.set(snap);
     this.showForm.set(true);
@@ -194,7 +205,7 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
   saveSnapshot(): void {
     const act = this.selectedActivity();
     if (!act) return;
-    if (!this.form.start_date || !this.form.end_date || this.form.planned_pct === null || this.form.actual_pct === null) {
+    if (!this.form.start_date || !this.form.end_date || this.form.planned_pct === null) {
       this.saveError.set('Completa los campos obligatorios.');
       return;
     }
@@ -217,18 +228,22 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
     const isSame = (s: Snapshot) => original
       ? ((original.id && s.id) ? s.id === original.id : (s.start_date === original.start_date && s.end_date === original.end_date))
       : false;
-    const otherActualSum = this.activitySnaps().filter(s => !isSame(s)).reduce((sum, s) => sum + s.actual_pct, 0);
-    if (otherActualSum + this.form.actual_pct > 100) {
-      this.saveError.set(`La suma del % real no puede superar 100% (otros períodos: ${otherActualSum}% + este: ${this.form.actual_pct}%).`);
+    const overlap = this.activitySnaps().some(s => {
+      if (isSame(s)) return false;
+      const existingStart = toDateOnly(s.start_date)!;
+      const existingEnd   = toDateOnly(s.end_date)!;
+      return this.form.start_date <= existingEnd && this.form.end_date >= existingStart;
+    });
+    if (overlap) {
+      this.saveError.set('Ese rango de fechas se superpone con un período existente de esta actividad.');
       return;
     }
 
     const req: SnapshotRequest = {
+      id:          original?.id,
       start_date:  this.form.start_date,
       end_date:    this.form.end_date,
       planned_pct: this.form.planned_pct,
-      actual_pct:  this.form.actual_pct,
-      notes:       this.form.notes || null,
     };
 
     this.saving.set(true);
@@ -244,9 +259,25 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
         });
         this.allSnapshots.update(list => {
           const idx = original
-            ? list.findIndex(s => s.scope_id === act.id && ((original.id && s.id) ? s.id === original.id : (s.start_date === original.start_date && s.end_date === original.end_date)))
+            ? list.findIndex(s => s.id_scope === act.id && ((original.id && s.id_snapshot) ? s.id_snapshot === original.id : (s.start_date === original.start_date && s.end_date === original.end_date)))
             : -1;
-          const item: ProjectSnapshotItem = { ...saved, scope_id: act.id, component_name: act.componentName, act: act.act, description: act.description };
+          const existing = idx >= 0 ? list[idx] : null;
+          const item: ProjectSnapshotItem = {
+            id_snapshot:          saved.id ?? existing?.id_snapshot ?? '',
+            id_scope:             act.id,
+            act:                  act.act,
+            scope_name:           act.description,
+            description:          act.description,
+            id_component:         act.componentId,
+            component_name:       act.componentName,
+            is_completed:         existing?.is_completed ?? false,
+            start_date:           saved.start_date,
+            end_date:             saved.end_date,
+            planned_pct:          saved.planned_pct,
+            actual_pct:           saved.actual_pct,
+            notes:                saved.notes ?? null,
+            verifications_count:  existing?.verifications_count ?? 0,
+          };
           return idx >= 0 ? list.map((s, i) => i === idx ? item : s) : [...list, item];
         });
         this.showForm.set(false);
@@ -254,22 +285,23 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
         this.saving.set(false);
       },
       error: err => {
-        this.saveError.set(err?.error?.message ?? 'Error al guardar el snapshot.');
+        this.saveError.set(err?.error?.error ?? err?.error?.message ?? 'Error al guardar el período.');
         this.saving.set(false);
       },
     });
   }
 
   variacion(snap: Snapshot): number {
-    return Math.round((snap.actual_pct - snap.planned_pct) * 10) / 10;
+    return Math.round(((snap.actual_pct ?? 0) - snap.planned_pct) * 10) / 10;
   }
 
   cumplimiento(snap: Snapshot): number {
     if (!snap.planned_pct) return 100;
-    return Math.round((snap.actual_pct / snap.planned_pct) * 100);
+    return Math.round(((snap.actual_pct ?? 0) / snap.planned_pct) * 100);
   }
 
-  estado(snap: Snapshot): 'retrasado' | 'en-tiempo' | 'adelantado' {
+  estado(snap: Snapshot): 'pendiente' | 'retrasado' | 'en-tiempo' | 'adelantado' {
+    if (snap.actual_pct === null || snap.actual_pct === undefined) return 'pendiente';
     if (snap.actual_pct < snap.planned_pct) return 'retrasado';
     if (snap.actual_pct > snap.planned_pct) return 'adelantado';
     return 'en-tiempo';
@@ -277,14 +309,16 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
 
   /** Relleno (real) siempre a escala del planeado = 100%. Capeado en 100 para no desbordar la barra. */
   barFillRatio(snap: Snapshot): number {
-    if (!snap.planned_pct) return snap.actual_pct > 0 ? 100 : 0;
-    return Math.min((snap.actual_pct / snap.planned_pct) * 100, 100);
+    const actual = snap.actual_pct ?? 0;
+    if (!snap.planned_pct) return actual > 0 ? 100 : 0;
+    return Math.min((actual / snap.planned_pct) * 100, 100);
   }
 
   /** Color del relleno según estado: rojo atrasado, verde a tiempo, morado si hay adelanto. */
   barFillColor(snap: Snapshot): string {
-    if (snap.actual_pct > snap.planned_pct) return 'bg-purple-400';
-    if (snap.actual_pct === snap.planned_pct) return 'bg-emerald-500';
+    const actual = snap.actual_pct ?? 0;
+    if (actual > snap.planned_pct) return 'bg-purple-400';
+    if (actual === snap.planned_pct) return 'bg-emerald-500';
     return 'bg-red-400';
   }
 

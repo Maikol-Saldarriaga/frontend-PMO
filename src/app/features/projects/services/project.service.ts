@@ -40,6 +40,9 @@ import {
   SnapshotRequest,
   ProjectSnapshotsResponse,
   ScopeSnapshotsResponse,
+  DeliveryRequest,
+  Delivery,
+  DeliveryVerification,
   Risk,
   RiskRequest,
   RiskTrackingItem,
@@ -47,6 +50,9 @@ import {
   Beneficiary,
   BeneficiaryRequest,
   BeneficiaryPageResponse,
+  IndicatorVerification,
+  Indicator,
+  IndicatorRequest,
 } from '../models/project.model';
 
 export interface ProjectFilters {
@@ -202,6 +208,54 @@ export class ProjectService {
 
   upsertSnapshot(id: string, sid: string, data: SnapshotRequest): Observable<Snapshot> {
     return this.http.put<Snapshot>(ENDPOINTS.projects.scopeSnapshot(id, sid), data);
+  }
+
+  getDelivery(id: string, sid: string, snid: string): Observable<Delivery> {
+    return this.http.get<Delivery>(ENDPOINTS.projects.snapshotDelivery(id, sid, snid));
+  }
+
+  upsertDelivery(id: string, sid: string, snid: string, data: DeliveryRequest): Observable<Delivery> {
+    return this.http.put<Delivery>(ENDPOINTS.projects.snapshotDelivery(id, sid, snid), data);
+  }
+
+  deleteDelivery(id: string, sid: string, snid: string): Observable<void> {
+    return this.http.delete<void>(ENDPOINTS.projects.snapshotDelivery(id, sid, snid));
+  }
+
+  uploadDeliveryVerification(id: string, sid: string, snid: string, form: FormData): Observable<DeliveryVerification> {
+    return this.http.post<DeliveryVerification>(ENDPOINTS.projects.snapshotDeliveryVerifications(id, sid, snid), form);
+  }
+
+  deleteDeliveryVerification(id: string, sid: string, snid: string, vid: string): Observable<void> {
+    return this.http.delete<void>(ENDPOINTS.projects.snapshotDeliveryVerificationById(id, sid, snid, vid));
+  }
+
+  getIndicators(id: string): Observable<Indicator[]> {
+    return this.http.get<Indicator[]>(ENDPOINTS.projects.indicators(id));
+  }
+
+  createIndicator(id: string, data: IndicatorRequest): Observable<Indicator> {
+    return this.http.post<Indicator>(ENDPOINTS.projects.indicators(id), data);
+  }
+
+  updateIndicator(id: string, iid: string, data: IndicatorRequest): Observable<Indicator> {
+    return this.http.put<Indicator>(ENDPOINTS.projects.indicatorById(id, iid), data);
+  }
+
+  deleteIndicator(id: string, iid: string): Observable<void> {
+    return this.http.delete<void>(ENDPOINTS.projects.indicatorById(id, iid));
+  }
+
+  getIndicatorVerifications(id: string, iid: string): Observable<IndicatorVerification[]> {
+    return this.http.get<IndicatorVerification[]>(ENDPOINTS.projects.indicatorVerifications(id, iid));
+  }
+
+  uploadIndicatorVerification(id: string, iid: string, form: FormData): Observable<IndicatorVerification> {
+    return this.http.post<IndicatorVerification>(ENDPOINTS.projects.indicatorVerifications(id, iid), form);
+  }
+
+  deleteIndicatorVerification(id: string, iid: string, vid: string): Observable<void> {
+    return this.http.delete<void>(ENDPOINTS.projects.indicatorVerificationById(id, iid, vid));
   }
 
   getRisks(id: string): Observable<Risk[]> {

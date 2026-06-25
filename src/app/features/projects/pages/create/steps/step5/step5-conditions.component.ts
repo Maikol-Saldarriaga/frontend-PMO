@@ -1,6 +1,7 @@
 import { Component, Input, Output, EventEmitter, signal, WritableSignal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ContractStep5Request, ContractConditionItem, WizardCondition, SupportResponse } from '../../../../models/contract.model';
+import { renameFileForUpload } from '../../../../../../../core/utils/file.utils';
 import { ContractService } from '../../../../services/contract.service';
 
 type ConditionType  = 'requisito_minimo' | 'supuesto' | 'exclusion' | 'restriccion';
@@ -11,8 +12,18 @@ interface PendingUpload {
   support_type: SupportTypeKey | '';
   name:         string;
   files:        File[];
-  uploading:    boolean;
-  error:        string | null;
+}
+
+export interface PendingConditionUpload {
+  rowIndex:     number;
+  support_type: SupportTypeKey;
+  name:         string;
+  files:        File[];
+}
+
+export interface Step5SubmitPayload {
+  request: ContractStep5Request;
+  uploads: PendingConditionUpload[];
 }
 
 interface ConditionRow {
@@ -80,7 +91,7 @@ const SUPPORT_TYPE_LABELS: Record<SupportTypeKey, string> = {
 };
 
 const emptyUpload = (): PendingUpload => ({
-  support_type: '', name: '', files: [], uploading: false, error: null,
+  support_type: '', name: '', files: [],
 });
 
 const EMPTY = (): ConditionRow => ({
@@ -112,7 +123,7 @@ export class Step5ConditionsComponent {
     })));
   }
   @Input() submitting = false;
-  @Output() submitted       = new EventEmitter<ContractStep5Request>();
+  @Output() submitted       = new EventEmitter<Step5SubmitPayload>();
   @Output() dataChange      = new EventEmitter<ContractStep5Request>();
   @Output() goBack          = new EventEmitter<void>();
   @Output() validationError = new EventEmitter<string[]>();
@@ -153,9 +164,10 @@ export class Step5ConditionsComponent {
 
   onFilesSelected(i: number, event: Event): void {
     const input = event.target as HTMLInputElement;
+    if (!this.canSelectFiles(this.rows()[i])) { input.value = ''; return; }
     const files = Array.from(input.files ?? []);
     this.rows.update(rows => rows.map((row, idx) =>
-      idx === i ? { ...row, upload: { ...row.upload, files, error: null } } : row
+      idx === i ? { ...row, upload: { ...row.upload, files } } : row
     ));
   }
 
@@ -172,57 +184,13 @@ export class Step5ConditionsComponent {
     return key ? SUPPORT_TYPES[key] : [];
   }
 
-  canUpload(row: ConditionRow): boolean {
-    return !!(row.id && row.upload.support_type && row.upload.name && row.upload.files.length > 0);
+  canSelectFiles(row: ConditionRow): boolean {
+    return !!(row.upload.support_type && row.upload.name);
   }
 
-  uploadSupports(i: number): void {
+  previewFileName(i: number, fi: number): string {
     const row = this.rows()[i];
-    if (!this.canUpload(row) || !this.projectId || !this.serviceId) return;
-
-    this.rows.update(rows => rows.map((r, idx) =>
-      idx === i ? { ...r, upload: { ...r.upload, uploading: true, error: null } } : r
-    ));
-
-    const uploads = row.upload.files.map(file => {
-      const fd = new FormData();
-      fd.append('file', file);
-      fd.append('condition_id', row.id!);
-      fd.append('support_type', row.upload.support_type);
-      fd.append('name', row.upload.name);
-      return this.contractSvc.uploadSupport(this.projectId, this.serviceId, fd);
-    });
-
-    let completed = 0;
-    const newSupports: SupportResponse[] = [];
-
-    uploads.forEach(obs => {
-      obs.subscribe({
-        next: res => {
-          newSupports.push(res);
-          completed++;
-          if (completed === uploads.length) {
-            this.rows.update(rows => rows.map((r, idx) =>
-              idx === i ? {
-                ...r,
-                supports: [...r.supports, ...newSupports],
-                upload: emptyUpload(),
-              } : r
-            ));
-          }
-        },
-        error: err => {
-          this.rows.update(rows => rows.map((r, idx) =>
-            idx === i ? {
-              ...r, upload: {
-                ...r.upload, uploading: false,
-                error: err?.error?.message ?? 'Error al subir el archivo.',
-              }
-            } : r
-          ));
-        },
-      });
-    });
+    return renameFileForUpload(row.upload.files[fi], row.upload.name, fi, row.upload.files.length).name;
   }
 
   deleteSupport(rowIdx: number, support: SupportResponse): void {
@@ -251,7 +219,15 @@ export class Step5ConditionsComponent {
   }
 
   onSubmit(): void {
-    this.submitted.emit(this.buildPayload());
+    const uploads: PendingConditionUpload[] = this.rows()
+      .map((r, rowIndex) => ({
+        rowIndex,
+        support_type: r.upload.support_type as SupportTypeKey,
+        name:         r.upload.name,
+        files:        r.upload.files,
+      }))
+      .filter(u => u.support_type && u.name && u.files.length > 0);
+    this.submitted.emit({ request: this.buildPayload(), uploads });
   }
 
   conditionDescription(value: string): string {

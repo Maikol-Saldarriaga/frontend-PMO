@@ -334,6 +334,42 @@ export interface ProjectWizardIndicator {
   medium:    string | null;
 }
 
+// ── CRUD de indicadores (project_indicators) ────────────────────────────────
+
+export type IndicatorType = 'gestion' | 'proceso' | 'resultado' | 'efecto' | 'impacto';
+
+export interface IndicatorRequest {
+  component_id: string;
+  type:         IndicatorType;
+  name:         string;
+  line:         string;
+  goal:         string;
+  medium:       string;
+}
+
+export interface Indicator {
+  id:                    string;
+  contract_agreement_id: string;
+  component_id:          string;
+  type:                  IndicatorType;
+  name:                  string;
+  line:                  string;
+  goal:                  string;
+  medium:                string;
+}
+
+// ── Verificaciones de indicadores (mismo catálogo que supports) ─────────────
+
+export interface IndicatorVerification {
+  id:                string;
+  indicator_id:      string;
+  verification_type: string;
+  name:              string;
+  file_name:         string | null;
+  verification_url:  string;
+  state:             boolean;
+}
+
 export interface ProjectWizardSchedule {
   id:           string;
   component:    string;
@@ -607,28 +643,75 @@ export interface Snapshot {
   start_date:   string;
   end_date:     string;
   planned_pct:  number;
-  actual_pct:   number;
+  actual_pct:   number | null;
   notes?:       string | null;
 }
 
 export interface SnapshotRequest {
+  id?:          string;
   start_date:   string;
   end_date:     string;
   planned_pct:  number;
-  actual_pct:   number;
-  notes?:       string | null;
 }
 
-export interface ProjectSnapshotItem extends Snapshot {
-  scope_id:         string;
-  component_name:   string;
-  act:              number;
-  description:      string;
+export interface ProjectSnapshotItem {
+  id_snapshot:           string;
+  id_scope:              string;
+  act:                   number;
+  scope_name:            string;
+  description:           string;
+  id_component:          string;
+  component_name:        string;
+  is_completed:          boolean;
+  start_date:            string;
+  end_date:              string;
+  planned_pct:           number;
+  actual_pct:            number | null;
+  notes:                 string | null;
+  verifications_count:   number;
 }
 
 export interface ProjectSnapshotsResponse {
   snapshots:        ProjectSnapshotItem[];
   counts_by_scope:  Record<string, number>;
+}
+
+// ── Entregables (delivery) de un snapshot ───────────────────────────────────
+
+export interface DeliveryVerification {
+  id:                 string;
+  id_scope:           string;
+  id_snapshot:        string;
+  id_company:         string;
+  name:               string | null;
+  file_name:          string | null;
+  verification_url:   string;
+  state:              boolean;
+}
+
+export interface DeliveryRequest {
+  actual_pct: number;
+  notes?:     string | null;
+}
+
+export interface Delivery {
+  id_snapshot:            string;
+  id_scope:               string;
+  act:                    number;
+  scope_name:             string;
+  description:            string;
+  objective:              string | null;
+  responsible:            string | null;
+  is_completed:           boolean;
+  id_component:           string;
+  component_name:         string;
+  id_contract_agreement:  string;
+  start_date:             string;
+  end_date:               string;
+  planned_pct:            number;
+  actual_pct:             number | null;
+  notes:                  string | null;
+  verifications:          DeliveryVerification[];
 }
 
 // ── Riesgos ───────────────────────────────────────────────────────────────────

@@ -1,8 +1,10 @@
 import { Component, inject, OnInit, OnDestroy, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, ActivatedRoute } from '@angular/router';
-import { Subject, debounceTime, takeUntil } from 'rxjs';
+import { Subject, debounceTime, takeUntil, forkJoin } from 'rxjs';
 import { ContractService } from '../../services/contract.service';
+import { ProjectService } from '../../services/project.service';
+import { renameFileForUpload } from '../../../../../core/utils/file.utils';
 import { PROJECT_STEPS, ProjectDraft, ProjectStep1Request, ProjectStep4Request, ProjectWizardObjective } from '../../models/project.model';
 import {
   ContractDraft, ContractProgressResponse,
@@ -21,11 +23,11 @@ import { Step1bSupervisorsComponent, Step1bSavedData } from './steps/step1b/step
 import { Step2LocationComponent } from './steps/step2/step2-location.component';
 import { Step3AlignmentComponent } from './steps/step3/step3-alignment.component';
 import { Step4ObjectivesComponent } from './steps/step4/step4-objectives.component';
-import { Step5ConditionsComponent } from './steps/step5/step5-conditions.component';
+import { Step5ConditionsComponent, Step5SubmitPayload } from './steps/step5/step5-conditions.component';
 import { Step6BeneficiariesComponent } from './steps/step6/step6-beneficiaries.component';
 import { Step7ActorsComponent } from './steps/step7/step7-actors.component';
 import { Step8ScopeComponent } from './steps/step8/step8-scope.component';
-import { Step9IndicatorsComponent } from './steps/step9/step9-indicators.component';
+import { Step9IndicatorsComponent, Step9SubmitPayload } from './steps/step9/step9-indicators.component';
 import { Step10GuaranteesComponent } from './steps/step10/step10-guarantees.component';
 
 const DRAFT_KEY = (id: string) => `pmo_contract_draft_${id}`;
@@ -41,6 +43,7 @@ export class ProjectCreateComponent implements OnInit, OnDestroy {
   private router   = inject(Router);
   private route    = inject(ActivatedRoute);
   private contractSvc = inject(ContractService);
+  private projectSvc  = inject(ProjectService);
 
   readonly steps = PROJECT_STEPS;
 
@@ -404,15 +407,44 @@ export class ProjectCreateComponent implements OnInit, OnDestroy {
     this.showToast('error', e?.error?.message ?? fallback, Array.isArray(e?.error?.errors) ? e.error!.errors! : []);
   }
 
-  onStep9Submit(data: ContractStep9Request): void {
+  onStep9Submit(payload: Step9SubmitPayload): void {
     const id = this.projectId();
     if (!id) { this.showToast('error', 'No se encontró el ID.'); return; }
     this.submitting.set(true);
-    this.stepData.update(d => ({ ...d, step9: data.indicators }));
+    this.stepData.update(d => ({ ...d, step9: payload.request.indicators }));
     this.draftChange$.next();
-    this.contractSvc.updateStep9(id, data).subscribe({
-      next: (res) => this.handleProgress(res, 11, 'Indicadores guardados correctamente.'),
+    this.contractSvc.updateStep9(id, payload.request).subscribe({
+      next: (res) => this.afterStep9Save(id, res, payload.uploads),
       error: (err) => this.handleError(err, 'Error al guardar los indicadores.'),
+    });
+  }
+
+  private afterStep9Save(id: string, res: ContractProgressResponse, uploads: Step9SubmitPayload['uploads']): void {
+    if (!uploads.length) { this.handleProgress(res, 11, 'Indicadores guardados correctamente.'); return; }
+
+    // Las filas nuevas todavía no tienen id real; lo obtenemos recargando el wizard
+    // (el backend no devuelve las filas guardadas en la respuesta del PUT bulk).
+    this.contractSvc.getWizard(id).subscribe({
+      next: wizard => {
+        const savedIndicators = wizard.step9 ?? [];
+        const calls = uploads.flatMap(u => {
+          const ind = savedIndicators[u.rowIndex];
+          if (!ind?.id) return [];
+          return u.files.map((file, idx) => {
+            const fd = new FormData();
+            fd.append('file', renameFileForUpload(file, u.name, idx, u.files.length));
+            fd.append('verification_type', u.verification_type);
+            fd.append('name', u.name);
+            return this.projectSvc.uploadIndicatorVerification(id, ind.id, fd);
+          });
+        });
+        if (!calls.length) { this.handleProgress(res, 11, 'Indicadores guardados correctamente.'); return; }
+        forkJoin(calls).subscribe({
+          next: () => this.handleProgress(res, 11, 'Indicadores y medios de verificación guardados correctamente.'),
+          error: () => this.handleProgress(res, 11, 'Los indicadores se guardaron, pero hubo un error al subir algunos medios de verificación.'),
+        });
+      },
+      error: () => this.handleProgress(res, 11, 'Los indicadores se guardaron, pero no se pudieron subir los medios de verificación.'),
     });
   }
 
@@ -474,15 +506,48 @@ export class ProjectCreateComponent implements OnInit, OnDestroy {
     });
   }
 
-  onStep5Submit(data: ContractStep5Request): void {
+  onStep5Submit(payload: Step5SubmitPayload): void {
     const id = this.projectId();
     if (!id) { this.showToast('error', 'No se encontró el ID.'); return; }
     this.submitting.set(true);
-    this.stepData.update(d => ({ ...d, step5: data.conditions }));
+    this.stepData.update(d => ({ ...d, step5: payload.request.conditions }));
     this.draftChange$.next();
-    this.contractSvc.updateStep5(id, data).subscribe({
-      next: (res) => this.handleProgress(res, 7, 'Condiciones guardadas correctamente.'),
+    this.contractSvc.updateStep5(id, payload.request).subscribe({
+      next: (res) => this.afterStep5Save(id, res, payload.uploads),
       error: (err) => this.handleError(err, 'Error al guardar las condiciones.'),
+    });
+  }
+
+  private afterStep5Save(id: string, res: ContractProgressResponse, uploads: Step5SubmitPayload['uploads']): void {
+    if (!uploads.length) { this.handleProgress(res, 7, 'Condiciones guardadas correctamente.'); return; }
+
+    const sid = this.serviceId();
+    if (!sid) { this.handleProgress(res, 7, 'Condiciones guardadas, pero no se pudieron subir los soportes (falta el ID del servicio).'); return; }
+
+    // Las filas nuevas todavía no tienen id real; lo obtenemos recargando el wizard
+    // (el backend no devuelve las filas guardadas en la respuesta del PUT bulk).
+    this.contractSvc.getWizard(id).subscribe({
+      next: wizard => {
+        const savedConditions = wizard.step4?.conditions ?? [];
+        const calls = uploads.flatMap(u => {
+          const cond = savedConditions[u.rowIndex];
+          if (!cond?.id) return [];
+          return u.files.map((file, idx) => {
+            const fd = new FormData();
+            fd.append('file', renameFileForUpload(file, u.name, idx, u.files.length));
+            fd.append('condition_id', cond.id);
+            fd.append('support_type', u.support_type);
+            fd.append('name', u.name);
+            return this.contractSvc.uploadSupport(id, sid, fd);
+          });
+        });
+        if (!calls.length) { this.handleProgress(res, 7, 'Condiciones guardadas correctamente.'); return; }
+        forkJoin(calls).subscribe({
+          next: () => this.handleProgress(res, 7, 'Condiciones y soportes guardados correctamente.'),
+          error: () => this.handleProgress(res, 7, 'Las condiciones se guardaron, pero hubo un error al subir algunos soportes.'),
+        });
+      },
+      error: () => this.handleProgress(res, 7, 'Las condiciones se guardaron, pero no se pudieron subir los soportes.'),
     });
   }
 

@@ -284,6 +284,7 @@
           }
           @case (10) {
             <app-step9-indicators
+              [projectId]="projectId() ?? ''"
               [savedData]="getStep9SavedData()"
               [components]="getStep9Components()"
               [submitting]="submitting()"

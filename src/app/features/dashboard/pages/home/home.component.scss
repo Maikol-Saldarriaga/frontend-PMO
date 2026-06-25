@@ -69,6 +69,17 @@
   max-width: 280px;
 }
 
+.dashboard-error {
+  margin-bottom: 1.5rem;
+  padding: 0.625rem 1rem;
+  border-radius: $radius-md;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
 // ── Charts ──────────────────────────────────────
 .charts-row {
   display: grid;
@@ -235,12 +246,21 @@
 .ally-row__table { overflow-x: auto; }
 .ally-row__chart { align-items: stretch; }
 
+.ally-table-scroll {
+  min-height: 285px;
+  max-height: 285px;
+  overflow-y: auto;
+}
+
 .ally-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.8125rem;
 
   th {
+    position: sticky;
+    top: 0;
+    background: $color-surface;
     text-align: left;
     font-size: 0.7rem;
     font-weight: 700;

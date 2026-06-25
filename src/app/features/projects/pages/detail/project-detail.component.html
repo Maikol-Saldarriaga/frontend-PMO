@@ -167,7 +167,15 @@
   <app-tab-riesgos [projectId]="projectId" />
 }
 
-@if (activeTab() !== 'resumen' && activeTab() !== 'alcance' && activeTab() !== 'ubicaciones' && activeTab() !== 'condiciones' && activeTab() !== 'cronograma' && activeTab() !== 'presupuesto' && activeTab() !== 'beneficiarios' && activeTab() !== 'seguimiento' && activeTab() !== 'riesgos') {
+@if (activeTab() === 'entregables') {
+  <app-tab-entregables [projectId]="projectId" />
+}
+
+@if (activeTab() === 'indicadores') {
+  <app-tab-indicadores [projectId]="projectId" />
+}
+
+@if (activeTab() !== 'resumen' && activeTab() !== 'alcance' && activeTab() !== 'ubicaciones' && activeTab() !== 'condiciones' && activeTab() !== 'cronograma' && activeTab() !== 'presupuesto' && activeTab() !== 'beneficiarios' && activeTab() !== 'seguimiento' && activeTab() !== 'riesgos' && activeTab() !== 'entregables' && activeTab() !== 'indicadores') {
   <div class="px-6 py-20">
     <div class="bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center justify-center py-20 gap-3">
       <div class="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center">

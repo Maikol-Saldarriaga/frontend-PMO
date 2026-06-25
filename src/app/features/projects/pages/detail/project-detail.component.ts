@@ -13,6 +13,8 @@ import { TabRiesgosComponent } from './tabs/tab-riesgos/tab-riesgos.component';
 import { TabBeneficiariosComponent } from './tabs/tab-beneficiarios/tab-beneficiarios.component';
 import { TabUbicacionesComponent } from './tabs/tab-ubicaciones/tab-ubicaciones.component';
 import { TabCondicionesComponent } from './tabs/tab-condiciones/tab-condiciones.component';
+import { TabEntregablesComponent } from './tabs/tab-entregables/tab-entregables.component';
+import { TabIndicadoresComponent } from './tabs/tab-indicadores/tab-indicadores.component';
 
 @Component({
   selector: 'app-project-detail',
@@ -28,6 +30,8 @@ import { TabCondicionesComponent } from './tabs/tab-condiciones/tab-condiciones.
     TabBeneficiariosComponent,
     TabUbicacionesComponent,
     TabCondicionesComponent,
+    TabEntregablesComponent,
+    TabIndicadoresComponent,
   ],
   templateUrl: './project-detail.component.html',
 })

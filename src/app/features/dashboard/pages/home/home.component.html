@@ -30,6 +30,8 @@
     </select>
   </div>
 
+  <div *ngIf="fodcError()" class="dashboard-error">{{ fodcError() }}</div>
+
   <!-- Fila de donas -->
   <section class="charts-row">
 
@@ -50,7 +52,7 @@
         <div class="legend-row">
           <span class="legend-dot" style="background:#e2e8f0"></span>
           <span class="legend-row__label">Presupuesto general FODC</span>
-          <span class="legend-row__value">{{ formatCop(fodcGeneralBudget) }}</span>
+          <span class="legend-row__value">{{ formatCop(fodcGeneralBudget()) }}</span>
         </div>
       </div>
     </div>
@@ -95,6 +97,8 @@
       <option *ngFor="let p of projectOptions()" [value]="p.id">{{ p.name }}</option>
     </select>
   </div>
+
+  <div *ngIf="fodcError() || budgetMonthlyError()" class="dashboard-error">{{ fodcError() || budgetMonthlyError() }}</div>
 
   <!-- Gauge: planeado vs ejecutado -->
   <section class="charts-row">
@@ -166,6 +170,8 @@
     </select>
   </div>
 
+  <div *ngIf="alliesListError() || allyCategoriesError()" class="dashboard-error">{{ alliesListError() || allyCategoriesError() }}</div>
+
   <!-- Donut: por gestionar / en gestión / suscrito + tabla de categorías -->
   <section class="ally-row">
 
@@ -180,6 +186,7 @@
 
     <div class="pmo-card ally-row__table">
       <h3 class="chart-card__title" style="margin-bottom: 1rem;">Presupuesto, suscrito y diferencia por categoría</h3>
+      <div class="ally-table-scroll">
       <table class="ally-table">
         <thead>
           <tr>
@@ -220,6 +227,7 @@
           </ng-container>
         </tbody>
       </table>
+      </div>
     </div>
   </section>
 

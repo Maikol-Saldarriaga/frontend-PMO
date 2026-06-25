@@ -2,6 +2,7 @@ import { Component, Input, OnInit, signal, WritableSignal, inject } from '@angul
 import { CommonModule } from '@angular/common';
 import { ContractService } from '../../../../services/contract.service';
 import { ContractConditionItem, WizardCondition, SupportResponse } from '../../../../models/contract.model';
+import { renameFileForUpload } from '../../../../../../../core/utils/file.utils';
 
 type ConditionType  = 'requisito_minimo' | 'supuesto' | 'exclusion' | 'restriccion';
 type ComplianceType = 'Fecha específica' | 'Hito del proyecto' | 'Periodicidad' | 'Permanente';
@@ -191,6 +192,7 @@ export class TabCondicionesComponent implements OnInit {
 
   onFilesSelected(i: number, event: Event): void {
     const input = event.target as HTMLInputElement;
+    if (!this.canSelectFiles(this.rows()[i])) { input.value = ''; return; }
     const files = Array.from(input.files ?? []);
     this.rows.update(rows => rows.map((row, idx) =>
       idx === i ? { ...row, upload: { ...row.upload, files, error: null } } : row
@@ -210,8 +212,17 @@ export class TabCondicionesComponent implements OnInit {
     return key ? SUPPORT_TYPES[key] : [];
   }
 
+  canSelectFiles(row: ConditionRow): boolean {
+    return !!(row.upload.support_type && row.upload.name);
+  }
+
   canUpload(row: ConditionRow): boolean {
     return !!(row.id && row.upload.support_type && row.upload.name && row.upload.files.length > 0);
+  }
+
+  previewFileName(i: number, fi: number): string {
+    const row = this.rows()[i];
+    return renameFileForUpload(row.upload.files[fi], row.upload.name, fi, row.upload.files.length).name;
   }
 
   uploadSupports(i: number): void {
@@ -222,9 +233,9 @@ export class TabCondicionesComponent implements OnInit {
       idx === i ? { ...r, upload: { ...r.upload, uploading: true, error: null } } : r
     ));
 
-    const uploads = row.upload.files.map(file => {
+    const uploads = row.upload.files.map((file, idx) => {
       const fd = new FormData();
-      fd.append('file', file);
+      fd.append('file', renameFileForUpload(file, row.upload.name, idx, row.upload.files.length));
       fd.append('condition_id', row.id!);
       fd.append('support_type', row.upload.support_type);
       fd.append('name', row.upload.name);

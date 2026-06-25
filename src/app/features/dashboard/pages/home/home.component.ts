@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, computed, inject, signal } from '@angular/core';
+import { AfterViewInit, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {
   NgApexchartsModule,
@@ -15,12 +15,17 @@ import {
   ApexYAxis,
 } from 'ng-apexcharts';
 import { AuthStore } from '../../../../../core/auth/store/auth.store';
+import {
+  DashboardService,
+  AllyCategoryKey,
+  DashboardAllyCategory,
+  DashboardAlly,
+} from '../../services/dashboard.service';
 
 interface FodcProject {
   id: string;
   name: string;
   color: string;
-  plannedBudget: number;
   invoicedTotal: number;
   plannedTotal: number;
   executedTotal: number;
@@ -31,29 +36,6 @@ interface BudgetMonthPoint {
   planned: number;
   invoiced: number;
   executed: number;
-}
-
-type AllyCategoryKey = 'por_gestionar' | 'en_gestion' | 'suscrito';
-
-interface AllyItemValue {
-  name: string;
-  budget: number;
-  subscribed: number;
-}
-
-interface AllyCategoryData {
-  key: AllyCategoryKey;
-  label: string;
-  items: AllyItemValue[];
-}
-
-interface Ally {
-  id: string;
-  name: string;
-  color: string;
-  categories: AllyCategoryData[];
-  invoicedTotal: number;
-  executedTotal: number;
 }
 
 interface DonutChartOptions {
@@ -93,6 +75,20 @@ interface ComboChartOptions {
   grid: ApexGrid;
 }
 
+const PALETTE = ['#0ea5e9', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#14b8a6', '#f97316', '#6366f1'];
+
+const CATEGORY_LABELS: Record<AllyCategoryKey, string> = {
+  por_gestionar: 'POR GESTIONAR',
+  en_gestion:    'EN GESTIÓN',
+  suscrito:      'SUSCRITO',
+};
+
+const CATEGORY_COLORS: Record<AllyCategoryKey, string> = {
+  por_gestionar: '#f59e0b',
+  en_gestion:    '#0ea5e9',
+  suscrito:      '#10b981',
+};
+
 @Component({
   selector: 'app-home',
   standalone: true,
@@ -100,8 +96,9 @@ interface ComboChartOptions {
   templateUrl: './home.component.html',
   styleUrl: './home.component.scss'
 })
-export class HomeComponent implements AfterViewInit {
-  private authStore = inject(AuthStore);
+export class HomeComponent implements OnInit, AfterViewInit {
+  private authStore    = inject(AuthStore);
+  private dashboardSvc = inject(DashboardService);
 
   today = new Date().toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' });
 
@@ -113,6 +110,13 @@ export class HomeComponent implements AfterViewInit {
   setTab(tab: 'general' | 'budget' | 'partnerships'): void {
     this.activeTab.set(tab);
     this.resyncChartsSize();
+  }
+
+  ngOnInit(): void {
+    this.loadFodcProjects();
+    this.loadBudgetMonthly('all');
+    this.loadAlliesList();
+    this.loadAllyCategories('all');
   }
 
   ngAfterViewInit(): void {
@@ -137,22 +141,59 @@ export class HomeComponent implements AfterViewInit {
   }
 
   // ════════════════════════════════════════════════
+  // Datos: GET /dashboard/fodc-projects (sin filtro — el filtro de
+  // proyecto se aplica en el frontend sobre esta misma lista)
+  // ════════════════════════════════════════════════
+
+  /* ── MOCK ORIGINAL (fallback si /dashboard/fodc-projects falla) ──────────
+  fodcGeneralBudgetMock = 10_000_000_000; // 10 mil millones COP
+  fodcProjectsMock: FodcProject[] = [
+    { id: 'p1', name: 'Sistema ERP Corporativo', color: '#0ea5e9', invoicedTotal: 1_650_000_000, plannedTotal: 2_400_000_000, executedTotal: 1_820_000_000 },
+    { id: 'p2', name: 'Migración Cloud AWS',      color: '#10b981', invoicedTotal: 1_700_000_000, plannedTotal: 1_800_000_000, executedTotal: 1_750_000_000 },
+    { id: 'p3', name: 'App Móvil Clientes',       color: '#f59e0b', invoicedTotal: 540_000_000,   plannedTotal: 1_200_000_000, executedTotal: 610_000_000 },
+    { id: 'p4', name: 'Rediseño Portal Web',      color: '#8b5cf6', invoicedTotal: 210_000_000,   plannedTotal: 650_000_000,   executedTotal: 260_000_000 },
+    { id: 'p5', name: 'Plataforma de Indicadores', color: '#ef4444', invoicedTotal: 880_000_000,   plannedTotal: 900_000_000,   executedTotal: 895_000_000 },
+  ];
+  // Para volver al mock: descomenta este bloque, comenta loadFodcProjects() en
+  // ngOnInit, y reemplaza `fodcGeneralBudget`/`fodcProjects` por signals iniciados
+  // con `signal(this.fodcGeneralBudgetMock)` / `signal(this.fodcProjectsMock)`.
+  ──────────────────────────────────────────────────────────────────────── */
+
+  fodcGeneralBudget = signal<number>(0);
+  fodcProjects      = signal<FodcProject[]>([]);
+  fodcLoading       = signal(true);
+  fodcError         = signal<string | null>(null);
+
+  private loadFodcProjects(): void {
+    this.fodcLoading.set(true);
+    this.fodcError.set(null);
+    this.dashboardSvc.getFodcProjects().subscribe({
+      next: res => {
+        this.fodcGeneralBudget.set(res.general_budget);
+        this.fodcProjects.set(res.projects.map((p, i) => ({
+          id:            p.id,
+          name:          p.name,
+          color:         PALETTE[i % PALETTE.length],
+          plannedTotal:  p.planned_total,
+          invoicedTotal: p.invoiced_total,
+          executedTotal: p.executed_total,
+        })));
+        this.fodcLoading.set(false);
+      },
+      error: () => {
+        this.fodcError.set('No se pudieron cargar los proyectos FODC.');
+        this.fodcLoading.set(false);
+      },
+    });
+  }
+
+  // ════════════════════════════════════════════════
   // Tab General FODC
   // ════════════════════════════════════════════════
 
-  fodcGeneralBudget = 10_000_000_000; // 10 mil millones COP
-
-  fodcProjects: FodcProject[] = [
-    { id: 'p1', name: 'Sistema ERP Corporativo', color: '#0ea5e9', plannedBudget: 2_400_000_000, invoicedTotal: 1_650_000_000, plannedTotal: 2_400_000_000, executedTotal: 1_820_000_000 },
-    { id: 'p2', name: 'Migración Cloud AWS',      color: '#10b981', plannedBudget: 1_800_000_000, invoicedTotal: 1_700_000_000, plannedTotal: 1_800_000_000, executedTotal: 1_750_000_000 },
-    { id: 'p3', name: 'App Móvil Clientes',       color: '#f59e0b', plannedBudget: 1_200_000_000, invoicedTotal: 540_000_000,   plannedTotal: 1_200_000_000, executedTotal: 610_000_000 },
-    { id: 'p4', name: 'Rediseño Portal Web',      color: '#8b5cf6', plannedBudget: 650_000_000,    invoicedTotal: 210_000_000,   plannedTotal: 650_000_000,   executedTotal: 260_000_000 },
-    { id: 'p5', name: 'Plataforma de Indicadores', color: '#ef4444', plannedBudget: 900_000_000,    invoicedTotal: 880_000_000,   plannedTotal: 900_000_000,   executedTotal: 895_000_000 },
-  ];
-
   selectedProjectId = signal<string>('all');
 
-  projectOptions = computed(() => [{ id: 'all', name: 'Todas' }, ...this.fodcProjects.map(p => ({ id: p.id, name: p.name }))]);
+  projectOptions = computed(() => [{ id: 'all', name: 'Todas' }, ...this.fodcProjects().map(p => ({ id: p.id, name: p.name }))]);
 
   onProjectChange(event: Event): void {
     const value = (event.target as HTMLSelectElement).value;
@@ -161,11 +202,14 @@ export class HomeComponent implements AfterViewInit {
 
   fodcUsedTotal = computed(() => {
     const id = this.selectedProjectId();
-    if (id === 'all') return this.fodcProjects.reduce((acc, p) => acc + p.invoicedTotal, 0);
-    return this.fodcProjects.find(p => p.id === id)?.invoicedTotal ?? 0;
+    if (id === 'all') return this.fodcProjects().reduce((acc, p) => acc + p.invoicedTotal, 0);
+    return this.fodcProjects().find(p => p.id === id)?.invoicedTotal ?? 0;
   });
 
-  fodcUsedPct = computed(() => Math.min(100, Math.round((this.fodcUsedTotal() / this.fodcGeneralBudget) * 100)));
+  fodcUsedPct = computed(() => {
+    const budget = this.fodcGeneralBudget();
+    return budget > 0 ? Math.min(100, Math.round((this.fodcUsedTotal() / budget) * 100)) : 0;
+  });
 
   // Gauge: presupuesto FODC usado
   fodcUsedGauge = computed<DonutChartOptions>(() => ({
@@ -188,12 +232,12 @@ export class HomeComponent implements AfterViewInit {
     },
   }));
 
-  // Donut: distribución del presupuesto por proyecto
+  // Donut: distribución del presupuesto por proyecto (siempre todos los proyectos)
   projectDistributionDonut = computed<DonutChartOptions>(() => ({
-    series: this.fodcProjects.map(p => p.plannedBudget),
+    series: this.fodcProjects().map(p => p.plannedTotal),
     chart: { type: 'donut', height: 280 },
-    labels: this.fodcProjects.map(p => p.name),
-    colors: this.fodcProjects.map(p => p.color),
+    labels: this.fodcProjects().map(p => p.name),
+    colors: this.fodcProjects().map(p => p.color),
     legend: { position: 'bottom', fontSize: '12px' },
     dataLabels: { enabled: true, formatter: (val: number) => `${val.toFixed(1)}%` },
     tooltip: { y: { formatter: (val: number) => this.formatCop(val) } },
@@ -202,7 +246,7 @@ export class HomeComponent implements AfterViewInit {
 
   invoicedVsPlanned = computed(() => {
     const id = this.selectedProjectId();
-    const list = id === 'all' ? this.fodcProjects : this.fodcProjects.filter(p => p.id === id);
+    const list = id === 'all' ? this.fodcProjects() : this.fodcProjects().filter(p => p.id === id);
     const invoiced = list.reduce((acc, p) => acc + p.invoicedTotal, 0);
     const planned = list.reduce((acc, p) => acc + p.plannedTotal, 0);
     const invoicedPct = planned > 0 ? Math.round((invoiced / planned) * 100) : 0;
@@ -229,19 +273,17 @@ export class HomeComponent implements AfterViewInit {
   // Tab Presupuesto
   // ════════════════════════════════════════════════
 
-  private readonly MONTHS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-  private readonly MONTH_WEIGHTS = [6, 7, 8, 8, 9, 9, 9, 9, 9, 9, 9, 8].map(w => w / 100);
-
   selectedBudgetProjectId = signal<string>('all');
 
   onBudgetProjectChange(event: Event): void {
     const value = (event.target as HTMLSelectElement).value;
     this.selectedBudgetProjectId.set(value);
+    this.loadBudgetMonthly(value);
   }
 
   private budgetFilteredProjects = computed(() => {
     const id = this.selectedBudgetProjectId();
-    return id === 'all' ? this.fodcProjects : this.fodcProjects.filter(p => p.id === id);
+    return id === 'all' ? this.fodcProjects() : this.fodcProjects().filter(p => p.id === id);
   });
 
   budgetTotals = computed(() => {
@@ -278,8 +320,13 @@ export class HomeComponent implements AfterViewInit {
     },
   }));
 
-  // Barras (planeado) + líneas (facturado, ejecutado) por mes
-  budgetMonthlyChart = computed<BudgetMonthPoint[]>(() => {
+  /* ── MOCK ORIGINAL (fallback si /dashboard/budget/monthly falla) ─────────
+  private readonly MONTHS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+  private readonly MONTH_WEIGHTS = [6, 7, 8, 8, 9, 9, 9, 9, 9, 9, 9, 8].map(w => w / 100);
+
+  // Antes: serie mensual fabricada en el frontend a partir de los totales anuales
+  // (pesos de distribución), sin granularidad real por mes.
+  budgetMonthlyChartMock = computed<BudgetMonthPoint[]>(() => {
     const list = this.budgetFilteredProjects();
     const weights = this.MONTH_WEIGHTS;
     let cum = 0;
@@ -292,7 +339,31 @@ export class HomeComponent implements AfterViewInit {
       executed: list.reduce((acc, p) => acc + p.executedTotal * cumWeights[i], 0),
     }));
   });
+  // Para volver al mock: descomenta este bloque y usa `budgetMonthlyChartMock()`
+  // en vez del signal `budgetMonthlyChart` dentro de `budgetComboChart`.
+  ──────────────────────────────────────────────────────────────────────── */
 
+  budgetMonthlyChart  = signal<BudgetMonthPoint[]>([]);
+  budgetMonthlyLoading = signal(true);
+  budgetMonthlyError   = signal<string | null>(null);
+
+  private loadBudgetMonthly(projectId: string): void {
+    this.budgetMonthlyLoading.set(true);
+    this.budgetMonthlyError.set(null);
+    const id = projectId === 'all' ? null : projectId;
+    this.dashboardSvc.getBudgetMonthly(id).subscribe({
+      next: res => {
+        this.budgetMonthlyChart.set(res.months);
+        this.budgetMonthlyLoading.set(false);
+      },
+      error: () => {
+        this.budgetMonthlyError.set('No se pudo cargar la serie mensual de presupuesto.');
+        this.budgetMonthlyLoading.set(false);
+      },
+    });
+  }
+
+  // Barras (planeado) + líneas (facturado, ejecutado) por mes
   budgetComboChart = computed<ComboChartOptions>(() => {
     const data = this.budgetMonthlyChart();
     return {
@@ -316,7 +387,7 @@ export class HomeComponent implements AfterViewInit {
 
   // Comparativo: cada proyecto contra sí mismo — % facturado de lo que tenía planeado
   comparativeData = computed(() => {
-    return this.fodcProjects.map(p => {
+    return this.fodcProjects().map(p => {
       const invoicedPct = p.plannedTotal > 0 ? Math.round((p.invoicedTotal / p.plannedTotal) * 1000) / 10 : 0;
       return { ...p, invoicedPct };
     });
@@ -348,13 +419,14 @@ export class HomeComponent implements AfterViewInit {
   // Tab Alianzas
   // ════════════════════════════════════════════════
 
-  private readonly CATEGORY_DEFS: { key: AllyCategoryKey; label: string; color: string }[] = [
+  /* ── MOCK ORIGINAL (fallback si /dashboard/allies/* falla) ───────────────
+  private readonly CATEGORY_DEFS_MOCK: { key: AllyCategoryKey; label: string; color: string }[] = [
     { key: 'por_gestionar', label: 'POR GESTIONAR', color: '#f59e0b' },
     { key: 'en_gestion',    label: 'EN GESTIÓN',     color: '#0ea5e9' },
     { key: 'suscrito',      label: 'SUSCRITO',       color: '#10b981' },
   ];
 
-  allies: Ally[] = [
+  alliesMock = [
     {
       id: 'a1', name: 'Fundación ABC', color: '#0ea5e9',
       categories: [
@@ -432,30 +504,72 @@ export class HomeComponent implements AfterViewInit {
       executedTotal: 100_000_000,
     },
   ];
+  // Antes la agregación por categoría (sumar items con el mismo nombre entre
+  // aliados cuando el filtro era "todos") se hacía en el frontend con
+  // `alliesFiltered()` + `categoryTotals`/`categoryTable` recorriendo
+  // `alliesMock`. Ahora /dashboard/allies/categories ya llega agregado por
+  // backend según `ally_id`, así que esa lógica ya no es necesaria aquí.
+  // Para volver al mock habría que restaurar esos computeds usando `alliesMock`.
+  ──────────────────────────────────────────────────────────────────────── */
+
+  // Lista plana de aliados (siempre todos — para el combo chart y el filtro)
+  alliesList        = signal<DashboardAlly[]>([]);
+  alliesListLoading  = signal(true);
+  alliesListError    = signal<string | null>(null);
+
+  private loadAlliesList(): void {
+    this.alliesListLoading.set(true);
+    this.alliesListError.set(null);
+    this.dashboardSvc.getAlliesList().subscribe({
+      next: res => {
+        this.alliesList.set(res.allies);
+        this.alliesListLoading.set(false);
+      },
+      error: () => {
+        this.alliesListError.set('No se pudo cargar el listado de aliados.');
+        this.alliesListLoading.set(false);
+      },
+    });
+  }
 
   selectedAllyId = signal<string>('all');
 
-  allyOptions = computed(() => [{ id: 'all', name: 'Todos' }, ...this.allies.map(a => ({ id: a.id, name: a.name }))]);
+  allyOptions = computed(() => [{ id: 'all', name: 'Todos' }, ...this.alliesList().map(a => ({ id: a.id, name: a.name }))]);
 
   onAllyChange(event: Event): void {
     const value = (event.target as HTMLSelectElement).value;
     this.selectedAllyId.set(value);
+    this.loadAllyCategories(value);
   }
 
-  private alliesFiltered = computed(() => {
-    const id = this.selectedAllyId();
-    return id === 'all' ? this.allies : this.allies.filter(a => a.id === id);
-  });
+  // Categorías (por gestionar / en gestión / suscrito) — ya filtradas/agregadas por backend según ally_id
+  allyCategories        = signal<DashboardAllyCategory[]>([]);
+  allyCategoriesLoading  = signal(true);
+  allyCategoriesError    = signal<string | null>(null);
+
+  private loadAllyCategories(allyId: string): void {
+    this.allyCategoriesLoading.set(true);
+    this.allyCategoriesError.set(null);
+    const id = allyId === 'all' ? null : allyId;
+    this.dashboardSvc.getAllyCategories(id).subscribe({
+      next: res => {
+        this.allyCategories.set(res.categories);
+        this.allyCategoriesLoading.set(false);
+      },
+      error: () => {
+        this.allyCategoriesError.set('No se pudieron cargar las categorías de alianzas.');
+        this.allyCategoriesLoading.set(false);
+      },
+    });
+  }
 
   private categoryTotals = computed(() => {
-    const filtered = this.alliesFiltered();
-    return this.CATEGORY_DEFS.map(def => {
-      const total = filtered.reduce((acc, a) => {
-        const cat = a.categories.find(c => c.key === def.key);
-        return acc + (cat?.items.reduce((s, it) => s + it.budget, 0) ?? 0);
-      }, 0);
-      return { ...def, total };
-    });
+    return this.allyCategories().map(cat => ({
+      key:   cat.key,
+      label: cat.label || CATEGORY_LABELS[cat.key],
+      color: CATEGORY_COLORS[cat.key],
+      total: cat.items.reduce((s, it) => s + it.budget, 0),
+    }));
   });
 
   // Donut: distribución por categoría
@@ -473,25 +587,20 @@ export class HomeComponent implements AfterViewInit {
     };
   });
 
-  // Tabla: categorías desplegables con sus items
+  // Tabla: categorías desplegables con sus items (ya vienen agregados desde backend)
   categoryTable = computed(() => {
-    const filtered = this.alliesFiltered();
-    return this.CATEGORY_DEFS.map(def => {
-      const itemNames = filtered[0]?.categories.find(c => c.key === def.key)?.items.map(it => it.name) ?? [];
-      const items = itemNames.map(name => {
-        const budget = filtered.reduce((s, a) => {
-          const it = a.categories.find(c => c.key === def.key)?.items.find(i => i.name === name);
-          return s + (it?.budget ?? 0);
-        }, 0);
-        const subscribed = filtered.reduce((s, a) => {
-          const it = a.categories.find(c => c.key === def.key)?.items.find(i => i.name === name);
-          return s + (it?.subscribed ?? 0);
-        }, 0);
-        return { name, budget, subscribed, diff: subscribed - budget };
-      });
+    return this.allyCategories().map(cat => {
+      const items = cat.items.map(it => ({
+        name: it.name, budget: it.budget, subscribed: it.subscribed, diff: it.subscribed - it.budget,
+      }));
       const totalBudget     = items.reduce((s, it) => s + it.budget, 0);
       const totalSubscribed = items.reduce((s, it) => s + it.subscribed, 0);
-      return { ...def, items, totalBudget, totalSubscribed, totalDiff: totalSubscribed - totalBudget };
+      return {
+        key: cat.key,
+        label: cat.label || CATEGORY_LABELS[cat.key],
+        items, totalBudget, totalSubscribed,
+        totalDiff: totalSubscribed - totalBudget,
+      };
     });
   });
 
@@ -509,18 +618,14 @@ export class HomeComponent implements AfterViewInit {
     return this.expandedCats().has(key);
   }
 
-  allySubscribedTotal(ally: Ally): number {
-    return ally.categories.find(c => c.key === 'suscrito')?.items.reduce((s, it) => s + it.subscribed, 0) ?? 0;
-  }
-
   // Barras (suscrito, facturado) + línea recta (ejecutado), por aliado — siempre todos
   allyComboChart = computed<ComboChartOptions>(() => {
-    const data = this.allies;
+    const data = this.alliesList();
     return {
       series: [
-        { name: 'Suscrito',  type: 'column', data: data.map(a => this.allySubscribedTotal(a)) },
-        { name: 'Facturado', type: 'column', data: data.map(a => a.invoicedTotal) },
-        { name: 'Ejecutado', type: 'line',   data: data.map(a => a.executedTotal) },
+        { name: 'Suscrito',  type: 'column', data: data.map(a => a.subscribed_total) },
+        { name: 'Facturado', type: 'column', data: data.map(a => a.invoiced_total) },
+        { name: 'Ejecutado', type: 'line',   data: data.map(a => a.executed_total) },
       ],
       chart: { height: 340, type: 'line', toolbar: { show: false } },
       stroke: { width: [0, 0, 3], curve: 'straight' },

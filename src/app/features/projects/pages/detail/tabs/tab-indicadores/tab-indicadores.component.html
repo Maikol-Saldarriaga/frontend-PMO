@@ -1,0 +1,252 @@
+@if (loading()) {
+  <div class="flex items-center justify-center py-32">
+    <div class="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+  </div>
+} @else if (error()) {
+  <div class="m-6 p-4 rounded-xl bg-red-50 border border-red-100 text-sm text-red-600">{{ error() }}</div>
+} @else {
+
+<div class="px-4 pb-8">
+
+  <!-- ══ HEADER ═══════════════════════════════════════════════════════════ -->
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-4 flex items-center justify-between gap-3 flex-wrap">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-sky-50 flex items-center justify-center shrink-0">
+        <svg class="w-5 h-5 text-sky-500" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm6 0V9a2 2 0 00-2-2h-2a2 2 0 00-2 2v10m6-10V5a2 2 0 00-2-2h-2a2 2 0 00-2 2v14"/>
+        </svg>
+      </div>
+      <div>
+        <p class="text-sm font-bold text-gray-800">Indicadores</p>
+        <p class="text-xs text-gray-400">Línea base, meta y medios de verificación de cada indicador del proyecto</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ LISTA DE INDICADORES ═════════════════════════════════════════════ -->
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mb-4">
+    <div class="divide-y divide-gray-100">
+      @for (row of rows(); track $index; let i = $index) {
+        <div class="p-5" [class.opacity-50]="row.deleting">
+
+          <!-- Row header -->
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+              <span class="w-6 h-6 rounded-full bg-sky-500 flex items-center justify-center text-[10px] font-black text-white">{{ i + 1 }}</span>
+              <span class="text-xs font-semibold text-gray-600">Indicador {{ i + 1 }}</span>
+            </div>
+            <button type="button" (click)="removeRow(i)" [disabled]="row.deleting"
+              class="flex items-center gap-1 text-xs text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+              {{ row.deleting ? 'Eliminando...' : 'Eliminar' }}
+            </button>
+          </div>
+
+          <!-- ── Campos del indicador ───────────────────────────────── -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+            <div>
+              <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Componente <span class="text-red-500">*</span></label>
+              <select [value]="row.component_id" (change)="updateField(i,'component_id',$any($event.target).value)"
+                class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-800 bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 transition-colors appearance-none">
+                <option value="">— Seleccionar —</option>
+                @for (c of components; track c.id) {
+                  <option [value]="c.id" [selected]="row.component_id === c.id">{{ c.name }}</option>
+                }
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Tipo</label>
+              <select [value]="row.type" (change)="updateField(i,'type',$any($event.target).value)"
+                class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-800 bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 transition-colors appearance-none">
+                @for (t of indicatorTypes; track t.value) {
+                  <option [value]="t.value" [selected]="row.type === t.value">{{ t.label }}</option>
+                }
+              </select>
+            </div>
+
+            <div class="md:col-span-2">
+              <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Nombre del indicador <span class="text-red-500">*</span></label>
+              <input type="text" [value]="row.name" (input)="updateField(i,'name',$any($event.target).value)"
+                placeholder="Ej: Número de beneficiarios atendidos"
+                class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-800 placeholder-gray-400 bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 transition-colors"/>
+            </div>
+
+            <div>
+              <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Línea base</label>
+              <input type="text" [value]="row.line" (input)="updateField(i,'line',$any($event.target).value)"
+                placeholder="Ej: Línea base: 0"
+                class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-800 placeholder-gray-400 bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 transition-colors"/>
+            </div>
+
+            <div>
+              <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Meta</label>
+              <input type="text" [value]="row.goal" (input)="updateField(i,'goal',$any($event.target).value)"
+                placeholder="Ej: 500 beneficiarios al cierre"
+                class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-800 placeholder-gray-400 bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 transition-colors"/>
+            </div>
+
+          </div>
+
+          <!-- ── Sección de Verificaciones ──────────────────────────── -->
+          <div class="mt-5 rounded-xl border border-sky-200 overflow-hidden">
+            <div class="px-4 py-3 bg-sky-50 flex items-center justify-between">
+              <span class="text-xs font-bold uppercase tracking-wide text-sky-600">Medio de verificación — documentos adjuntos</span>
+              @if (row.verifications.length > 0) {
+                <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-sky-100 text-sky-600">{{ row.verifications.length }}</span>
+              }
+            </div>
+
+            <!-- Verificaciones existentes -->
+            @if (row.verifications.length > 0) {
+              <div class="divide-y divide-gray-100">
+                @for (v of row.verifications; track v.id) {
+                  <div class="flex items-center gap-3 px-4 py-3">
+                    <div class="w-8 h-8 rounded-lg bg-sky-50 flex items-center justify-center flex-shrink-0">
+                      <svg class="w-4 h-4 text-sky-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                      </svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <p class="text-xs font-semibold text-gray-800 truncate">{{ v.name }}</p>
+                      <p class="text-[10px] text-gray-400">{{ verificationLabel(v.verification_type) }}</p>
+                    </div>
+                    <a [href]="v.verification_url" target="_blank"
+                      class="p-1.5 rounded-lg text-gray-400 hover:text-sky-500 hover:bg-sky-50 transition-colors">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                      </svg>
+                    </a>
+                    <button type="button" (click)="deleteVerification(i, v)"
+                      class="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                      </svg>
+                    </button>
+                  </div>
+                }
+              </div>
+            }
+
+            <!-- Formulario de nueva verificación -->
+            <div class="p-4 border-t border-gray-100">
+              <p class="text-[11px] text-gray-400 mb-3">
+                Los archivos seleccionados se subirán automáticamente al guardar.
+              </p>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+
+                <!-- Tipo de verificación -->
+                <div>
+                  <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Tipo de verificación</label>
+                  <select [value]="row.upload.verification_type"
+                    (change)="updateUploadField(i,'verification_type',$any($event.target).value)"
+                    class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-800 bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 transition-colors appearance-none">
+                    <option value="">Selecciona un tipo</option>
+                    @for (key of verificationTypeKeys; track key) {
+                      <option [value]="key" [selected]="row.upload.verification_type === key">{{ verificationTypeLabels[key] }}</option>
+                    }
+                  </select>
+                </div>
+
+                <!-- Nombre del documento -->
+                <div>
+                  <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Nombre del documento</label>
+                  <select [value]="row.upload.name"
+                    [attr.disabled]="!row.upload.verification_type ? '' : null"
+                    (change)="updateUploadField(i,'name',$any($event.target).value)"
+                    class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-800 bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 transition-colors appearance-none disabled:opacity-50 disabled:cursor-not-allowed">
+                    <option value="">{{ row.upload.verification_type ? 'Selecciona un documento' : 'Primero elige el tipo' }}</option>
+                    @for (name of getVerificationNames(i); track name) {
+                      <option [value]="name" [selected]="row.upload.name === name">{{ name }}</option>
+                    }
+                  </select>
+                </div>
+
+              </div>
+
+              <!-- Zona de archivos -->
+              <div class="mb-3">
+                <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Archivos adjuntos</label>
+                @if (!canSelectFiles(row)) {
+                  <p class="text-[11px] text-amber-600 mb-1.5">Selecciona primero el tipo y el nombre del documento.</p>
+                }
+                <label class="flex flex-col items-center justify-center gap-2 px-4 py-5 rounded-xl border-2 border-dashed transition-colors"
+                  [class.border-gray-200]="canSelectFiles(row)"
+                  [class.hover:border-sky-400]="canSelectFiles(row)"
+                  [class.cursor-pointer]="canSelectFiles(row)"
+                  [class.bg-gray-50]="canSelectFiles(row)"
+                  [class.hover:bg-sky-50]="canSelectFiles(row)"
+                  [class.border-gray-100]="!canSelectFiles(row)"
+                  [class.bg-gray-100]="!canSelectFiles(row)"
+                  [class.opacity-60]="!canSelectFiles(row)"
+                  [class.cursor-not-allowed]="!canSelectFiles(row)">
+                  <svg class="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                  </svg>
+                  <span class="text-xs text-gray-400">Haz clic para adjuntar o arrastra archivos aquí</span>
+                  <span class="text-[10px] text-gray-300">PDF, imágenes, Word, Excel...</span>
+                  <input type="file" multiple accept="*/*" class="hidden" [disabled]="!canSelectFiles(row)" (change)="onFilesSelected(i, $event)"/>
+                </label>
+              </div>
+
+              <!-- Lista de archivos seleccionados -->
+              @if (row.upload.files.length > 0) {
+                <div class="mb-3 space-y-1.5">
+                  @for (file of row.upload.files; track $index; let fi = $index) {
+                    <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-sky-50 border border-sky-100">
+                      <svg class="w-4 h-4 text-sky-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                      </svg>
+                      <span class="flex-1 text-xs text-gray-800 truncate">{{ previewFileName(i, fi) }}</span>
+                      <span class="text-[10px] text-gray-400 flex-shrink-0">{{ fileSize(file) }}</span>
+                      <button type="button" (click)="removeFile(i, fi)" class="text-gray-400 hover:text-red-500 transition-colors">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                      </button>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          </div>
+
+        </div>
+      }
+    </div>
+
+    <!-- Agregar indicador -->
+    <div class="px-5 py-4 border-t border-gray-100 bg-gray-50/50">
+      <button type="button" (click)="addRow()"
+        class="flex items-center gap-2 text-sm text-sky-600 hover:text-sky-700 font-semibold transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        Agregar indicador
+      </button>
+    </div>
+  </div>
+
+  <!-- Feedback -->
+  @if (saveError()) {
+    <div class="mb-4 p-3 rounded-xl bg-red-50 border border-red-100 text-sm text-red-600">{{ saveError() }}</div>
+  }
+  @if (saveSuccess()) {
+    <div class="mb-4 p-3 rounded-xl bg-emerald-50 border border-emerald-100 text-sm text-emerald-600">Indicadores guardados correctamente.</div>
+  }
+
+  <!-- Guardar -->
+  <div class="flex items-center justify-end">
+    <button type="button" (click)="save()" [disabled]="saving()"
+      class="flex items-center gap-2.5 px-6 py-3 bg-sky-500 hover:bg-sky-600 text-white text-sm font-bold rounded-xl shadow-sm shadow-sky-200 transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+      @if (saving()) {
+        <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+        Guardando...
+      } @else {
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        Guardar indicadores
+      }
+    </button>
+  </div>
+
+</div>
+}

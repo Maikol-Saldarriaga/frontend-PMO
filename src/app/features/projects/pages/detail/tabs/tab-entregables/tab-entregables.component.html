@@ -1,0 +1,328 @@
+<!-- ══ LOADING ══════════════════════════════════════════════════════════════ -->
+@if (loading()) {
+  <div class="flex items-center justify-center py-32">
+    <div class="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+  </div>
+} @else if (error()) {
+  <div class="m-6 p-4 rounded-xl bg-red-50 border border-red-100 text-sm text-red-600">{{ error() }}</div>
+} @else {
+
+<!-- ══ FILTROS ══════════════════════════════════════════════════════════════ -->
+<div class="px-4 pt-4 mb-4 flex items-center justify-between gap-3 flex-wrap">
+  <h2 class="text-base font-bold text-gray-900">Entregables</h2>
+
+  <div class="flex items-center gap-2 flex-wrap">
+    <!-- Filtro por componente -->
+    <select [ngModel]="componentFilter()" (ngModelChange)="setComponentFilter($event)"
+      class="rounded-xl border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs text-gray-600 focus:outline-none focus:ring-2 focus:ring-sky-300">
+      <option value="todos">Todos los componentes</option>
+      @for (name of componentNames(); track name) {
+        <option [value]="name">{{ name }}</option>
+      }
+    </select>
+
+    <!-- Filtro por estado -->
+    <div class="flex items-center gap-1 bg-gray-50 rounded-xl p-1">
+      <button (click)="setEstadoFilter('todos')"
+        class="px-3 py-1 rounded-lg text-xs font-semibold transition-colors"
+        [class.bg-white]="estadoFilter() === 'todos'" [class.shadow-sm]="estadoFilter() === 'todos'"
+        [class.text-gray-700]="estadoFilter() === 'todos'" [class.text-gray-400]="estadoFilter() !== 'todos'">
+        Todos <span class="text-gray-300">({{ deliveryCounts().todos }})</span>
+      </button>
+      <button (click)="setEstadoFilter('completados')"
+        class="px-3 py-1 rounded-lg text-xs font-semibold transition-colors"
+        [class.bg-white]="estadoFilter() === 'completados'" [class.shadow-sm]="estadoFilter() === 'completados'"
+        [class.text-emerald-600]="estadoFilter() === 'completados'" [class.text-gray-400]="estadoFilter() !== 'completados'">
+        Completados <span class="text-gray-300">({{ deliveryCounts().completados }})</span>
+      </button>
+      <button (click)="setEstadoFilter('atrasados')"
+        class="px-3 py-1 rounded-lg text-xs font-semibold transition-colors"
+        [class.bg-white]="estadoFilter() === 'atrasados'" [class.shadow-sm]="estadoFilter() === 'atrasados'"
+        [class.text-red-500]="estadoFilter() === 'atrasados'" [class.text-gray-400]="estadoFilter() !== 'atrasados'">
+        Atrasados <span class="text-gray-300">({{ deliveryCounts().atrasados }})</span>
+      </button>
+      <button (click)="setEstadoFilter('adelantados')"
+        class="px-3 py-1 rounded-lg text-xs font-semibold transition-colors"
+        [class.bg-white]="estadoFilter() === 'adelantados'" [class.shadow-sm]="estadoFilter() === 'adelantados'"
+        [class.text-purple-600]="estadoFilter() === 'adelantados'" [class.text-gray-400]="estadoFilter() !== 'adelantados'">
+        Adelantados <span class="text-gray-300">({{ deliveryCounts().adelantados }})</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ LEYENDA DE COLORES (misma paleta que Cronograma) ════════════════════════ -->
+<div class="px-4 mb-4">
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-3 flex items-center gap-5 flex-wrap">
+    <span class="flex items-center gap-2 text-xs text-gray-500">
+      <span class="w-8 h-3 rounded-sm bg-emerald-500 inline-block"></span>
+      A tiempo
+    </span>
+    <span class="flex items-center gap-2 text-xs text-gray-500">
+      <span class="w-8 h-3 rounded-sm bg-red-400 inline-block"></span>
+      Atrasado
+    </span>
+    <span class="flex items-center gap-2 text-xs text-gray-500">
+      <span class="w-8 h-3 rounded-sm bg-purple-500 inline-block"></span>
+      Adelantado
+    </span>
+    <span class="flex items-center gap-2 text-xs text-gray-500">
+      <span class="w-8 h-3 rounded-sm bg-slate-200 inline-block"></span>
+      Sin seguimiento / pendiente
+    </span>
+  </div>
+</div>
+
+<!-- ══ ENTREGABLES POR FECHA (línea de tiempo, hoy queda arriba al cargar) ═════ -->
+<div class="px-4 pb-8">
+  @if (groupedDeliveries().length === 0) {
+    <div class="bg-white rounded-2xl border border-dashed border-gray-200 flex flex-col items-center justify-center py-16 gap-2">
+      <svg class="w-10 h-10 text-gray-200" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+      </svg>
+      <p class="text-sm text-gray-400 font-medium">No hay entregables que coincidan con el filtro</p>
+    </div>
+  } @else {
+    <div #scrollContainer class="space-y-6 max-h-[70vh] overflow-y-auto pr-1 scroll-smooth">
+      @for (group of groupedDeliveries(); track group.dateKey) {
+        <div [attr.data-date-key]="group.dateKey">
+          <div class="flex items-center gap-2 mb-2 sticky -top-px bg-gray-50/95 backdrop-blur-sm py-1 -mx-1 px-1 z-[1]">
+            <h3 class="text-sm font-bold text-gray-800">{{ group.label }}</h3>
+            <span class="text-xs text-gray-400">{{ group.items.length }} entregable{{ group.items.length !== 1 ? 's' : '' }}</span>
+          </div>
+
+          <div class="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-50 overflow-hidden">
+            @for (item of group.items; track item.id_snapshot) {
+              <button (click)="openDelivery(item)"
+                class="w-full flex items-center gap-3 px-4 py-4 text-left hover:bg-gray-50 transition-colors">
+
+                <!-- Acento de estado -->
+                <span class="w-1.5 h-12 rounded-full shrink-0"
+                  [class.bg-slate-200]="estadoSnap(item) === 'pendiente'"
+                  [class.bg-red-400]="estadoSnap(item) === 'retrasado' || estadoSnap(item) === 'vencido'"
+                  [class.bg-emerald-500]="estadoSnap(item) === 'completado'"
+                  [class.bg-purple-500]="estadoSnap(item) === 'adelantado'"></span>
+
+                <!-- Nombre / descripción / fechas -->
+                <div class="flex-1 min-w-0">
+                  <p class="text-[11px] font-semibold text-sky-600 uppercase tracking-wide truncate">{{ item.component_name }} · Act. {{ item.act }}</p>
+                  <p class="text-sm font-medium text-gray-800 truncate">{{ item.description }}</p>
+                  <p class="text-[11px] text-gray-400 mt-0.5">
+                    {{ item.start_date | date:'dd MMM':'UTC' }} → <strong class="text-gray-500">{{ item.end_date | date:'dd MMM, y':'UTC' }}</strong>
+                  </p>
+                </div>
+
+                <!-- Verificaciones -->
+                @if (item.verifications_count > 0) {
+                  <span class="hidden md:flex items-center gap-1 shrink-0 text-[11px] text-gray-400">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    {{ item.verifications_count }}
+                  </span>
+                }
+
+                <!-- % planeado / real -->
+                <div class="hidden sm:flex items-center gap-4 shrink-0 text-sm">
+                  <span class="text-gray-400">Plan <strong class="text-base text-sky-600">{{ item.planned_pct }}%</strong></span>
+                  <span class="text-gray-400">Real <strong class="text-base text-gray-700">{{ (estadoSnap(item) === 'vencido' ? 0 : item.actual_pct) ?? '—' }}{{ item.actual_pct !== null || estadoSnap(item) === 'vencido' ? '%' : '' }}</strong></span>
+                </div>
+
+                <!-- Badge de estado -->
+                <span class="shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-full"
+                  [class.bg-slate-100]="estadoSnap(item) === 'pendiente'" [class.text-slate-500]="estadoSnap(item) === 'pendiente'"
+                  [class.bg-red-50]="estadoSnap(item) === 'retrasado' || estadoSnap(item) === 'vencido'" [class.text-red-500]="estadoSnap(item) === 'retrasado' || estadoSnap(item) === 'vencido'"
+                  [class.bg-emerald-50]="estadoSnap(item) === 'completado'" [class.text-emerald-600]="estadoSnap(item) === 'completado'"
+                  [class.bg-purple-50]="estadoSnap(item) === 'adelantado'" [class.text-purple-600]="estadoSnap(item) === 'adelantado'">
+                  @if (estadoSnap(item) === 'pendiente') { Sin entrega }
+                  @else if (estadoSnap(item) === 'vencido') { Vencido }
+                  @else if (estadoSnap(item) === 'retrasado') { Retrasado }
+                  @else if (estadoSnap(item) === 'completado') { A tiempo }
+                  @else { Adelantado }
+                </span>
+
+                <svg class="w-4 h-4 text-gray-300 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+                </svg>
+              </button>
+            }
+          </div>
+        </div>
+      }
+    </div>
+  }
+</div>
+
+<!-- ══ PANEL LATERAL DE ENTREGABLE ═════════════════════════════════════════════ -->
+@if (selectedDelivery()) {
+  <div class="fixed inset-0 z-40 bg-black/30" (click)="closeDelivery()"></div>
+
+  <div class="fixed top-0 right-0 z-50 h-full w-full max-w-md bg-white shadow-2xl overflow-y-auto">
+    <div class="px-5 py-4 border-b border-gray-100 flex items-start justify-between gap-3 sticky top-0 bg-white z-10">
+      <div>
+        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">{{ selectedDelivery()!.component_name }}</p>
+        <h3 class="text-sm font-bold text-gray-900 leading-snug">
+          <span class="text-sky-500 mr-1">Act. {{ selectedDelivery()!.act }}</span>
+          {{ selectedDelivery()!.description }}
+        </h3>
+        <p class="text-xs text-gray-400 mt-1">
+          {{ selectedDelivery()!.start_date | date:'dd MMM, y':'UTC' }} → {{ selectedDelivery()!.end_date | date:'dd MMM, y':'UTC' }}
+        </p>
+      </div>
+      <button (click)="closeDelivery()" class="shrink-0 text-gray-400 hover:text-gray-600 transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    @if (deliveryLoading()) {
+      <div class="flex items-center justify-center py-20">
+        <div class="w-6 h-6 border-4 border-sky-400 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    } @else {
+      <div class="p-5 space-y-5">
+
+        @if (delivery()?.responsible) {
+          <p class="text-xs text-gray-500">Responsable: <strong class="text-gray-700">{{ delivery()!.responsible }}</strong></p>
+        }
+
+        @if (isDeliveryLocked()) {
+          <div class="flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-100">
+            <svg class="w-4 h-4 text-amber-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z"/>
+            </svg>
+            <p class="text-xs text-amber-700">Este entregable ya venció (fecha fin superada) y quedó en solo lectura.</p>
+          </div>
+        }
+
+        <!-- Edición de avance real y observaciones -->
+        <div class="space-y-3">
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 mb-1">% Avance real <span class="text-red-400">*</span></label>
+            <div class="relative w-32">
+              <input type="number" min="0" max="100" step="0.5" [(ngModel)]="deliveryForm.actual_pct"
+                [disabled]="isDeliveryLocked()"
+                placeholder="0"
+                class="w-full rounded-xl border border-gray-200 bg-gray-50 pl-3 pr-8 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-sky-300 disabled:opacity-60 disabled:cursor-not-allowed"/>
+              <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">%</span>
+            </div>
+            <p class="text-sm text-gray-500 mt-1.5">Planeado: <strong class="text-base text-sky-600">{{ selectedDelivery()!.planned_pct }}%</strong></p>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Observaciones <span class="text-gray-300">(opcional)</span></label>
+            <textarea [(ngModel)]="deliveryForm.notes" rows="3" placeholder="Detalles de la entrega, novedades o justificaciones..."
+              [disabled]="isDeliveryLocked()"
+              class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 resize-none focus:outline-none focus:ring-2 focus:ring-sky-300 disabled:opacity-60 disabled:cursor-not-allowed">
+            </textarea>
+          </div>
+        </div>
+
+        <hr class="border-gray-100"/>
+
+        <!-- Verificaciones -->
+        <div>
+          <h4 class="text-sm font-bold text-gray-800 mb-3">Verificaciones</h4>
+
+          <div class="flex flex-wrap gap-2 mb-3">
+            <!-- Ya subidas -->
+            @for (v of delivery()?.verifications ?? []; track v.id) {
+              <div class="group relative w-16 h-16 rounded-lg border border-gray-100 bg-gray-50 overflow-hidden">
+                <a [href]="v.verification_url" target="_blank" rel="noopener"
+                  class="w-full h-full flex items-center justify-center"
+                  [title]="v.name || 'Verificación'">
+                  @if (verificationKind(v) === 'image') {
+                    <img [src]="v.verification_url" class="w-full h-full object-cover"/>
+                  } @else if (verificationKind(v) === 'pdf') {
+                    <embed [src]="v.verification_url" type="application/pdf" class="w-full h-full pointer-events-none scale-[3] origin-top-left"/>
+                  } @else {
+                    <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                  }
+                </a>
+
+                @if (!isDeliveryLocked()) {
+                  @if (deletingVerificationId() === v.id) {
+                    <div class="absolute inset-0 bg-white/70 flex items-center justify-center">
+                      <div class="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                  } @else {
+                    <button (click)="deleteVerification(v)"
+                      class="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-black/60 text-white items-center justify-center hidden group-hover:flex hover:bg-red-600"
+                      title="Eliminar verificación">
+                      <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                      </svg>
+                    </button>
+                  }
+                }
+              </div>
+            }
+
+            @if (!isDeliveryLocked()) {
+              <!-- Pendientes de subir -->
+              @for (sf of stagedFiles(); track $index; let i = $index) {
+                <div class="relative w-16 h-16 rounded-lg border border-dashed border-sky-200 bg-sky-50 overflow-hidden flex items-center justify-center"
+                  [title]="sf.file.name">
+                  @if (sf.kind === 'image' && sf.preview) {
+                    <img [src]="sf.preview" class="w-full h-full object-cover"/>
+                  } @else if (sf.kind === 'pdf' && sf.preview) {
+                    <embed [src]="sf.preview" type="application/pdf" class="w-full h-full pointer-events-none scale-[3] origin-top-left"/>
+                  } @else {
+                    <svg class="w-6 h-6 text-sky-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                  }
+                  <button (click)="removeStagedFile(i)"
+                    class="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80">
+                    <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                  </button>
+                </div>
+              }
+
+              <!-- Agregar archivo -->
+              <label class="w-16 h-16 rounded-lg border border-dashed border-gray-300 flex items-center justify-center text-gray-400 hover:text-sky-500 hover:border-sky-300 cursor-pointer transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+                </svg>
+                <input type="file" multiple class="hidden" (change)="onFilesSelected($event)"/>
+              </label>
+            }
+          </div>
+
+          @if ((!delivery() || delivery()!.verifications.length === 0) && stagedFiles().length === 0) {
+            <p class="text-xs text-gray-400">Sin verificaciones adjuntas.</p>
+          }
+        </div>
+
+        @if (!isDeliveryLocked()) {
+          @if (saveError()) {
+            <p class="text-xs text-red-500">{{ saveError() }}</p>
+          }
+          @if (savedMessage()) {
+            <p class="text-xs text-emerald-600 font-medium flex items-center gap-1.5">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+              </svg>
+              {{ savedMessage() }}
+            </p>
+          }
+
+          <button (click)="saveAll()" [disabled]="saving() || (!isDirty() && stagedFiles().length === 0)"
+            class="flex items-center gap-2 px-5 py-2 rounded-xl bg-sky-500 hover:bg-sky-600 disabled:opacity-50 text-white text-sm font-semibold transition-colors">
+            @if (saving()) {
+              <div class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+            }
+            Guardar
+          </button>
+        }
+      </div>
+    }
+  </div>
+}
+
+}

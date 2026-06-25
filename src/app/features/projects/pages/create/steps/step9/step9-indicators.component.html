@@ -71,14 +71,131 @@
                 class="w-full px-4 py-2.5 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-400 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
             </div>
 
-            <div class="md:col-span-2">
-              <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Medio de verificación</label>
-              <input type="text" [value]="row.medium" (input)="update(i,'medium',$any($event.target).value)"
-                placeholder="Ej: Listas de asistencia, certificados"
-                class="w-full px-4 py-2.5 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-400 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+          </div>
+
+          <!-- ── Sección de Verificaciones (medio de verificación) ──────── -->
+          <div class="mt-5 rounded-xl border border-accent-200 overflow-hidden">
+            <div class="px-4 py-3 bg-accent-50 flex items-center justify-between">
+              <span class="text-xs font-bold uppercase tracking-wide text-accent-700">Medio de verificación — documentos adjuntos</span>
+              @if (row.verifications.length > 0) {
+                <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-accent-100 text-accent-700">{{ row.verifications.length }}</span>
+              }
             </div>
 
+            <!-- Verificaciones existentes -->
+            @if (row.verifications.length > 0) {
+              <div class="divide-y divide-neutral-100">
+                @for (v of row.verifications; track v.id) {
+                  <div class="flex items-center gap-3 px-4 py-3">
+                    <div class="w-8 h-8 rounded-lg bg-accent-50 flex items-center justify-center flex-shrink-0">
+                      <svg class="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                      </svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <p class="text-xs font-semibold text-primary-700 truncate">{{ v.name }}</p>
+                      <p class="text-[10px] text-neutral-400">{{ verificationLabel(v.verification_type) }}</p>
+                    </div>
+                    <a [href]="v.verification_url" target="_blank"
+                      class="p-1.5 rounded-lg text-neutral-400 hover:text-accent hover:bg-accent-50 transition-colors">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                      </svg>
+                    </a>
+                    <button type="button" (click)="deleteVerification(i, v)"
+                      class="p-1.5 rounded-lg text-neutral-400 hover:text-danger hover:bg-danger-50 transition-colors">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                      </svg>
+                    </button>
+                  </div>
+                }
+              </div>
+            }
+
+            <!-- Formulario de nueva verificación -->
+            <div class="p-4 border-t border-neutral-100">
+              <p class="text-[11px] text-neutral-400 mb-3">
+                Los archivos seleccionados se subirán automáticamente al guardar esta fase.
+              </p>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+
+                <!-- Tipo de verificación -->
+                <div>
+                  <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Tipo de verificación</label>
+                  <select [value]="row.upload.verification_type"
+                    (change)="updateUploadField(i,'verification_type',$any($event.target).value)"
+                    class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors appearance-none">
+                    <option value="">Selecciona un tipo</option>
+                    @for (key of verificationTypeKeys; track key) {
+                      <option [value]="key" [selected]="row.upload.verification_type === key">{{ verificationTypeLabels[key] }}</option>
+                    }
+                  </select>
+                </div>
+
+                <!-- Nombre del documento -->
+                <div>
+                  <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Nombre del documento</label>
+                  <select [value]="row.upload.name"
+                    [attr.disabled]="!row.upload.verification_type ? '' : null"
+                    (change)="updateUploadField(i,'name',$any($event.target).value)"
+                    class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors appearance-none disabled:opacity-50 disabled:cursor-not-allowed">
+                    <option value="">{{ row.upload.verification_type ? 'Selecciona un documento' : 'Primero elige el tipo' }}</option>
+                    @for (name of getVerificationNames(i); track name) {
+                      <option [value]="name" [selected]="row.upload.name === name">{{ name }}</option>
+                    }
+                  </select>
+                </div>
+
+              </div>
+
+              <!-- Zona de archivos -->
+              <div class="mb-3">
+                <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Archivos adjuntos</label>
+                @if (!canSelectFiles(row)) {
+                  <p class="text-[11px] text-amber-600 mb-1.5">Selecciona primero el tipo y el nombre del documento.</p>
+                }
+                <label class="flex flex-col items-center justify-center gap-2 px-4 py-5 rounded-xl border-2 border-dashed transition-colors"
+                  [class.border-neutral-200]="canSelectFiles(row)"
+                  [class.hover:border-accent]="canSelectFiles(row)"
+                  [class.cursor-pointer]="canSelectFiles(row)"
+                  [class.bg-neutral-50]="canSelectFiles(row)"
+                  [class.hover:bg-accent-50]="canSelectFiles(row)"
+                  [class.border-neutral-100]="!canSelectFiles(row)"
+                  [class.bg-neutral-100]="!canSelectFiles(row)"
+                  [class.opacity-60]="!canSelectFiles(row)"
+                  [class.cursor-not-allowed]="!canSelectFiles(row)">
+                  <svg class="w-6 h-6 text-neutral-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                  </svg>
+                  <span class="text-xs text-neutral-400">Haz clic para adjuntar o arrastra archivos aquí</span>
+                  <span class="text-[10px] text-neutral-300">PDF, imágenes, Word, Excel...</span>
+                  <input type="file" multiple accept="*/*" class="hidden" [disabled]="!canSelectFiles(row)" (change)="onFilesSelected(i, $event)"/>
+                </label>
+              </div>
+
+              <!-- Lista de archivos seleccionados -->
+              @if (row.upload.files.length > 0) {
+                <div class="mb-3 space-y-1.5">
+                  @for (file of row.upload.files; track $index; let fi = $index) {
+                    <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-accent-50 border border-accent-100">
+                      <svg class="w-4 h-4 text-accent flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                      </svg>
+                      <span class="flex-1 text-xs text-primary-700 truncate">{{ previewFileName(i, fi) }}</span>
+                      <span class="text-[10px] text-neutral-400 flex-shrink-0">{{ fileSize(file) }}</span>
+                      <button type="button" (click)="removeFile(i, fi)" class="text-neutral-400 hover:text-danger transition-colors">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                      </button>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
           </div>
+
         </div>
       }
     </div>
