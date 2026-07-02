@@ -92,7 +92,7 @@ export class MonthlyComponent implements OnInit {
     let year  = last?.year  ?? new Date().getFullYear();
     let month = (last?.month ?? 0) + 1;
     if (month > 12) { month = 1; year++; }
-    row.distributions.push({ year, month, counterpart_amount: 0, ally_amount: 0, executed_amount: 0, billed_amount: 0 });
+    row.distributions.push({ year, month, counterpart_amount: 0, ally_amount: 0, executed_amount: 0 });
     row.dirty = true; row.rowSuccess = false;
   }
 
@@ -124,7 +124,6 @@ export class MonthlyComponent implements OnInit {
         counterpart_amount: d.counterpart_amount,
         ally_amount:        d.ally_amount,
         executed_amount:    d.executed_amount ?? 0,
-        billed_amount:      d.billed_amount   ?? 0,
       })),
     }).subscribe({
       next: () => {
@@ -145,9 +144,6 @@ export class MonthlyComponent implements OnInit {
   }
   distTotalExecuted(row: MonthlyRow): number {
     return row.distributions.reduce((s, d) => s + (d.executed_amount ?? 0), 0);
-  }
-  distTotalBilled(row: MonthlyRow): number {
-    return row.distributions.reduce((s, d) => s + (d.billed_amount ?? 0), 0);
   }
 
   goBack(): void {
