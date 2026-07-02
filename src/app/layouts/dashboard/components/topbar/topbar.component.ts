@@ -35,7 +35,7 @@ export class TopbarComponent {
   }
 
   goToProfile(): void {
-    this.router.navigate(['/dashboard/profile']);
+    this.router.navigate(['/profile']);
   }
 
   logout(): void { this.authService.logout(); }

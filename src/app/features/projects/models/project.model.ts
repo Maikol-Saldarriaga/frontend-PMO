@@ -472,10 +472,10 @@ export interface GanttActivity {
   actual_start_date: string | null;
   actual_end_date:   string | null;
   percentage:        number | null;  // peso bruto de la actividad (0–100)
-  progress:          number | null;  // avance acumulado por snapshots (0–100)
+  progress:          number | null;  // avance acumulado por checkpoints (0–100)
   responsible:       string | null;
   is_completed:      boolean | null;
-  snapshots:         Snapshot[];     // períodos individuales (start_date/end_date/planned_pct/actual_pct) para pintar barras por período
+  checkpoints:       Snapshot[];     // períodos individuales (start_date/end_date/planned_pct/actual_pct) para pintar barras por período
 }
 
 export interface GanttComponent {
@@ -496,7 +496,7 @@ export interface GanttFilters {
 }
 
 export interface GanttSummaryItem {
-  scope_id:          string;
+  activity_id:       string;
   component_name:    string;
   act:               number;
   description:       string;
@@ -505,10 +505,10 @@ export interface GanttSummaryItem {
   actual_start_date: string | null;
   actual_end_date:   string | null;
   percentage:        number;   // peso bruto de la actividad (0–100)
-  progress:          number;   // avance acumulado por snapshots (0–100)
+  progress:          number;   // avance acumulado por checkpoints (0–100)
   responsible:       string | null;
   is_completed:      boolean;
-  snapshots?:        Snapshot[]; // períodos individuales — pendiente que el backend lo agregue aquí (ya existe en GanttActivity)
+  checkpoints?:      Snapshot[]; // períodos individuales — pendiente que el backend lo agregue aquí (ya existe en GanttActivity)
 }
 
 export interface ProjectDetails {
@@ -574,8 +574,6 @@ export interface ScopeActivity {
   percentage:            number;
   progress:              number;
   is_completed:          boolean;
-  // budget es asignado desde otro módulo — solo lectura
-  budget?:               number | null;
 }
 
 export interface ScopeComponent {
@@ -639,7 +637,7 @@ export interface ActivityFormData {
 
 export interface Snapshot {
   id?:          string;
-  id_scope?:    string;
+  id_activity?: string;
   start_date:   string;
   end_date:     string;
   planned_pct:  number;
@@ -655,10 +653,10 @@ export interface SnapshotRequest {
 }
 
 export interface ProjectSnapshotItem {
-  id_snapshot:           string;
-  id_scope:              string;
+  id_checkpoint:         string;
+  id_activity:           string;
   act:                   number;
-  scope_name:            string;
+  activity_name:         string;
   description:           string;
   id_component:          string;
   component_name:        string;
@@ -672,16 +670,16 @@ export interface ProjectSnapshotItem {
 }
 
 export interface ProjectSnapshotsResponse {
-  snapshots:        ProjectSnapshotItem[];
-  counts_by_scope:  Record<string, number>;
+  checkpoints:         ProjectSnapshotItem[];
+  counts_by_activity:  Record<string, number>;
 }
 
-// ── Entregables (delivery) de un snapshot ───────────────────────────────────
+// ── Entregables (delivery) de un checkpoint ─────────────────────────────────
 
 export interface DeliveryVerification {
   id:                 string;
-  id_scope:           string;
-  id_snapshot:        string;
+  id_activity:        string;
+  id_checkpoint:      string;
   id_company:         string;
   name:               string | null;
   file_name:          string | null;
@@ -695,10 +693,10 @@ export interface DeliveryRequest {
 }
 
 export interface Delivery {
-  id_snapshot:            string;
-  id_scope:               string;
+  id_checkpoint:          string;
+  id_activity:            string;
   act:                    number;
-  scope_name:             string;
+  activity_name:          string;
   description:            string;
   objective:              string | null;
   responsible:            string | null;
@@ -828,12 +826,12 @@ export interface BeneficiaryPageResponse {
 }
 
 export interface ScopeSnapshotsResponse {
-  id_scope:          string;
+  id_activity:       string;
   start_date:        string;
   end_date:          string;
   actual_start_date: string | null;
   actual_end_date:   string | null;
-  snapshots:         Snapshot[];
+  checkpoints:       Snapshot[];
 }
 
 // ── Budget ────────────────────────────────────────────────────────────────────
@@ -866,8 +864,7 @@ export type MonthlyWizardResponse = BudgetWizardResponse;
 export interface BudgetItem {
   id:                       string;
   contract_agreement_id:    string;
-  component_id:             string;
-  scope_id:                 string;
+  budget_component_id:      string | null;
   concept:                  string;
   description:              string | null;
   unit_measurement:         string | null;
@@ -881,25 +878,40 @@ export interface BudgetItem {
   monthly_distributions:    BudgetMonthlyDistribution[];
 }
 
-export interface BudgetWizardScope {
-  scope_id:     string;
-  act:          number;
-  description:  string;
-  start_date:   string | null;
-  end_date:     string | null;
-  is_completed: boolean;
-  percentage:   number;
-  progress:     number;
-  budget:       BudgetItem | null;
+// ── Budget Component (sub-componente financiero, agrupa budget_items) ──────
+
+export interface BudgetComponent {
+  id:                      string;
+  contract_agreement_id:   string;
+  component_id:            string;
+  name:                    string;
+  company_contribution:    number | null; // solo lectura, calculado por el backend
+  ally_contribution:       number | null; // solo lectura, calculado por el backend
+  total_contribution:      number | null; // solo lectura, calculado por el backend
+}
+
+export interface BudgetComponentRequest {
+  component_id?: string; // solo al crear
+  name:          string;
+}
+
+export interface BudgetEntry {
+  budget_component_id: string;
+  name:                 string;
+  company_contribution: number | null;
+  ally_contribution:    number | null;
+  total_contribution:   number | null;
+  items:                BudgetItem[];
 }
 
 export interface BudgetWizardComponent {
-  component_id: string;
-  name:         string;
-  percentage:   number;
-  progress:     number;
-  is_complete:  boolean;
-  scopes:       BudgetWizardScope[];
+  component_id:   string;
+  name:           string;
+  percentage:     number;
+  progress:       number;
+  budget:         number | null; // tope de presupuesto del componente técnico (technical_components.budget)
+  is_complete:    boolean;
+  budget_entries: BudgetEntry[];
 }
 
 export interface BudgetExecutionSummary {
@@ -941,15 +953,15 @@ export interface BudgetExecution {
 }
 
 export interface BudgetWizardResponse {
-  is_complete:   boolean;
-  total_scopes:  number;
-  filled_scopes: number;
-  components:    BudgetWizardComponent[];
-  execution:     BudgetExecution;
+  is_complete:       boolean;
+  total_components:  number;
+  filled_components: number;
+  components:        BudgetWizardComponent[];
+  execution:         BudgetExecution;
 }
 
 export interface BudgetItemRequest {
-  scope_id:                 string;
+  budget_component_id?:     string | null;
   concept:                  string;
   description?:             string;
   unit_measurement?:        string;

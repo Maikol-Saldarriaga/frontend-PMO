@@ -3,10 +3,10 @@ import { CommonModule } from '@angular/common';
 import { ContractStep5Request, ContractConditionItem, WizardCondition, SupportResponse } from '../../../../models/contract.model';
 import { renameFileForUpload } from '../../../../../../../core/utils/file.utils';
 import { ContractService } from '../../../../services/contract.service';
+import { SupportTypeKey, SUPPORT_TYPES, SUPPORT_TYPE_LABELS } from '../../../../models/support-types.constant';
 
 type ConditionType  = 'requisito_minimo' | 'supuesto' | 'exclusion' | 'restriccion';
 type ComplianceType = 'Fecha específica' | 'Hito del proyecto' | 'Periodicidad' | 'Permanente';
-type SupportTypeKey = 'documentos_tecnicos' | 'documentos_administrativos' | 'documentos_legales' | 'evidencias';
 
 interface PendingUpload {
   support_type: SupportTypeKey | '';
@@ -70,25 +70,6 @@ const HITOS = [
 ];
 
 const PERIODICIDADES = ['Mensual', 'Trimestral', 'Semestral', 'Anual'];
-
-const SUPPORT_TYPES: Record<SupportTypeKey, string[]> = {
-  documentos_tecnicos: [
-    'Plan de Obra', 'POA', 'Diagnóstico ICO', 'Informe Técnico',
-    'Formato de instructivo para contratación JAC. COT - INS - 001. Versión 2',
-  ],
-  documentos_administrativos: ['Acta', 'Memorando', 'Comunicación oficial'],
-  documentos_legales: [
-    'Cámara de Comercio', 'RUT', 'Certificación bancaria', 'Certificados disciplinarios',
-  ],
-  evidencias: ['Fotografías', 'Videos', 'Listados de asistencia'],
-};
-
-const SUPPORT_TYPE_LABELS: Record<SupportTypeKey, string> = {
-  documentos_tecnicos:        'Documentos Técnicos',
-  documentos_administrativos: 'Documentos Administrativos',
-  documentos_legales:         'Documentos Legales',
-  evidencias:                 'Evidencias',
-};
 
 const emptyUpload = (): PendingUpload => ({
   support_type: '', name: '', files: [],

@@ -458,7 +458,7 @@ export class ProjectCreateComponent implements OnInit, OnDestroy {
       next: () => {
         localStorage.removeItem(this.draftKey);
         this.submitting.set(false);
-        this.router.navigate(['/dashboard/projects', id]);
+        this.router.navigate(['/projects', id]);
       },
       error: (err) => this.handleError(err, 'Error al guardar las garantías.'),
     });
@@ -712,7 +712,7 @@ export class ProjectCreateComponent implements OnInit, OnDestroy {
     this.stepData.set({});
     this.draftLoaded.set(false);
     this.error.set(null);
-    this.router.navigate(['/dashboard/projects/create'], { replaceUrl: true });
+    this.router.navigate(['/projects/create'], { replaceUrl: true });
   }
 
   private showToast(type: 'error' | 'success', message: string, errors: string[] = []): void {
@@ -737,6 +737,6 @@ export class ProjectCreateComponent implements OnInit, OnDestroy {
   }
 
   goBack(): void {
-    this.router.navigate(['/dashboard/projects']);
+    this.router.navigate(['/projects']);
   }
 }

@@ -100,16 +100,16 @@ export class ProjectsListComponent implements OnInit, OnDestroy {
 
   openProject(project: ProjectCreateResponse): void {
     if (project.percent_done >= 100) {
-      this.router.navigate(['/dashboard/projects', project.id]);
+      this.router.navigate(['/projects', project.id]);
     } else {
-      this.router.navigate(['/dashboard/projects', project.id, 'edit'], {
+      this.router.navigate(['/projects', project.id, 'edit'], {
         queryParams: { step: (project.completed_steps ?? 0) + 1 },
       });
     }
   }
 
   createProject(): void {
-    this.router.navigate(['/dashboard/projects/create']);
+    this.router.navigate(['/projects/create']);
   }
 
   statusLabel(status: string): string {

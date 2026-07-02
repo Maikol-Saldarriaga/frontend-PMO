@@ -94,5 +94,5 @@ export class TabResumenComponent {
   color(i: number): string { return PALETTE[i % PALETTE.length]; }
   trackByComp(_: number, c: ProjectComponentDistribution)  { return c.component_id; }
   trackByMonth(_: number, m: ProjectMonthlyContribution)   { return `${m.year}-${m.month}`; }
-  trackByGantt(_: number, g: GanttSummaryItem)             { return g.scope_id; }
+  trackByGantt(_: number, g: GanttSummaryItem)             { return g.activity_id; }
 }

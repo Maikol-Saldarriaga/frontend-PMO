@@ -21,12 +21,12 @@ export class SidebarComponent {
 
   navItems: NavItem[] = [
     { label: 'Inicio',        icon: 'home',     route: '/dashboard' },
-    { label: 'Proyectos',     icon: 'folder',   route: '/dashboard/projects' },
-    { label: 'Tareas',        icon: 'check',    route: '/dashboard/tasks' },
-    { label: 'Cronograma',    icon: 'calendar', route: '/dashboard/schedule' },
-    { label: 'Recursos',      icon: 'users',    route: '/dashboard/resources' },
-    { label: 'Reportes',      icon: 'chart',    route: '/dashboard/reports' },
-    { label: 'Configuración', icon: 'settings', route: '/dashboard/settings' },
+    { label: 'Proyectos',     icon: 'folder',   route: '/projects' },
+    { label: 'Tareas',        icon: 'check',    route: '/tasks' },
+    { label: 'Cronograma',    icon: 'calendar', route: '/schedule' },
+    { label: 'Recursos',      icon: 'users',    route: '/resources' },
+    { label: 'Reportes',      icon: 'chart',    route: '/reports' },
+    { label: 'Configuración', icon: 'settings', route: '/settings' },
   ];
 
   toggle(): void {

@@ -43,7 +43,7 @@ export class TabCronogramaComponent implements OnInit {
 
   /** Progreso real = suma de actual_pct de los períodos. Si no hay períodos, usa el dato agregado del backend. */
   activityProgress(a: GanttActivity): number {
-    const snaps = a.snapshots ?? [];
+    const snaps = a.checkpoints ?? [];
     if (!snaps.length) return a.progress ?? 0;
     const sum = snaps.reduce((s, x) => s + (x.actual_pct ?? 0), 0);
     return Math.min(Math.round(sum * 10) / 10, 100);

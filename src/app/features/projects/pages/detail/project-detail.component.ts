@@ -118,7 +118,7 @@ export class ProjectDetailComponent implements OnInit {
 
   ngOnInit(): void {
     this.projectId = this.route.snapshot.paramMap.get('id') ?? '';
-    if (!this.projectId) { this.router.navigate(['/dashboard/projects']); return; }
+    if (!this.projectId) { this.router.navigate(['/projects']); return; }
 
     const tab = this.route.snapshot.queryParamMap.get('tab');
     if (tab) this.activeTab.set(tab);
@@ -144,7 +144,7 @@ export class ProjectDetailComponent implements OnInit {
     this.refreshDetails();
   }
 
-  goBack(): void { this.router.navigate(['/dashboard/projects']); }
+  goBack(): void { this.router.navigate(['/projects']); }
 
   formatCompact(v: number): string {
     if (v >= 1_000_000_000) return `$${(v / 1_000_000_000).toFixed(1)}B`;

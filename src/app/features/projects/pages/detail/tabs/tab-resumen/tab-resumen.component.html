@@ -153,9 +153,9 @@
                       <div class="absolute inset-y-1 rounded-full opacity-15 bg-sky-500"
                         [style.left.%]="ganttBar(g).left" [style.width.%]="ganttBar(g).width"></div>
 
-                      @if (g.snapshots?.length) {
+                      @if (g.checkpoints?.length) {
                         <!-- Un segmento sólido por cada período de Seguimiento Técnico, coloreado por su estado -->
-                        @for (snap of g.snapshots; track trackBySnap($index, snap)) {
+                        @for (snap of g.checkpoints; track trackBySnap($index, snap)) {
                           <div class="absolute inset-y-1 rounded-sm transition-all duration-700"
                             [style.left.%]="periodBar(snap).left" [style.width.%]="periodBar(snap).width"
                             [style.background]="periodFillColor(snap)"

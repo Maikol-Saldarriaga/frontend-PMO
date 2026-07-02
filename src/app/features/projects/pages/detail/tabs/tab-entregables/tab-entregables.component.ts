@@ -145,7 +145,7 @@ export class TabEntregablesComponent implements OnInit {
     };
 
     this.svc.getProjectSnapshots(this.projectId).subscribe({
-      next:  r => { this.allSnapshots.set(r?.snapshots ?? []); check(); },
+      next:  r => { this.allSnapshots.set(r?.checkpoints ?? []); check(); },
       error: () => { this.error.set('No se pudieron cargar los entregables.'); check(); },
     });
 
@@ -197,7 +197,7 @@ export class TabEntregablesComponent implements OnInit {
   setComponentFilter(c: string): void { this.componentFilter.set(c); setTimeout(() => this.scrollToToday(), 0); }
 
   openDelivery(item: ProjectSnapshotItem): void {
-    if (!item.id_snapshot) return;
+    if (!item.id_checkpoint) return;
     this.selectedDelivery.set(item);
     this.delivery.set(null);
     this.saveError.set(null);
@@ -208,7 +208,7 @@ export class TabEntregablesComponent implements OnInit {
     // Solo se "vence a 0%" si nunca se registró avance real; si ya tenía actual_pct, se queda como está, solo se bloquea la edición.
     const shouldZeroOut = item.actual_pct === null && this.isPastDue(item);
 
-    this.svc.getDelivery(this.projectId, item.id_scope, item.id_snapshot).subscribe({
+    this.svc.getDelivery(this.projectId, item.id_activity, item.id_checkpoint).subscribe({
       next: d => {
         this.delivery.set(d);
         this.deliveryForm = { actual_pct: d.actual_pct, notes: d.notes ?? '' };
@@ -227,8 +227,8 @@ export class TabEntregablesComponent implements OnInit {
 
   /** El backend, al recibir un PUT con la fecha fin ya vencida, fuerza actual_pct a 0 e ignora el resto del payload. */
   private zeroOutExpiredDelivery(item: ProjectSnapshotItem): void {
-    if (!item.id_snapshot) return;
-    this.svc.upsertDelivery(this.projectId, item.id_scope, item.id_snapshot, { actual_pct: 0, notes: null }).subscribe({
+    if (!item.id_checkpoint) return;
+    this.svc.upsertDelivery(this.projectId, item.id_activity, item.id_checkpoint, { actual_pct: 0, notes: null }).subscribe({
       next: saved => {
         this.delivery.update(d => d ? { ...d, ...saved, verifications: d.verifications } : d);
         this.deliveryForm = { actual_pct: saved.actual_pct, notes: saved.notes ?? '' };
@@ -269,15 +269,15 @@ export class TabEntregablesComponent implements OnInit {
 
   deleteVerification(v: DeliveryVerification): void {
     const item = this.selectedDelivery();
-    if (!item || !item.id_snapshot) return;
+    if (!item || !item.id_checkpoint) return;
     if (!confirm(`¿Eliminar "${v.name || 'esta verificación'}"? Esta acción no se puede deshacer.`)) return;
 
     this.deletingVerificationId.set(v.id);
-    this.svc.deleteDeliveryVerification(this.projectId, item.id_scope, item.id_snapshot, v.id).subscribe({
+    this.svc.deleteDeliveryVerification(this.projectId, item.id_activity, item.id_checkpoint, v.id).subscribe({
       next: () => {
         this.delivery.update(d => d ? { ...d, verifications: d.verifications.filter(x => x.id !== v.id) } : d);
         this.allSnapshots.update(list => list.map(s =>
-          s.id_snapshot === item.id_snapshot ? { ...s, verifications_count: Math.max(0, s.verifications_count - 1) } : s
+          s.id_checkpoint === item.id_checkpoint ? { ...s, verifications_count: Math.max(0, s.verifications_count - 1) } : s
         ));
         this.selectedDelivery.update(sel => sel ? { ...sel, verifications_count: Math.max(0, sel.verifications_count - 1) } : sel);
         this.deletingVerificationId.set(null);
@@ -321,7 +321,7 @@ export class TabEntregablesComponent implements OnInit {
 
   saveAll(): void {
     const item = this.selectedDelivery();
-    if (!item || !item.id_snapshot) return;
+    if (!item || !item.id_checkpoint) return;
 
     const dirty = this.isDirty();
     const files = this.stagedFiles();
@@ -337,7 +337,7 @@ export class TabEntregablesComponent implements OnInit {
     this.savedMessage.set(null);
 
     const deliveryCall: Observable<Delivery | null> = dirty
-      ? this.svc.upsertDelivery(this.projectId, item.id_scope, item.id_snapshot, {
+      ? this.svc.upsertDelivery(this.projectId, item.id_activity, item.id_checkpoint, {
           actual_pct: this.deliveryForm.actual_pct!,
           notes:      this.deliveryForm.notes || null,
         })
@@ -348,7 +348,7 @@ export class TabEntregablesComponent implements OnInit {
           const fd = new FormData();
           fd.append('file', sf.file);
           fd.append('name', sf.file.name);
-          return this.svc.uploadDeliveryVerification(this.projectId, item.id_scope, item.id_snapshot, fd);
+          return this.svc.uploadDeliveryVerification(this.projectId, item.id_activity, item.id_checkpoint, fd);
         })
       : [of(null)];
 
@@ -365,7 +365,7 @@ export class TabEntregablesComponent implements OnInit {
         if (newVerifications.length) {
           this.delivery.update(d => d ? { ...d, verifications: [...d.verifications, ...newVerifications] } : d);
           this.allSnapshots.update(list => list.map(s =>
-            s.id_snapshot === item.id_snapshot ? { ...s, verifications_count: s.verifications_count + newVerifications.length } : s
+            s.id_checkpoint === item.id_checkpoint ? { ...s, verifications_count: s.verifications_count + newVerifications.length } : s
           ));
           this.selectedDelivery.update(sel => sel ? { ...sel, verifications_count: sel.verifications_count + newVerifications.length } : sel);
         }
@@ -388,7 +388,7 @@ export class TabEntregablesComponent implements OnInit {
   }
 
   private updateSnapshotEntry(item: ProjectSnapshotItem, actual_pct: number | null, notes: string | null, is_completed: boolean): void {
-    const patch = (s: ProjectSnapshotItem) => s.id_snapshot === item.id_snapshot ? { ...s, actual_pct, notes, is_completed } : s;
+    const patch = (s: ProjectSnapshotItem) => s.id_checkpoint === item.id_checkpoint ? { ...s, actual_pct, notes, is_completed } : s;
     this.allSnapshots.update(list => list.map(patch));
     this.selectedDelivery.update(sel => sel ? { ...sel, actual_pct, notes, is_completed } : sel);
   }

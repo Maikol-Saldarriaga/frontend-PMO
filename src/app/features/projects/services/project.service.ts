@@ -28,6 +28,8 @@ import {
   ProjectsPageResponse,
   ProjectWizardResponse,
   BudgetWizardResponse,
+  BudgetComponent,
+  BudgetComponentRequest,
   GanttResponse,
   GanttFilters,
   ScopeComponent,
@@ -143,6 +145,22 @@ export class ProjectService {
 
   deleteBudgetItem(id: string, bid: string): Observable<void> {
     return this.http.delete<void>(ENDPOINTS.projects.budgetItem(id, bid));
+  }
+
+  getBudgetComponents(id: string): Observable<BudgetComponent[]> {
+    return this.http.get<BudgetComponent[]>(ENDPOINTS.projects.budgetComponents(id));
+  }
+
+  createBudgetComponent(id: string, data: BudgetComponentRequest): Observable<BudgetComponent> {
+    return this.http.post<BudgetComponent>(ENDPOINTS.projects.budgetComponents(id), data);
+  }
+
+  updateBudgetComponent(id: string, bid: string, data: BudgetComponentRequest): Observable<BudgetComponent> {
+    return this.http.put<BudgetComponent>(ENDPOINTS.projects.budgetComponentById(id, bid), data);
+  }
+
+  deleteBudgetComponent(id: string, bid: string): Observable<void> {
+    return this.http.delete<void>(ENDPOINTS.projects.budgetComponentById(id, bid));
   }
 
   getMonthlyWizard(id: string): Observable<MonthlyWizardResponse> {

@@ -57,7 +57,7 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
   nowDate = signal<Date>(new Date());
 
   allSnapshots    = signal<ProjectSnapshotItem[]>([]);
-  countsByScope   = signal<Record<string, number>>({});
+  countsByActivity = signal<Record<string, number>>({});
   scopeComponents = signal<ScopeComponent[]>([]);
   loading        = signal(true);
   error          = signal<string | null>(null);
@@ -146,15 +146,19 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
 
     this.svc.getProjectSnapshots(this.projectId).subscribe({
       next:  r => {
-        this.allSnapshots.set(r?.snapshots ?? []);
-        this.countsByScope.set(r?.counts_by_scope ?? {});
+        this.allSnapshots.set(r?.checkpoints ?? []);
+        this.countsByActivity.set(r?.counts_by_activity ?? {});
         check();
       },
       error: () => { this.error.set('No se pudieron cargar los períodos.'); check(); },
     });
 
     this.svc.getScopeComponents(this.projectId).subscribe({
-      next:  r => { this.scopeComponents.set(r.components ?? []); check(); },
+      next:  r => {
+        const normalized = (r.components ?? []).map((c: any) => ({ ...c, scopes: c.activities ?? c.scopes ?? [] }));
+        this.scopeComponents.set(normalized);
+        check();
+      },
       error: () => check(),
     });
   }
@@ -168,7 +172,7 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
     this.snapsLoading.set(true);
     this.svc.getScopeSnapshots(this.projectId, act.id).subscribe({
       next:  (r: ScopeSnapshotsResponse) => {
-        this.activitySnaps.set(r.snapshots ?? []);
+        this.activitySnaps.set(r.checkpoints ?? []);
         this.scopeBounds.set({
           start_date:        r.start_date,
           end_date:          r.end_date,
@@ -259,14 +263,14 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
         });
         this.allSnapshots.update(list => {
           const idx = original
-            ? list.findIndex(s => s.id_scope === act.id && ((original.id && s.id_snapshot) ? s.id_snapshot === original.id : (s.start_date === original.start_date && s.end_date === original.end_date)))
+            ? list.findIndex(s => s.id_activity === act.id && ((original.id && s.id_checkpoint) ? s.id_checkpoint === original.id : (s.start_date === original.start_date && s.end_date === original.end_date)))
             : -1;
           const existing = idx >= 0 ? list[idx] : null;
           const item: ProjectSnapshotItem = {
-            id_snapshot:          saved.id ?? existing?.id_snapshot ?? '',
-            id_scope:             act.id,
+            id_checkpoint:        saved.id ?? existing?.id_checkpoint ?? '',
+            id_activity:          act.id,
             act:                  act.act,
-            scope_name:           act.description,
+            activity_name:        act.description,
             description:          act.description,
             id_component:         act.componentId,
             component_name:       act.componentName,
@@ -322,13 +326,13 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
     return 'bg-red-400';
   }
 
-  /** counts_by_scope ya viene correctamente indexado por scope_id real; se respalda con componente+acto si llegara a faltar. */
+  /** counts_by_activity ya viene correctamente indexado por activity_id real; se respalda con componente+acto si llegara a faltar. */
   hasSnap(componentName: string, actId: string, act: number): boolean {
     return this.snapCount(componentName, actId, act) > 0;
   }
 
   snapCount(componentName: string, actId: string, act: number): number {
-    const direct = this.countsByScope()[actId];
+    const direct = this.countsByActivity()[actId];
     if (direct !== undefined) return direct;
     return this.allSnapshots().filter(s => s.component_name === componentName && s.act === act).length;
   }

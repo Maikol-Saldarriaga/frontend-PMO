@@ -50,9 +50,9 @@
             <h2 class="text-sm font-bold text-primary-700">{{ sec.name }}</h2>
           </div>
 
-          <!-- Actividades -->
+          <!-- Ítems de presupuesto -->
           <div class="divide-y divide-neutral-100">
-            @for (row of sec.rows; track row.scope_id) {
+            @for (row of sec.rows; track trackByRow($index, row)) {
 
               <!-- Fila resumen -->
               <div (click)="toggleExpand(row)"
@@ -78,11 +78,8 @@
 
                 <div class="flex-1 min-w-0">
                   <p class="text-xs font-semibold text-primary-700 truncate">
-                    Act. {{ row.act }} — {{ row.description }}
+                    {{ row.entry_name }} — {{ row.concept }}
                   </p>
-                  @if (row.concept) {
-                    <p class="text-[10px] text-neutral-400 truncate">{{ row.concept }}</p>
-                  }
                 </div>
 
                 @if (row.budget_id) {

@@ -61,7 +61,7 @@ export class TabAlcanceComponent implements OnInit {
           percentage: c.percentage ?? 0,
           budget:     c.budget ?? null,
           progress:   c.progress ?? 0,
-          scopes: (c.scopes ?? []).map((a: any) => ({
+          scopes: (c.activities ?? []).map((a: any) => ({
             id:                  a.id,
             component_id:        a.component_id ?? null,
             act:                 a.act,
@@ -79,7 +79,6 @@ export class TabAlcanceComponent implements OnInit {
             objective:           a.objective ?? null,
             responsible:         a.responsible ?? null,
             is_completed:        a.is_completed ?? false,
-            budget:              a.budget ?? null,
           } as ScopeActivity)),
         }));
         this.scopeComponents.set(normalized);

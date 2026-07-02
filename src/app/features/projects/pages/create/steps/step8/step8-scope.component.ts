@@ -20,7 +20,6 @@ interface ActRow {
   responsible:       string;
   objective:         string;
   percentage:        number;
-  budget:            number | null;
   plan_duration?:        number | null;
   actual_plan_duration?: number | null;
 }
@@ -38,7 +37,7 @@ const EMPTY_ACT = (): ActRow => ({
   start_plan: null,
   actual_start_date: '', actual_end_date: '', actual_start_plan: null,
   responsible: '', objective: '',
-  percentage: 0, budget: null,
+  percentage: 0,
 });
 
 const EMPTY_COMPONENT = (): ComponentRow => ({
@@ -76,7 +75,6 @@ export class Step8ScopeComponent {
         responsible:         a.responsible         ?? '',
         objective:           a.objective           ?? '',
         percentage:          a.percentage          ?? 0,
-        budget:              a.budget              ?? null,
         plan_duration:       a.plan_duration,
         actual_plan_duration: a.actual_plan_duration,
       } as ActRow)),
@@ -99,18 +97,8 @@ export class Step8ScopeComponent {
     return this.rows().reduce((s, c) => s + (c.budget ?? 0), 0);
   }
 
-  componentActBudget(ci: number): number {
-    return this.rows()[ci]?.acts.reduce((s, a) => s + (a.budget ?? 0), 0) ?? 0;
-  }
-
   componentPercentageTotal(ci: number): number {
     return this.rows()[ci]?.acts.reduce((s, a) => s + (a.percentage ?? 0), 0) ?? 0;
-  }
-
-  budgetOverflow(ci: number): boolean {
-    const comp = this.rows()[ci];
-    if (!comp?.budget) return false;
-    return this.componentActBudget(ci) > comp.budget;
   }
 
   contractBudgetOverflow(): boolean {
@@ -187,7 +175,6 @@ export class Step8ScopeComponent {
         ? { ...comp, acts: comp.acts.map((a, j) => j === ai ? { ...a, [field]: value } : a) }
         : comp));
     this.emit();
-    if (field === 'budget') this.checkBudgetWarnings();
   }
 
   hasActualData(act: ActRow): boolean {
@@ -217,7 +204,6 @@ export class Step8ScopeComponent {
             responsible:   a.responsible   || null,
             objective:     a.objective     || null,
             percentage:    a.percentage,
-            budget:        a.budget        ?? null,
             delete:        false,
           };
           if (hasActual) {
@@ -239,12 +225,6 @@ export class Step8ScopeComponent {
 
   checkBudgetWarnings(): void {
     const warnings: string[] = [];
-    this.rows().forEach((comp, ci) => {
-      if (comp.budget !== null && this.componentActBudget(ci) > comp.budget) {
-        const adelantado = this.componentActBudget(ci) - comp.budget;
-        warnings.push(`Componente ${ci + 1} "${comp.componentName || 'sin nombre'}": las actividades exceden el presupuesto en $ ${this.fmt(adelantado)}.`);
-      }
-    });
     if (this.contractBudget !== null && this.totalComponentBudget > this.contractBudget) {
       const adelantado = this.totalComponentBudget - this.contractBudget;
       warnings.push(`El total de componentes excede el presupuesto del contrato en $ ${this.fmt(adelantado)}.`);
@@ -272,8 +252,6 @@ export class Step8ScopeComponent {
           if (a.actual_start_plan === null) invalid.push(`${lbl}: plan inicio real requerido cuando hay datos de ejecución`);
         }
       });
-      if (comp.budget !== null && this.componentActBudget(ci) > comp.budget)
-        invalid.push(`Componente ${ci + 1}: el presupuesto de las actividades supera el del componente`);
     });
     if (this.contractBudget !== null && this.totalComponentBudget > this.contractBudget)
       invalid.push('El presupuesto total de componentes supera el presupuesto del contrato');

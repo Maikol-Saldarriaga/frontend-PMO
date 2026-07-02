@@ -195,7 +195,7 @@
                       </div>
 
                       <!-- Un segmento sólido por cada período de Seguimiento Técnico, coloreado por su estado -->
-                      @for (snap of act.snapshots; track trackBySnap($index, snap)) {
+                      @for (snap of act.checkpoints; track trackBySnap($index, snap)) {
                         <div class="absolute h-6 rounded-md group-hover:opacity-90 transition-opacity"
                           [style.left.%]="periodBar(snap, ganttData()!.timeline).left"
                           [style.width.%]="periodBar(snap, ganttData()!.timeline).width"
@@ -215,7 +215,7 @@
                         </div>
                       }
 
-                      @if (!act.snapshots.length && !act.progress && !act.is_completed) {
+                      @if (!act.checkpoints.length && !act.progress && !act.is_completed) {
                         <div class="absolute flex items-center justify-center"
                           [style.left.%]="activityBar(act, ganttData()!.timeline).left + activityBar(act, ganttData()!.timeline).width + 0.5">
                           <span class="text-[9px] text-gray-400 whitespace-nowrap">Sin seguimiento</span>

@@ -3,13 +3,12 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { ProjectService } from '../../services/project.service';
-import { BudgetMonthlyDistribution, BudgetWizardScope } from '../../models/project.model';
+import { BudgetMonthlyDistribution, BudgetEntry, BudgetItem } from '../../models/project.model';
 import { MoneyMaskDirective } from '../../../../shared/directives/money-mask.directive';
 
 export interface MonthlyRow {
-  scope_id:          string;
-  act:               number;
-  description:       string;
+  budget_component_id: string;
+  entry_name:        string;
   budget_id:         string | null;
   concept:           string;
   counterpartCap:    number;
@@ -49,28 +48,29 @@ export class MonthlyComponent implements OnInit {
 
   ngOnInit(): void {
     this.projectId = this.route.snapshot.paramMap.get('id') ?? '';
-    if (!this.projectId) { this.router.navigate(['/dashboard/projects']); return; }
+    if (!this.projectId) { this.router.navigate(['/projects']); return; }
 
     this.service.getMonthlyWizard(this.projectId).subscribe({
       next: (w) => {
         this.sections = (w.components ?? []).map(comp => ({
           component_id: comp.component_id,
           name:         comp.name,
-          rows: (comp.scopes ?? []).map((scope: BudgetWizardScope) => ({
-            scope_id:      scope.scope_id,
-            act:           scope.act,
-            description:   scope.description,
-            budget_id:     scope.budget?.id ?? null,
-            concept:       scope.budget?.concept ?? '',
-            counterpartCap: scope.budget?.counterpart_contribution ?? 0,
-            allyCap:        scope.budget?.ally_contribution        ?? 0,
-            distributions: [...(scope.budget?.monthly_distributions ?? [])],
-            expanded:      false,
-            dirty:         false,
-            saving:        false,
-            rowError:      null,
-            rowSuccess:    false,
-          } as MonthlyRow)),
+          rows: (comp.budget_entries ?? []).flatMap((entry: BudgetEntry) =>
+            (entry.items ?? []).map((item: BudgetItem) => ({
+              budget_component_id: entry.budget_component_id,
+              entry_name:    entry.name,
+              budget_id:     item.id,
+              concept:       item.concept ?? '',
+              counterpartCap: item.counterpart_contribution ?? 0,
+              allyCap:        item.ally_contribution        ?? 0,
+              distributions: [...(item.monthly_distributions ?? [])],
+              expanded:      false,
+              dirty:         false,
+              saving:        false,
+              rowError:      null,
+              rowSuccess:    false,
+            } as MonthlyRow))
+          ),
         }));
         this.loading.set(false);
       },
@@ -151,7 +151,7 @@ export class MonthlyComponent implements OnInit {
   }
 
   goBack(): void {
-    this.router.navigate(['/dashboard/projects', this.projectId], { queryParams: { tab: 'presupuesto' } });
+    this.router.navigate(['/projects', this.projectId], { queryParams: { tab: 'presupuesto' } });
   }
 
   monthName(m: number): string {
@@ -165,6 +165,6 @@ export class MonthlyComponent implements OnInit {
   }
 
   trackByComp(_: number, s: MonthlySection) { return s.component_id; }
-  trackByRow (_: number, r: MonthlyRow)     { return r.scope_id; }
+  trackByRow (_: number, r: MonthlyRow)     { return r.budget_id ?? r.budget_component_id; }
   trackByIdx (i: number)                    { return i; }
 }

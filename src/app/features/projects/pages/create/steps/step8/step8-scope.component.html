@@ -52,7 +52,7 @@
                   (appMoneyMaskValueChange)="updateComponentBudget(ci, $event)"
                   placeholder="0"
                   class="w-full pl-7 pr-3 py-1.5 rounded-lg bg-white border text-sm font-semibold text-primary-700 placeholder-neutral-300 outline-none focus:ring-2 transition-colors"
-                  [ngClass]="budgetOverflow(ci) ? 'border-red-300 focus:ring-red-100' : 'border-neutral-200 focus:ring-accent-100 focus:border-accent'"/>
+                  [ngClass]="contractBudgetOverflow() ? 'border-red-300 focus:ring-red-100' : 'border-neutral-200 focus:ring-accent-100 focus:border-accent'"/>
               </div>
             </div>
 
@@ -169,47 +169,17 @@
                   </div>
                 </div>
 
-                <!-- % Equivalencia + Presupuesto actividad -->
-                <div class="grid grid-cols-2 gap-3">
-                  <div>
-                    <label class="block text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-1.5">% Equivalencia</label>
-                    <div class="relative">
-                      <input type="number" min="0" max="100" [value]="act.percentage"
-                        (input)="updateAct(ci, ai, 'percentage', +$any($event.target).value)"
-                        placeholder="0"
-                        class="w-full px-3 py-2 pr-8 rounded-lg border border-neutral-200 text-sm text-primary-700 placeholder-neutral-300 bg-white outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-400 transition-colors"/>
-                      <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-neutral-400 pointer-events-none">%</span>
-                    </div>
-                    <p class="text-[10px] text-neutral-400 mt-1">Peso de esta actividad en el componente</p>
+                <!-- % Equivalencia -->
+                <div>
+                  <label class="block text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-1.5">% Equivalencia</label>
+                  <div class="relative w-1/2">
+                    <input type="number" min="0" max="100" [value]="act.percentage"
+                      (input)="updateAct(ci, ai, 'percentage', +$any($event.target).value)"
+                      placeholder="0"
+                      class="w-full px-3 py-2 pr-8 rounded-lg border border-neutral-200 text-sm text-primary-700 placeholder-neutral-300 bg-white outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-400 transition-colors"/>
+                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-neutral-400 pointer-events-none">%</span>
                   </div>
-                  <div>
-                    <label class="block text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-1.5">Presupuesto actividad</label>
-                    <div class="relative">
-                      <span class="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-neutral-400 pointer-events-none">$</span>
-                      <input type="text" inputmode="numeric"
-                        appMoneyMask [appMoneyMaskValue]="act.budget"
-                        (appMoneyMaskValueChange)="updateAct(ci, ai, 'budget', $event)"
-                        placeholder="0"
-                        class="w-full pl-7 pr-3 py-2 rounded-lg border border-neutral-200 text-sm font-semibold text-primary-700 placeholder-neutral-300 bg-white outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
-                    </div>
-                    <!-- Progreso actividad vs componente -->
-                    @if (comp.budget !== null && comp.budget > 0 && act.budget !== null && act.budget! > 0) {
-                      <div class="mt-1.5">
-                        <div class="flex justify-between text-[10px] mb-0.5">
-                          <span class="text-neutral-400">del componente</span>
-                          <span class="font-semibold" [ngClass]="act.budget! > comp.budget ? 'text-red-500' : 'text-neutral-500'">
-                            {{ (act.budget! / comp.budget * 100) | number:'1.0-0' }}%
-                          </span>
-                        </div>
-                        <div class="h-1 rounded-full bg-neutral-100 overflow-hidden">
-                          <div class="h-full rounded-full transition-all"
-                            [ngClass]="act.budget! > comp.budget ? 'bg-red-400' : 'bg-accent'"
-                            [style.width.%]="act.budget! / comp.budget * 100 > 100 ? 100 : act.budget! / comp.budget * 100">
-                          </div>
-                        </div>
-                      </div>
-                    }
-                  </div>
+                  <p class="text-[10px] text-neutral-400 mt-1">Peso de esta actividad en el componente</p>
                 </div>
 
               </div>
@@ -363,36 +333,6 @@
               <p class="text-sm font-bold text-primary-700 mb-1.5">
                 {{ comp.budget | currency:'COP':'symbol-narrow':'1.0-0' }}
               </p>
-
-              <!-- Barra actividades vs componente -->
-              <div class="h-1.5 rounded-full bg-neutral-100 overflow-hidden mb-1">
-                <div class="h-full rounded-full transition-all duration-500"
-                  [ngClass]="budgetOverflow(ci) ? 'bg-red-400' : 'bg-emerald-400'"
-                  [style.width.%]="componentActBudget(ci) / comp.budget * 100 > 100 ? 100 : componentActBudget(ci) / comp.budget * 100">
-                </div>
-              </div>
-              <div class="flex justify-between text-[10px]">
-                <span [ngClass]="budgetOverflow(ci) ? 'text-red-500 font-semibold' : 'text-neutral-400'">
-                  Act: {{ componentActBudget(ci) | currency:'COP':'symbol-narrow':'1.0-0' }}
-                </span>
-                <span class="text-neutral-400">
-                  {{ (componentActBudget(ci) / comp.budget * 100) | number:'1.0-0' }}%
-                </span>
-              </div>
-
-              <!-- Actividades detalle -->
-              @if (comp.acts.length > 0) {
-                <div class="mt-2 space-y-1">
-                  @for (act of comp.acts; track $index; let ai = $index) {
-                    @if (act.budget !== null && act.budget! > 0) {
-                      <div class="flex items-center justify-between text-[10px] text-neutral-500">
-                        <span class="truncate max-w-[140px]">Act. {{ ai + 1 }}: {{ act.description || '—' }}</span>
-                        <span class="font-semibold flex-shrink-0 ml-1">{{ act.budget | currency:'COP':'symbol-narrow':'1.0-0' }}</span>
-                      </div>
-                    }
-                  }
-                </div>
-              }
             } @else {
               <p class="text-[10px] text-neutral-400 italic">Sin presupuesto asignado</p>
             }

@@ -216,7 +216,6 @@ export interface ContractActItem {
   responsible?:        string | null;
   objective?:          string | null;
   percentage?:         number;
-  budget?:             number | null;
   delete?:             boolean;
 }
 
@@ -342,7 +341,6 @@ export interface WizardActResponse {
   responsible:           string | null;
   objective:             string | null;
   percentage?:           number | null;
-  budget?:               number | null;
   number_checks?:        number | null;
   is_completed?:         boolean | null;
 }
