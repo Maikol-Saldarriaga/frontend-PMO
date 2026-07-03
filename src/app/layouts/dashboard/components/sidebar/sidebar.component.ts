@@ -22,7 +22,7 @@ export class SidebarComponent {
   navItems: NavItem[] = [
     { label: 'Inicio',        icon: 'home',     route: '/dashboard' },
     { label: 'Proyectos',     icon: 'folder',   route: '/projects' },
-    { label: 'Tareas',        icon: 'check',    route: '/tasks' },
+    { label: 'Documentos',    icon: 'document', route: '/documents' },
     { label: 'Cronograma',    icon: 'calendar', route: '/schedule' },
     { label: 'Recursos',      icon: 'users',    route: '/resources' },
     { label: 'Reportes',      icon: 'chart',    route: '/reports' },

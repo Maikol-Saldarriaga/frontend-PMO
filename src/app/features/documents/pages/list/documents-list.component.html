@@ -1,0 +1,257 @@
+<div class="space-y-5">
+
+  <!-- ① PAGE HEADER -->
+  <div>
+    <h1 class="text-2xl font-extrabold text-primary-700">Documentos</h1>
+    <p class="text-sm text-neutral-400 mt-0.5">Todos los documentos de los proyectos que puedes ver</p>
+  </div>
+
+  <!-- ② SEARCH + FILTER BAR -->
+  <div class="flex flex-col gap-2.5">
+
+    <div class="flex items-center gap-3">
+
+      <div class="relative flex-1 max-w-lg">
+        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+          <svg class="w-4 h-4 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+        </div>
+        <input
+          type="text"
+          [ngModel]="filters().name"
+          (ngModelChange)="onNameInput($event)"
+          placeholder="Buscar documento por nombre..."
+          class="w-full pl-10 pr-10 py-2.5 bg-surface border border-neutral-200 rounded-xl text-sm text-primary-700 placeholder-neutral-400 outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-colors"
+        />
+        @if (filters().name) {
+          <button (click)="clearFilter('name')" class="absolute inset-y-0 right-0 pr-3 flex items-center text-neutral-400 hover:text-neutral-600">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        }
+      </div>
+
+      <button
+        (click)="showFilters.set(!showFilters())"
+        class="relative flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors"
+        [class.bg-accent]="showFilters()"
+        [class.border-accent]="showFilters()"
+        [class.text-white]="showFilters()"
+        [class.bg-surface]="!showFilters()"
+        [class.border-neutral-200]="!showFilters()"
+        [class.text-neutral-600]="!showFilters()"
+        [class.hover:bg-neutral-50]="!showFilters()"
+      >
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z"/>
+        </svg>
+        Filtros
+        @if (activeFilterCount() > 0) {
+          <span class="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-danger text-white text-[10px] font-bold flex items-center justify-center">
+            {{ activeFilterCount() }}
+          </span>
+        }
+      </button>
+
+      @if (activeFilterCount() > 0) {
+        <button (click)="clearAllFilters()" class="text-xs font-medium text-neutral-400 hover:text-danger transition-colors whitespace-nowrap">
+          Limpiar todo
+        </button>
+      }
+
+    </div>
+
+    @if (showFilters()) {
+      <div class="bg-surface border border-neutral-200 rounded-2xl p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+
+        <div>
+          <label class="block text-[10px] font-semibold text-neutral-400 uppercase tracking-wide mb-1.5">Proyecto</label>
+          <select [ngModel]="filters().project_id" (ngModelChange)="setProject($event)"
+            class="w-full px-3 py-2 rounded-xl border border-neutral-200 bg-neutral-50 text-sm text-primary-700 outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-colors">
+            <option value="">Todos los proyectos</option>
+            @for (p of projects(); track p.id) {
+              <option [value]="p.id">{{ p.project_name || p.project_number }}</option>
+            }
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-[10px] font-semibold text-neutral-400 uppercase tracking-wide mb-1.5">Tipo de documento</label>
+          <select [ngModel]="filters().type" (ngModelChange)="setType($event)"
+            class="w-full px-3 py-2 rounded-xl border border-neutral-200 bg-neutral-50 text-sm text-primary-700 outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-colors">
+            <option value="">Todos los tipos</option>
+            @for (t of typeOptions; track t) {
+              <option [value]="t">{{ typeLabel(t) }}</option>
+            }
+          </select>
+        </div>
+
+      </div>
+    }
+
+  </div>
+
+  <!-- ③ SUMMARY CARDS -->
+  @if (summary()) {
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+
+      <div class="bg-surface rounded-2xl border border-neutral-100 shadow-card px-5 py-4 flex items-center gap-4">
+        <div class="w-10 h-10 rounded-xl bg-neutral-100 flex items-center justify-center flex-shrink-0">
+          <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+        </div>
+        <div>
+          <p class="text-[11px] text-neutral-400 leading-none mb-1">Total</p>
+          <p class="text-2xl font-extrabold text-primary-700 leading-none">{{ summary()!.total }}</p>
+        </div>
+      </div>
+
+      <div class="bg-emerald-50/60 rounded-2xl border border-emerald-100 shadow-card px-5 py-4 flex items-center gap-4">
+        <div class="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
+          <svg class="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </div>
+        <div>
+          <p class="text-[11px] text-emerald-500 leading-none mb-1">Recientes (7 días)</p>
+          <p class="text-2xl font-extrabold text-emerald-600 leading-none">{{ summary()!.recent }}</p>
+        </div>
+      </div>
+
+      <div class="bg-accent-50/60 rounded-2xl border border-accent-100 shadow-card px-5 py-4 flex items-center gap-4">
+        <div class="w-10 h-10 rounded-xl bg-accent-100 flex items-center justify-center flex-shrink-0">
+          <svg class="w-5 h-5 text-accent-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+        </div>
+        <div>
+          <p class="text-[11px] text-accent-700 leading-none mb-1">Contratos</p>
+          <p class="text-2xl font-extrabold text-accent-700 leading-none">{{ summary()!.contrato }}</p>
+        </div>
+      </div>
+
+      <div class="bg-sky-50/60 rounded-2xl border border-sky-100 shadow-card px-5 py-4 flex items-center gap-4">
+        <div class="w-10 h-10 rounded-xl bg-sky-100 flex items-center justify-center flex-shrink-0">
+          <svg class="w-5 h-5 text-sky-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 17v-2a4 4 0 014-4h5m0 0l-3-3m3 3l-3 3M4 6h6a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V8a2 2 0 012-2z"/>
+          </svg>
+        </div>
+        <div>
+          <p class="text-[11px] text-sky-500 leading-none mb-1">Informes</p>
+          <p class="text-2xl font-extrabold text-sky-600 leading-none">{{ summary()!.informe }}</p>
+        </div>
+      </div>
+
+    </div>
+  }
+
+  <!-- ④ RESULTS -->
+  <div>
+
+    @if (loading()) {
+      <div class="bg-surface rounded-2xl border border-neutral-100 p-10 text-center shadow-card">
+        <svg class="animate-spin w-7 h-7 text-accent mx-auto" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+        </svg>
+        <p class="mt-3 text-sm text-neutral-400">Cargando documentos...</p>
+      </div>
+    }
+
+    @if (!loading() && error()) {
+      <div class="bg-red-50 border border-red-100 rounded-2xl p-5 text-center">
+        <p class="text-sm text-danger/80">{{ error() }}</p>
+      </div>
+    }
+
+    @if (!loading() && !error() && documents().length === 0) {
+      <div class="bg-surface rounded-2xl border-2 border-dashed border-neutral-100 p-14 text-center">
+        <div class="w-14 h-14 rounded-2xl bg-neutral-50 border border-neutral-100 flex items-center justify-center mx-auto mb-4">
+          <svg class="w-7 h-7 text-neutral-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+        </div>
+        <h3 class="text-base font-semibold text-primary-700">Sin documentos</h3>
+        <p class="text-sm text-neutral-400 mt-1.5 max-w-xs mx-auto">No se encontraron documentos con los filtros aplicados.</p>
+        @if (activeFilterCount() > 0) {
+          <button (click)="clearAllFilters()"
+            class="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-600 text-sm font-medium rounded-xl transition-colors">
+            Limpiar filtros
+          </button>
+        }
+      </div>
+    }
+
+    @if (!loading() && documents().length > 0) {
+      <div class="bg-surface rounded-2xl border border-neutral-100 shadow-card overflow-hidden">
+
+        <!-- Encabezado de tabla (solo desktop) -->
+        <div class="hidden md:flex items-center gap-4 px-5 py-3 border-b border-neutral-100 bg-neutral-50/60">
+          <span class="flex-1 text-[11px] font-semibold text-neutral-400 uppercase tracking-wide">Documento</span>
+          <span class="w-40 text-[11px] font-semibold text-neutral-400 uppercase tracking-wide">Proyecto</span>
+          <span class="w-28 text-[11px] font-semibold text-neutral-400 uppercase tracking-wide">Tipo</span>
+          <span class="w-32 text-[11px] font-semibold text-neutral-400 uppercase tracking-wide">Subido por</span>
+          <span class="w-20 text-[11px] font-semibold text-neutral-400 uppercase tracking-wide text-right">Peso</span>
+          <span class="w-24 text-[11px] font-semibold text-neutral-400 uppercase tracking-wide text-right">Fecha</span>
+          <span class="w-20"></span>
+        </div>
+
+        <div class="divide-y divide-neutral-100">
+          @for (doc of documents(); track doc.id) {
+            <div class="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 px-5 py-3.5 hover:bg-neutral-50/60 transition-colors">
+
+              <div class="flex-1 min-w-0 flex items-center gap-3">
+                <div class="w-9 h-9 rounded-lg bg-neutral-100 flex items-center justify-center flex-shrink-0">
+                  <svg class="w-4.5 h-4.5 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                  </svg>
+                </div>
+                <p class="text-sm font-medium text-primary-700 truncate">{{ doc.name }}</p>
+              </div>
+
+              <span class="md:w-40 text-xs text-neutral-500 truncate">{{ doc.project_name }}</span>
+
+              <span class="md:w-28 flex-shrink-0">
+                <span class="inline-flex items-center text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-md border" [class]="typeBadgeClasses(doc.type)">
+                  {{ typeLabel(doc.type) }}
+                </span>
+              </span>
+
+              <span class="md:w-32 flex-shrink-0 flex items-center gap-2">
+                <span class="w-5 h-5 rounded-full bg-neutral-200 text-neutral-500 text-[8px] font-bold flex items-center justify-center flex-shrink-0">
+                  {{ getInitials(doc.uploaded_by) }}
+                </span>
+                <span class="text-xs text-neutral-500 truncate">{{ doc.uploaded_by }}</span>
+              </span>
+
+              <span class="md:w-20 flex-shrink-0 text-xs text-neutral-400 md:text-right">{{ formatSize(doc.size_kb) }}</span>
+
+              <span class="md:w-24 flex-shrink-0 text-xs text-neutral-400 md:text-right">{{ doc.created_at | date:'d MMM yyyy' }}</span>
+
+              <span class="md:w-20 flex-shrink-0 flex items-center gap-1 md:justify-end">
+                <button title="Disponible próximamente" class="p-1.5 rounded-lg text-neutral-300 cursor-not-allowed">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                  </svg>
+                </button>
+                <button title="Disponible próximamente" class="p-1.5 rounded-lg text-neutral-300 cursor-not-allowed">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/>
+                  </svg>
+                </button>
+              </span>
+
+            </div>
+          }
+        </div>
+
+      </div>
+    }
+
+  </div>
+
+</div>
