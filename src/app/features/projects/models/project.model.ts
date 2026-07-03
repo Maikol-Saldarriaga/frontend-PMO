@@ -370,6 +370,34 @@ export interface IndicatorVerification {
   state:             boolean;
 }
 
+// ── Documentos consolidados del proyecto (agrega soportes, entregables e indicadores) ──
+
+export type ProjectDocumentSource = 'condicion' | 'entregable' | 'indicador';
+
+export interface ProjectDocumentParent {
+  type:  'condition' | 'delivery' | 'indicator';
+  id:    string;
+  label: string;
+}
+
+export interface ProjectDocument {
+  id:            string;
+  source:        ProjectDocumentSource;
+  name:          string;
+  file_url:      string;
+  document_type: string | null;
+  state:         boolean | string | null;
+  parent:        ProjectDocumentParent;
+  uploaded_at:   string | null;
+  uploaded_by:   { id: string; name: string } | null;
+}
+
+export interface ProjectDocumentsResponse {
+  total:     number;
+  by_source: Record<ProjectDocumentSource, number>;
+  documents: ProjectDocument[];
+}
+
 export interface ProjectWizardSchedule {
   id:           string;
   component:    string;

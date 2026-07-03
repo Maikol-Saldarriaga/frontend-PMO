@@ -66,89 +66,115 @@
       </div>
     }
 
-    <!-- ── KPIs ──────────────────────────────────────────────────────── -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 border-l-4 border-l-sky-400">
-        <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Total Presupuestado</p>
-        <p class="text-xl font-black text-gray-900 leading-tight">{{ formatCompact(budgetGrandTotal()) }}</p>
-        <p class="text-[10px] text-gray-400 mt-0.5">{{ formatCurrency(budgetGrandTotal()) }}</p>
-      </div>
-      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 border-l-4 border-l-violet-400">
-        <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Componentes</p>
-        <p class="text-xl font-black text-gray-900">{{ sections.length }}</p>
-        <p class="text-[10px] text-gray-400 mt-0.5">técnicos</p>
-      </div>
-      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 border-l-4 border-l-emerald-400">
-        <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Componentes con presupuesto</p>
-        <p class="text-xl font-black text-gray-900">{{ budgetWizard()!.filled_components }}<span class="text-sm font-medium text-gray-400">/{{ budgetWizard()!.total_components }}</span></p>
-        <p class="text-[10px] text-gray-400 mt-0.5">con sub-componentes cargados</p>
-      </div>
-      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 border-l-4"
-        [class.border-l-emerald-400]="budgetWizard()!.is_complete" [class.border-l-amber-400]="!budgetWizard()!.is_complete">
-        <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Presupuesto Asignado</p>
-        <p class="text-xl font-black" [class.text-emerald-600]="budgetWizard()!.is_complete" [class.text-amber-600]="!budgetWizard()!.is_complete">
-          {{ budgetWizard()!.is_complete ? '100%' : ((budgetWizard()!.filled_components / budgetWizard()!.total_components * 100) | number:'1.0-0') + '%' }}
-        </p>
-        <p class="text-[10px] mt-0.5" [class.text-emerald-500]="budgetWizard()!.is_complete" [class.text-amber-500]="!budgetWizard()!.is_complete">
-          {{ budgetWizard()!.is_complete ? 'Completo' : 'En progreso' }}
-        </p>
+    <!-- ── KPIs en tabla ─────────────────────────────────────────────── -->
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm min-w-[640px] border-collapse">
+          <thead>
+            <tr class="bg-neutral-50 border-b border-gray-100 text-[10px] font-bold text-neutral-500 uppercase tracking-wide">
+              <th class="text-left px-5 py-2.5">Total Presupuestado</th>
+              <th class="text-left px-5 py-2.5">Componentes técnicos</th>
+              <th class="text-left px-5 py-2.5">Con presupuesto asignado</th>
+              <th class="text-left px-5 py-2.5">% Presupuesto Asignado</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="border-b border-gray-100">
+              <td class="px-5 py-3.5">
+                <p class="text-lg font-black text-gray-900 leading-tight">{{ formatCompact(budgetGrandTotal()) }}</p>
+                <p class="text-[10px] text-gray-400 mt-0.5">{{ formatCurrency(budgetGrandTotal()) }}</p>
+              </td>
+              <td class="px-5 py-3.5">
+                <p class="text-lg font-black text-gray-900">{{ sections.length }}</p>
+                <p class="text-[10px] text-gray-400 mt-0.5">técnicos</p>
+              </td>
+              <td class="px-5 py-3.5">
+                <p class="text-lg font-black text-gray-900">{{ budgetWizard()!.filled_components }}<span class="text-sm font-medium text-gray-400">/{{ budgetWizard()!.total_components }}</span></p>
+                <p class="text-[10px] text-gray-400 mt-0.5">con sub-componentes cargados</p>
+              </td>
+              <td class="px-5 py-3.5">
+                <p class="text-lg font-black" [class.text-emerald-600]="budgetWizard()!.is_complete" [class.text-amber-600]="!budgetWizard()!.is_complete">
+                  {{ budgetWizard()!.is_complete ? '100%' : ((budgetWizard()!.filled_components / budgetWizard()!.total_components * 100) | number:'1.0-0') + '%' }}
+                </p>
+                <p class="text-[10px] mt-0.5" [class.text-emerald-500]="budgetWizard()!.is_complete" [class.text-amber-500]="!budgetWizard()!.is_complete">
+                  {{ budgetWizard()!.is_complete ? 'Completo' : 'En progreso' }}
+                </p>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
     <!-- ── Consumo por componente técnico ──────────────────────────────── -->
-    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
-      <h3 class="text-sm font-bold text-gray-800">Consumo por componente técnico</h3>
-      @for (sec of sections; track trackByComp($index, sec); let si = $index) {
-        <div class="flex items-center gap-4">
-          <div class="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0" [style.background]="color(si)">{{ si + 1 }}</div>
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center justify-between gap-3 mb-1">
-              <span class="text-sm font-semibold text-gray-800 truncate">{{ sec.name }}</span>
-              <div class="flex items-center gap-2 flex-shrink-0">
-                @if (sec.is_complete) {
-                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">Completo</span>
-                } @else {
-                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-100">Pendiente</span>
-                }
-                @if (sec.budgetCap !== null) {
-                  <span class="text-xs font-bold" [class.text-red-600]="capOverflow(sec)" [class.text-gray-800]="!capOverflow(sec)">
-                    {{ formatCurrency(compItemsTotal(sec)) }} / {{ formatCurrency(sec.budgetCap) }}
-                  </span>
-                } @else {
-                  <span class="text-xs font-bold text-gray-800">{{ formatCurrency(compItemsTotal(sec)) }}</span>
-                }
-              </div>
-            </div>
-            @if (sec.budgetCap !== null) {
-              <div class="h-2 rounded-full bg-gray-200 overflow-hidden">
-                <div class="h-full rounded-full transition-all duration-500"
-                  [class.bg-red-500]="capOverflow(sec)" [style.background]="capOverflow(sec) ? null : color(si)"
-                  [style.width.%]="capPct(sec)"></div>
-              </div>
-              @if (capOverflow(sec)) {
-                <p class="text-[10px] text-red-600 font-semibold mt-1">
-                  Supera el presupuesto del componente en {{ formatCurrency(compItemsTotal(sec) - sec.budgetCap) }}.
-                </p>
-              } @else {
-                <p class="text-[10px] text-gray-400 mt-1">{{ capPct(sec) }}% consumido · Disponible: {{ formatCurrency(capRemaining(sec)) }}</p>
-              }
-            } @else {
-              <p class="text-[10px] text-gray-400 mt-1">Este componente técnico no tiene presupuesto tope asignado.</p>
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm min-w-[720px] border-collapse">
+          <thead>
+            <tr class="bg-neutral-50 border-b border-gray-100 text-[10px] font-bold text-neutral-500 uppercase tracking-wide">
+              <th class="text-left px-5 py-2.5 w-8">#</th>
+              <th class="text-left px-3 py-2.5">Componente técnico</th>
+              <th class="text-left px-3 py-2.5">Estado</th>
+              <th class="text-right px-3 py-2.5 whitespace-nowrap">Consumido / Tope</th>
+              <th class="text-left px-3 py-2.5 w-40">% Consumido</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            @for (sec of sections; track trackByComp($index, sec); let si = $index) {
+              <tr>
+                <td class="px-5 py-3">
+                  <div class="w-6 h-6 rounded-md flex items-center justify-center text-white text-[10px] font-bold" [style.background]="color(si)">{{ si + 1 }}</div>
+                </td>
+                <td class="px-3 py-3 text-xs font-semibold text-gray-800">{{ sec.name }}</td>
+                <td class="px-3 py-3">
+                  @if (sec.is_complete) {
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">Completo</span>
+                  } @else {
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-100">Pendiente</span>
+                  }
+                </td>
+                <td class="px-3 py-3 text-right whitespace-nowrap">
+                  @if (sec.budgetCap !== null) {
+                    <span class="text-xs font-bold" [class.text-red-600]="capOverflow(sec)" [class.text-gray-800]="!capOverflow(sec)">
+                      {{ formatCurrency(compItemsTotal(sec)) }} / {{ formatCurrency(sec.budgetCap) }}
+                    </span>
+                  } @else {
+                    <span class="text-xs font-bold text-gray-800">{{ formatCurrency(compItemsTotal(sec)) }}</span>
+                  }
+                </td>
+                <td class="px-3 py-3">
+                  @if (sec.budgetCap !== null) {
+                    <div class="h-2 rounded-full bg-gray-200 overflow-hidden">
+                      <div class="h-full rounded-full transition-all duration-500"
+                        [class.bg-red-500]="capOverflow(sec)" [style.background]="capOverflow(sec) ? null : color(si)"
+                        [style.width.%]="capPct(sec)"></div>
+                    </div>
+                    @if (capOverflow(sec)) {
+                      <p class="text-[10px] text-red-600 font-semibold mt-1">Supera en {{ formatCurrency(compItemsTotal(sec) - sec.budgetCap) }}</p>
+                    } @else {
+                      <p class="text-[10px] text-gray-400 mt-1">{{ capPct(sec) }}% · Disp: {{ formatCurrency(capRemaining(sec)) }}</p>
+                    }
+                  } @else {
+                    <p class="text-[10px] text-gray-400">Sin tope asignado</p>
+                  }
+                </td>
+              </tr>
             }
-          </div>
-        </div>
-      }
+          </tbody>
+        </table>
+      </div>
     </div>
 
-    <!-- ── Componentes de presupuesto ───────────────────────────────────── -->
+    <!-- ── Componentes de presupuesto (una tabla por componente) ────────── -->
     <h3 class="text-sm font-bold text-gray-800 px-1">Componentes de presupuesto</h3>
 
     @for (sec of sections; track trackByComp($index, sec); let si = $index) {
       @for (entry of sec.entries; track trackByEntry($index, entry)) {
-        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+
+        <div class="space-y-0 mb-5">
 
           <!-- Cabecera del componente de presupuesto -->
-          <div class="flex items-center justify-between gap-3 px-5 py-4 border-b border-gray-100">
+          <div class="flex items-center justify-between gap-3 flex-wrap px-3 py-2.5 bg-neutral-50 rounded-t-lg">
             <div class="flex items-center gap-3 min-w-0 flex-1">
               <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-semibold flex-shrink-0"
                 [style.background]="color(si) + '1a'" [style.color]="color(si)">
@@ -172,142 +198,162 @@
                 </button>
               }
             </div>
-
-            <div class="flex items-center gap-4 flex-shrink-0">
-              <div class="text-right">
-                <p class="text-sm font-black text-gray-900">{{ formatCurrency(entry.total_contribution ?? entryTotal(entry)) }}</p>
-                <p class="text-[10px] text-gray-400 leading-snug">
-                  <span class="text-accent font-semibold">Contrapartida: {{ formatCurrency(entry.company_contribution ?? 0) }}</span><br/>
-                  <span class="text-success font-semibold">Aliado: {{ formatCurrency(entry.ally_contribution ?? 0) }}</span>
-                </p>
-              </div>
-              <button type="button" (click)="deleteEntry(sec, entry)" class="text-neutral-300 hover:text-danger">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                </svg>
-              </button>
-            </div>
+            <button type="button" (click)="deleteEntry(sec, entry)" class="text-neutral-300 hover:text-danger flex-shrink-0">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+              </svg>
+            </button>
           </div>
 
-          <!-- Ítems del componente de presupuesto -->
-          <div class="divide-y divide-gray-100">
-            @for (row of entry.items; track trackByRow($index, row)) {
+          <!-- Tabla de ítems de este componente de presupuesto -->
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm min-w-[900px] border-collapse">
+              <thead>
+                <tr class="border-b border-t border-gray-200 text-[10px] font-bold text-neutral-500 uppercase tracking-wide">
+                  <th class="text-left px-3 py-2">Concepto</th>
+                  <th class="text-right px-3 py-2 whitespace-nowrap">Cantidad</th>
+                  <th class="text-right px-3 py-2 whitespace-nowrap">Valor unitario</th>
+                  <th class="text-right px-3 py-2 whitespace-nowrap">Total</th>
+                  <th class="text-right px-3 py-2 whitespace-nowrap text-accent">Contrapartida</th>
+                  <th class="text-right px-3 py-2 whitespace-nowrap text-success">Aliado</th>
+                  <th class="px-3 py-2 w-24 text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                @for (row of entry.items; track trackByRow($index, row)) {
 
-              <div (click)="toggleExpand(row)" class="px-5 py-3.5 cursor-pointer transition-colors"
-                [class]="row.expanded ? 'bg-accent-50/50' : 'hover:bg-neutral-50/60'">
-                <div class="flex items-center gap-3">
-                  <div class="min-w-0 flex-1">
-                    <p class="text-xs font-semibold text-primary-700 truncate">{{ row.concept || 'Nuevo ítem' }}</p>
-                    @if (row.unit_measurement) {
-                      <p class="text-[10px] text-neutral-400 truncate">{{ row.quantity }} {{ row.unit_measurement }} × {{ formatCurrency(row.unit_value ?? 0) }}</p>
-                    }
-                  </div>
-                  <span class="text-xs font-bold text-primary-700 flex-shrink-0">{{ formatCurrency(row.total_value) }}</span>
-                  @if (row.dirty) {
-                    <span class="w-1.5 h-1.5 rounded-full bg-accent animate-pulse flex-shrink-0" title="Sin guardar"></span>
-                  }
-                  <svg class="w-3.5 h-3.5 text-neutral-300 flex-shrink-0 transition-transform" [class.rotate-90]="row.expanded"
-                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                  </svg>
-                </div>
+                  <tr class="transition-colors" [ngClass]="row.expanded ? 'bg-accent-50/40' : 'hover:bg-neutral-50/60'">
 
-                @if (row.expanded) {
-                  <div class="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" (click)="$event.stopPropagation()">
-
-                    <div class="lg:col-span-2">
-                      <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Concepto <span class="text-danger">*</span></label>
-                      <input type="text" [(ngModel)]="row.concept" (ngModelChange)="markDirty(row)"
-                        placeholder="Ej: Honorarios profesionales"
-                        class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
-                    </div>
-
-                    <div>
-                      <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Unidad de medida</label>
-                      <input type="text" [(ngModel)]="row.unit_measurement" (ngModelChange)="markDirty(row)"
-                        placeholder="Ej: mes, und, global"
-                        class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
-                    </div>
-
-                    <div class="lg:col-span-3">
-                      <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Descripción</label>
-                      <input type="text" [(ngModel)]="row.description" (ngModelChange)="markDirty(row)"
-                        placeholder="Descripción del ítem presupuestal"
-                        class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
-                    </div>
-
-                    <div>
-                      <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Cantidad</label>
-                      <input type="number" min="0" [(ngModel)]="row.quantity" (ngModelChange)="recalcTotal(row)"
-                        placeholder="0"
-                        class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
-                    </div>
-
-                    <div>
-                      <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Valor unitario</label>
-                      <input type="text" inputmode="numeric" appMoneyMask [(ngModel)]="row.unit_value" (ngModelChange)="recalcTotal(row)"
-                        placeholder="0"
-                        class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
-                    </div>
-
-                    <div>
-                      <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Total valor</label>
-                      <div class="px-3 py-2 rounded-xl border border-neutral-100 bg-neutral-100 text-sm font-bold text-primary-700">
-                        {{ formatCurrency(row.total_value) }}
-                      </div>
-                    </div>
-
-                    <div>
-                      <label class="block text-[10px] font-bold text-accent uppercase tracking-wide mb-1.5">Aporte contrapartida</label>
-                      <input type="text" inputmode="numeric" appMoneyMask [(ngModel)]="row.counterpart_contribution" (ngModelChange)="markDirty(row)"
-                        placeholder="0"
-                        class="w-full px-3 py-2 rounded-xl border text-sm font-semibold placeholder-neutral-300 focus:bg-surface outline-none focus:ring-2 transition-colors"
-                        [ngClass]="aportesOverflow(row) ? 'border-danger text-danger bg-danger/5 focus:ring-danger/20 focus:border-danger' : 'border-accent-200 text-accent bg-accent-50/30 focus:ring-accent-200 focus:border-accent'"/>
-                    </div>
-
-                    <div>
-                      <label class="block text-[10px] font-bold text-success uppercase tracking-wide mb-1.5">Aporte aliado</label>
-                      <input type="text" inputmode="numeric" appMoneyMask [(ngModel)]="row.ally_contribution" (ngModelChange)="markDirty(row)"
-                        placeholder="0"
-                        class="w-full px-3 py-2 rounded-xl border text-sm font-semibold placeholder-neutral-300 focus:bg-surface outline-none focus:ring-2 transition-colors"
-                        [ngClass]="aportesOverflow(row) ? 'border-danger text-danger bg-danger/5 focus:ring-danger/20 focus:border-danger' : 'border-success/30 text-success bg-success/5 focus:ring-success/20 focus:border-success'"/>
-                    </div>
-
-                    @if (aportesOverflow(row)) {
-                      <div class="lg:col-span-3 -mt-2">
-                        <p class="text-[11px] font-semibold text-danger">
-                          Los aportes ({{ formatCurrency(aportesTotal(row)) }}) superan el total del ítem ({{ formatCurrency(row.total_value) }}).
-                        </p>
-                      </div>
-                    }
-
-                    <div class="lg:col-span-3 flex items-center justify-between gap-3 pt-3 border-t border-neutral-100">
-                      <div class="flex-1 min-w-0">
+                    <!-- Concepto -->
+                    <td class="px-3 py-2 min-w-0 align-top">
+                      @if (row.expanded) {
+                        <input type="text" [(ngModel)]="row.concept" (ngModelChange)="markDirty(row)"
+                          placeholder="Concepto *"
+                          class="w-full px-2 py-1.5 rounded-lg border border-neutral-200 text-xs font-semibold text-primary-700 placeholder-neutral-300 bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors mb-1"/>
+                        <div class="flex gap-1.5">
+                          <input type="text" [(ngModel)]="row.unit_measurement" (ngModelChange)="markDirty(row)"
+                            placeholder="Unidad (mes, und...)"
+                            class="w-1/2 px-2 py-1 rounded-lg border border-neutral-200 text-[11px] text-neutral-600 placeholder-neutral-300 bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+                          <input type="text" [(ngModel)]="row.description" (ngModelChange)="markDirty(row)"
+                            placeholder="Descripción (opcional)"
+                            class="w-1/2 px-2 py-1 rounded-lg border border-neutral-200 text-[11px] text-neutral-600 placeholder-neutral-300 bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+                        </div>
                         @if (row.rowError) {
-                          <p class="text-xs font-medium text-danger">{{ row.rowError }}</p>
-                        } @else if (row.rowSuccess) {
-                          <p class="text-xs font-medium text-success">Ítem guardado</p>
-                        } @else if (row.dirty) {
-                          <span class="text-[10px] text-warning font-medium">Cambios sin guardar</span>
+                          <p class="text-[10px] font-semibold text-danger mt-1">{{ row.rowError }}</p>
+                        } @else if (aportesOverflow(row)) {
+                          <p class="text-[10px] font-semibold text-danger mt-1">Los aportes superan el total del ítem.</p>
+                        }
+                      } @else {
+                        <p class="text-xs font-semibold text-primary-700 truncate">{{ row.concept || 'Nuevo ítem' }}</p>
+                        @if (row.unit_measurement) {
+                          <p class="text-[10px] text-neutral-400 truncate">{{ row.unit_measurement }}</p>
+                        }
+                      }
+                    </td>
+
+                    <!-- Cantidad -->
+                    <td class="px-3 py-2 text-right align-top">
+                      @if (row.expanded) {
+                        <input type="number" min="0" [(ngModel)]="row.quantity" (ngModelChange)="recalcTotal(row)"
+                          placeholder="0"
+                          class="w-20 px-2 py-1.5 rounded-lg border border-neutral-200 text-xs text-right text-primary-700 placeholder-neutral-300 bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+                      } @else {
+                        <span class="text-xs text-neutral-600 whitespace-nowrap">{{ row.quantity || '—' }}</span>
+                      }
+                    </td>
+
+                    <!-- Valor unitario -->
+                    <td class="px-3 py-2 text-right align-top">
+                      @if (row.expanded) {
+                        <input type="text" inputmode="numeric" appMoneyMask [(ngModel)]="row.unit_value" (ngModelChange)="recalcTotal(row)"
+                          placeholder="0"
+                          class="w-24 px-2 py-1.5 rounded-lg border border-neutral-200 text-xs text-right text-primary-700 placeholder-neutral-300 bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+                      } @else {
+                        <span class="text-xs text-neutral-600 whitespace-nowrap">{{ formatCurrency(row.unit_value ?? 0) }}</span>
+                      }
+                    </td>
+
+                    <!-- Total -->
+                    <td class="px-3 py-2 text-right align-top whitespace-nowrap">
+                      <span class="text-xs font-bold text-primary-700">{{ formatCurrency(row.total_value) }}</span>
+                    </td>
+
+                    <!-- Contrapartida -->
+                    <td class="px-3 py-2 text-right align-top">
+                      @if (row.expanded) {
+                        <input type="text" inputmode="numeric" appMoneyMask [(ngModel)]="row.counterpart_contribution" (ngModelChange)="markDirty(row)"
+                          placeholder="0"
+                          class="w-24 px-2 py-1.5 rounded-lg border text-xs text-right font-semibold placeholder-neutral-300 outline-none focus:ring-2 transition-colors"
+                          [ngClass]="aportesOverflow(row) ? 'border-danger text-danger bg-danger/5 focus:ring-danger/20 focus:border-danger' : 'border-accent-200 text-accent bg-accent-50/30 focus:ring-accent-200 focus:border-accent'"/>
+                      } @else {
+                        <span class="text-xs font-semibold text-accent whitespace-nowrap">{{ formatCurrency(row.counterpart_contribution ?? 0) }}</span>
+                      }
+                    </td>
+
+                    <!-- Aliado -->
+                    <td class="px-3 py-2 text-right align-top">
+                      @if (row.expanded) {
+                        <input type="text" inputmode="numeric" appMoneyMask [(ngModel)]="row.ally_contribution" (ngModelChange)="markDirty(row)"
+                          placeholder="0"
+                          class="w-24 px-2 py-1.5 rounded-lg border text-xs text-right font-semibold placeholder-neutral-300 outline-none focus:ring-2 transition-colors"
+                          [ngClass]="aportesOverflow(row) ? 'border-danger text-danger bg-danger/5 focus:ring-danger/20 focus:border-danger' : 'border-success/30 text-success bg-success/5 focus:ring-success/20 focus:border-success'"/>
+                      } @else {
+                        <span class="text-xs font-semibold text-success whitespace-nowrap">{{ formatCurrency(row.ally_contribution ?? 0) }}</span>
+                      }
+                    </td>
+
+                    <!-- Acciones -->
+                    <td class="px-3 py-2 align-top">
+                      <div class="flex items-center justify-end gap-2">
+                        @if (row.expanded) {
+                          <button type="button" (click)="toggleExpand(row)"
+                            class="text-xs text-neutral-400 hover:text-neutral-600 transition-colors">Cancelar</button>
+                          <button type="button" (click)="saveRow(sec, entry, row)"
+                            [disabled]="row.saving || !row.dirty || aportesOverflow(row)"
+                            class="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-accent to-accent-700 hover:from-accent-600 hover:to-accent-800 text-white text-xs font-semibold rounded-lg shadow-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                            @if (row.saving) { Guardando... } @else { Guardar }
+                          </button>
+                        } @else {
+                          @if (row.dirty) {
+                            <span class="inline-block w-1.5 h-1.5 rounded-full bg-accent animate-pulse" title="Sin guardar"></span>
+                          }
+                          <button type="button" (click)="toggleExpand(row)" title="Editar"
+                            class="w-7 h-7 flex items-center justify-center rounded-lg text-neutral-400 hover:text-accent hover:bg-accent-50 transition-colors">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                            </svg>
+                          </button>
+                          <button type="button" (click)="deleteRow(entry, row)" title="Eliminar"
+                            class="w-7 h-7 flex items-center justify-center rounded-lg text-neutral-400 hover:text-danger hover:bg-danger/10 transition-colors">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>
+                          </button>
                         }
                       </div>
-                      <button type="button" (click)="deleteRow(entry, row)"
-                        class="text-xs text-neutral-400 hover:text-danger transition-colors">Eliminar ítem</button>
-                      <button type="button" (click)="saveRow(sec, entry, row)"
-                        [disabled]="row.saving || !row.dirty || aportesOverflow(row)"
-                        class="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-accent to-accent-700 hover:from-accent-600 hover:to-accent-800 text-white text-xs font-semibold rounded-xl shadow-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed">
-                        @if (row.saving) { Guardando... } @else { Guardar }
-                      </button>
-                    </div>
+                    </td>
 
-                  </div>
+                  </tr>
+
                 }
-              </div>
+              </tbody>
 
-            }
+              <!-- Subtotal del componente de presupuesto -->
+              @if (entry.items.length) {
+                <tfoot>
+                  <tr class="bg-neutral-50 font-bold border-t border-gray-200">
+                    <td colspan="4" class="px-5 py-2.5 text-[11px] text-neutral-500 uppercase tracking-wide">Subtotal — {{ entry.name }}</td>
+                    <td class="px-3 py-2.5 text-right whitespace-nowrap text-xs text-primary-700">{{ formatCurrency(entry.total_contribution ?? entryTotal(entry)) }}</td>
+                    <td class="px-3 py-2.5 text-right whitespace-nowrap text-xs text-accent">{{ formatCurrency(entry.company_contribution ?? 0) }}</td>
+                    <td class="px-3 py-2.5 text-right whitespace-nowrap text-xs text-success">{{ formatCurrency(entry.ally_contribution ?? 0) }}</td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              }
+            </table>
           </div>
 
-          <div class="px-5 py-3 bg-neutral-50/60 border-t border-neutral-100">
+          <div class="px-1 py-2">
             <button type="button" (click)="addItemRow(entry)"
               class="flex items-center gap-1.5 text-xs text-accent hover:text-accent-700 font-medium transition-colors">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -318,29 +364,34 @@
           </div>
 
         </div>
+
       }
     }
 
     @if (!hasAnyEntries()) {
-      <div class="bg-white rounded-2xl border border-dashed border-gray-200 flex flex-col items-center justify-center py-12 gap-2">
+      <div class="flex flex-col items-center justify-center py-12 gap-2 border border-dashed border-gray-200 rounded-2xl">
         <p class="text-sm font-medium text-gray-500">Aún no hay componentes de presupuesto.</p>
         <p class="text-xs text-gray-400">Usa "Agregar componente" arriba para crear el primero.</p>
       </div>
     }
 
-    <!-- Total general -->
-    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-      <table class="w-full text-sm min-w-[600px]">
-        <tfoot>
-          <tr class="bg-gradient-to-r from-slate-800 to-slate-700 text-white font-bold">
-            <td class="px-5 py-4"><span class="text-sm uppercase tracking-wider">TOTAL GENERAL DEL PROYECTO</span></td>
-            <td class="px-3 py-4 text-right whitespace-nowrap text-emerald-300">{{ formatCurrency(grandTotalCP()) }}</td>
-            <td class="px-3 py-4 text-right whitespace-nowrap text-violet-300">{{ formatCurrency(grandTotalAlly()) }}</td>
-            <td class="px-5 py-4 text-right whitespace-nowrap text-xl font-black">{{ formatCurrency(budgetGrandTotal()) }}</td>
-          </tr>
-        </tfoot>
-      </table>
-    </div>
+    <!-- ── Total general del proyecto ───────────────────────────────────── -->
+    @if (hasAnyEntries()) {
+      <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm min-w-[900px]">
+            <tfoot>
+              <tr class="bg-gradient-to-r from-slate-800 to-slate-700 text-white font-bold">
+                <td class="px-5 py-4"><span class="text-sm uppercase tracking-wider">TOTAL GENERAL DEL PROYECTO</span></td>
+                <td class="px-3 py-4 text-right whitespace-nowrap text-emerald-300">{{ formatCurrency(grandTotalCP()) }}</td>
+                <td class="px-3 py-4 text-right whitespace-nowrap text-violet-300">{{ formatCurrency(grandTotalAlly()) }}</td>
+                <td class="px-5 py-4 text-right whitespace-nowrap text-xl font-black">{{ formatCurrency(budgetGrandTotal()) }}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    }
 
     @if (!sections.length) {
       <div class="bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center justify-center py-20 gap-3">

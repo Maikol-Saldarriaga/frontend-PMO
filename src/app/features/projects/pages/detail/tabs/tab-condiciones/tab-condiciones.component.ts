@@ -6,7 +6,7 @@ import { renameFileForUpload } from '../../../../../../../core/utils/file.utils'
 import { SupportTypeKey, SUPPORT_TYPES, SUPPORT_TYPE_LABELS } from '../../../../models/support-types.constant';
 
 type ConditionType  = 'requisito_minimo' | 'supuesto' | 'exclusion' | 'restriccion';
-type ComplianceType = 'Fecha específica' | 'Hito del proyecto' | 'Periodicidad' | 'Permanente';
+type ComplianceType = 'fecha_especifica' | 'hito_proyecto' | 'periodicidad' | 'permanente';
 
 interface PendingUpload {
   support_type: SupportTypeKey | '';
@@ -35,23 +35,34 @@ const CONDITION_TYPES: { value: ConditionType; label: string }[] = [
   { value: 'restriccion',      label: 'Restricción'      },
 ];
 
-const COMPLIANCE_TYPES: ComplianceType[] = [
-  'Fecha específica', 'Hito del proyecto', 'Periodicidad', 'Permanente',
+const COMPLIANCE_TYPES: { value: ComplianceType; label: string }[] = [
+  { value: 'fecha_especifica', label: 'Fecha específica' },
+  { value: 'hito_proyecto',    label: 'Hito del proyecto' },
+  { value: 'periodicidad',     label: 'Periodicidad' },
+  { value: 'permanente',       label: 'Permanente' },
 ];
 
-const HITOS = [
-  'En Etapa de Formulación', 'En Etapa de Evaluación', 'En Etapa de Asignación',
-  'En Etapa de Ejecución', 'En Etapa de Cierre',
+const HITOS: { value: string; label: string }[] = [
+  { value: 'formulacion', label: 'En Etapa de Formulación' },
+  { value: 'evaluacion',  label: 'En Etapa de Evaluación' },
+  { value: 'asignacion',  label: 'En Etapa de Asignación' },
+  { value: 'ejecucion',   label: 'En Etapa de Ejecución' },
+  { value: 'cierre',      label: 'En Etapa de Cierre' },
 ];
 
-const PERIODICIDADES = ['Mensual', 'Trimestral', 'Semestral', 'Anual'];
+const PERIODICIDADES: { value: string; label: string }[] = [
+  { value: 'mensual',     label: 'Mensual' },
+  { value: 'trimestral',  label: 'Trimestral' },
+  { value: 'semestral',   label: 'Semestral' },
+  { value: 'anual',       label: 'Anual' },
+];
 
 const emptyUpload = (): PendingUpload => ({
   support_type: '', name: '', files: [], uploading: false, error: null,
 });
 
 const EMPTY = (): ConditionRow => ({
-  condition: 'requisito_minimo', type_compliance: 'Fecha específica',
+  condition: 'requisito_minimo', type_compliance: 'fecha_especifica',
   compliance_value: '', description: '',
   hasSupports: false, supports: [], upload: emptyUpload(), deleting: false,
 });
@@ -108,7 +119,7 @@ export class TabCondicionesComponent implements OnInit {
     return {
       id:               v.id,
       condition:        (v.condition as ConditionType) ?? 'requisito_minimo',
-      type_compliance:  (v.type_compliance as ComplianceType) ?? 'Fecha específica',
+      type_compliance:  (v.type_compliance as ComplianceType) ?? 'fecha_especifica',
       compliance_value: v.compliance_value ?? '',
       description:      v.description ?? '',
       hasSupports:      !!(v.supports?.length),
@@ -136,7 +147,7 @@ export class TabCondicionesComponent implements OnInit {
         ...(r.id ? { id: r.id } : {}),
         condition:        r.condition,
         type_compliance:  r.type_compliance,
-        compliance_value: r.type_compliance === 'Permanente' ? null : (r.compliance_value || null),
+        compliance_value: r.type_compliance === 'permanente' ? null : (r.compliance_value || null),
         description:      r.description || null,
         ...(r.id === row.id ? { delete: true } : {}),
       } as ContractConditionItem)),
@@ -278,7 +289,7 @@ export class TabCondicionesComponent implements OnInit {
         ...(r.id ? { id: r.id } : {}),
         condition:        r.condition,
         type_compliance:  r.type_compliance,
-        compliance_value: r.type_compliance === 'Permanente' ? null : (r.compliance_value || null),
+        compliance_value: r.type_compliance === 'permanente' ? null : (r.compliance_value || null),
         description:      r.description || null,
       } as ContractConditionItem)),
     };

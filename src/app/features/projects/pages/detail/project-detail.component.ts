@@ -15,6 +15,7 @@ import { TabUbicacionesComponent } from './tabs/tab-ubicaciones/tab-ubicaciones.
 import { TabCondicionesComponent } from './tabs/tab-condiciones/tab-condiciones.component';
 import { TabEntregablesComponent } from './tabs/tab-entregables/tab-entregables.component';
 import { TabIndicadoresComponent } from './tabs/tab-indicadores/tab-indicadores.component';
+import { TabDocumentosComponent } from './tabs/tab-documentos/tab-documentos.component';
 
 @Component({
   selector: 'app-project-detail',
@@ -32,6 +33,7 @@ import { TabIndicadoresComponent } from './tabs/tab-indicadores/tab-indicadores.
     TabCondicionesComponent,
     TabEntregablesComponent,
     TabIndicadoresComponent,
+    TabDocumentosComponent,
   ],
   templateUrl: './project-detail.component.html',
 })

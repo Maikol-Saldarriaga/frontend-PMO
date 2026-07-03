@@ -55,6 +55,7 @@ import {
   IndicatorVerification,
   Indicator,
   IndicatorRequest,
+  ProjectDocumentsResponse,
 } from '../models/project.model';
 
 export interface ProjectFilters {
@@ -316,6 +317,10 @@ export class ProjectService {
 
   deleteBeneficiary(id: string, bid: string): Observable<void> {
     return this.http.delete<void>(ENDPOINTS.projects.affiliateById(id, bid));
+  }
+
+  getDocuments(id: string): Observable<ProjectDocumentsResponse> {
+    return this.http.get<ProjectDocumentsResponse>(ENDPOINTS.projects.documents(id));
   }
 
 }

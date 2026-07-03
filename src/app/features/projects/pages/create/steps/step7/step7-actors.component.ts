@@ -12,6 +12,8 @@ export const ACTOR_TYPES: { value: ActorType; label: string }[] = [
   { value: 'ong',              label: 'ONG'              },
   { value: 'comunidad',        label: 'Comunidad'        },
   { value: 'cooperacion',      label: 'Cooperación'      },
+  { value: 'beneficiarios',    label: 'Beneficiarios'    },
+  { value: 'mixto',            label: 'Mixto'            },
   { value: 'otro',             label: 'Otro'             },
 ];
 

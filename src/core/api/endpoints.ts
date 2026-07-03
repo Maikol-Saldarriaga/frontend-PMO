@@ -42,6 +42,7 @@ export const ENDPOINTS = {
     indicatorById:             (id: string, iid: string) => `${API_URL}/projects/${id}/indicators/${iid}`,
     indicatorVerifications:    (id: string, iid: string) => `${API_URL}/projects/${id}/indicators/${iid}/verifications`,
     indicatorVerificationById: (id: string, iid: string, vid: string) => `${API_URL}/projects/${id}/indicators/${iid}/verifications/${vid}`,
+    documents:         (id: string) => `${API_URL}/projects/${id}/documents`,
   },
   contracts: {
     list:           `${API_URL}/contracts`,

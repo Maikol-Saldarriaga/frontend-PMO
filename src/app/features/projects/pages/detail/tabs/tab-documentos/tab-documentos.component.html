@@ -1,0 +1,130 @@
+<div class="px-6 py-6 space-y-5">
+
+  @if (loading()) {
+    <div class="flex items-center justify-center h-48">
+      <div class="flex flex-col items-center gap-3">
+        <div class="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+        <p class="text-sm text-gray-400">Cargando documentos...</p>
+      </div>
+    </div>
+  } @else if (error()) {
+    <div class="m-1 p-5 rounded-2xl bg-red-50 border border-red-100 flex items-start gap-3">
+      <p class="text-sm text-red-600">{{ error() }}</p>
+    </div>
+  } @else if (response()) {
+
+    <div class="flex items-center justify-between gap-4 flex-wrap">
+      <div>
+        <h2 class="text-base font-bold text-gray-900">Documentos del Proyecto</h2>
+        <p class="text-xs text-gray-400 mt-0.5">{{ response()!.total }} documento(s) recopilados de condiciones, entregables e indicadores</p>
+      </div>
+      <div class="relative w-full sm:w-72">
+        <svg class="w-4 h-4 text-neutral-300 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input type="text" [(ngModel)]="search" placeholder="Buscar por nombre o sección..."
+          class="w-full pl-9 pr-3 py-2.5 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-300 bg-white outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+      </div>
+    </div>
+
+    <!-- ── Filtros por sección ──────────────────────────────────────────── -->
+    <div class="flex items-center gap-2 flex-wrap">
+      @for (f of SOURCE_FILTERS; track f.value) {
+        <button type="button" (click)="setSource(f.value)"
+          class="px-4 py-2 rounded-xl text-xs font-semibold border transition-colors"
+          [class.bg-primary-700]="activeSource === f.value"
+          [class.text-white]="activeSource === f.value"
+          [class.border-primary-700]="activeSource === f.value"
+          [class.bg-white]="activeSource !== f.value"
+          [class.text-neutral-500]="activeSource !== f.value"
+          [class.border-neutral-200]="activeSource !== f.value"
+          [class.hover:bg-neutral-50]="activeSource !== f.value">
+          {{ f.label }}
+          @if (f.value !== 'todos') {
+            <span class="ml-1 opacity-70">({{ countFor(f.value) }})</span>
+          } @else {
+            <span class="ml-1 opacity-70">({{ response()!.total }})</span>
+          }
+        </button>
+      }
+    </div>
+
+    <!-- ── Tabla de documentos ──────────────────────────────────────────── -->
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm min-w-[760px] border-collapse">
+          <thead>
+            <tr class="bg-neutral-50 border-b border-gray-100 text-[10px] font-bold text-neutral-500 uppercase tracking-wide">
+              <th class="text-left px-5 py-3">Documento</th>
+              <th class="text-left px-3 py-3">Sección</th>
+              <th class="text-left px-3 py-3">Pertenece a</th>
+              <th class="text-left px-3 py-3">Estado</th>
+              <th class="text-left px-3 py-3 whitespace-nowrap">Fecha carga</th>
+              <th class="px-3 py-3 w-24"></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            @for (doc of filteredDocuments(); track doc.id) {
+              <tr class="hover:bg-neutral-50/60 transition-colors">
+                <td class="px-5 py-3.5 min-w-0">
+                  <div class="flex items-center gap-2.5 min-w-0">
+                    <div class="w-8 h-8 rounded-lg bg-neutral-100 flex items-center justify-center flex-shrink-0">
+                      <svg class="w-4 h-4 text-neutral-400" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                      </svg>
+                    </div>
+                    <div class="min-w-0">
+                      <p class="text-xs font-semibold text-primary-700 truncate">{{ doc.name }}</p>
+                      @if (fileExt(doc)) {
+                        <p class="text-[10px] text-neutral-400 uppercase">{{ fileExt(doc) }}</p>
+                      }
+                    </div>
+                  </div>
+                </td>
+                <td class="px-3 py-3.5 whitespace-nowrap">
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border"
+                    [class]="sourceBadgeClass(doc.source)">
+                    {{ sourceLabel(doc.source) }}
+                  </span>
+                </td>
+                <td class="px-3 py-3.5 text-xs text-neutral-600 max-w-[220px] truncate">{{ doc.parent.label }}</td>
+                <td class="px-3 py-3.5 whitespace-nowrap">
+                  @if (doc.state === true || doc.state === 'aprobado') {
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">Aprobado</span>
+                  } @else if (doc.state === false || doc.state === 'pendiente') {
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-100">Pendiente</span>
+                  } @else {
+                    <span class="text-[10px] text-neutral-300">—</span>
+                  }
+                </td>
+                <td class="px-3 py-3.5 whitespace-nowrap text-xs text-neutral-500">{{ formatDate(doc.uploaded_at) }}</td>
+                <td class="px-3 py-3.5 text-right">
+                  <a [href]="resolveUrl(doc.file_url)" target="_blank" rel="noopener"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-50 hover:bg-accent-100 text-accent text-xs font-semibold transition-colors">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/>
+                    </svg>
+                    Ver
+                  </a>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="6" class="px-5 py-14 text-center">
+                  <p class="text-sm font-medium text-gray-500">No se encontraron documentos.</p>
+                  <p class="text-xs text-gray-400 mt-1">Ajusta los filtros o revisa condiciones, entregables e indicadores.</p>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  } @else {
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center justify-center py-20 gap-3">
+      <p class="text-sm font-medium text-gray-500">No hay documentos registrados</p>
+    </div>
+  }
+
+</div>

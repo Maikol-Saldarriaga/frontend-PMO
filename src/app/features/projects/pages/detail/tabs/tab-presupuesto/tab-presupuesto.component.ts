@@ -354,6 +354,7 @@ export class TabPresupuestoComponent implements OnInit {
         row.rowSuccess      = true;
         row.rowError        = null;
         row.savedTotalValue = row.total_value;
+        row.expanded        = false;
         this.refreshEntryTotals(entry);
         this.refreshWizardMeta();
       },

@@ -186,7 +186,8 @@ export interface ContractStep6Request {
 
 export type ActorType =
   | 'entidad_publica' | 'entidad_privada' | 'ong'
-  | 'comunidad' | 'cooperacion' | 'otro';
+  | 'comunidad' | 'cooperacion' | 'otro'
+  | 'beneficiarios' | 'mixto';
 
 export interface ContractActorItem {
   id?:        string;

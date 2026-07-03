@@ -59,40 +59,40 @@
               <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Tipo de cumplimiento <span class="text-red-500">*</span></label>
               <select [value]="row.type_compliance" (change)="updateField(i,'type_compliance',$any($event.target).value)"
                 class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-800 bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 transition-colors appearance-none">
-                @for (c of complianceTypes; track c) {
-                  <option [value]="c" [selected]="row.type_compliance === c">{{ c }}</option>
+                @for (c of complianceTypes; track c.value) {
+                  <option [value]="c.value" [selected]="row.type_compliance === c.value">{{ c.label }}</option>
                 }
               </select>
             </div>
 
             <div>
-              @if (row.type_compliance === 'Fecha específica') {
+              @if (row.type_compliance === 'fecha_especifica') {
                 <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Fecha de cumplimiento</label>
                 <input type="date" [value]="row.compliance_value"
                   (change)="updateField(i,'compliance_value',$any($event.target).value)"
                   class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-800 bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 transition-colors"/>
               }
-              @if (row.type_compliance === 'Hito del proyecto') {
+              @if (row.type_compliance === 'hito_proyecto') {
                 <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Hito del proyecto</label>
                 <select [value]="row.compliance_value" (change)="updateField(i,'compliance_value',$any($event.target).value)"
                   class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-800 bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 transition-colors appearance-none">
                   <option value="">Selecciona una etapa</option>
-                  @for (h of hitos; track h) {
-                    <option [value]="h" [selected]="row.compliance_value === h">{{ h }}</option>
+                  @for (h of hitos; track h.value) {
+                    <option [value]="h.value" [selected]="row.compliance_value === h.value">{{ h.label }}</option>
                   }
                 </select>
               }
-              @if (row.type_compliance === 'Periodicidad') {
+              @if (row.type_compliance === 'periodicidad') {
                 <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Periodicidad</label>
                 <select [value]="row.compliance_value" (change)="updateField(i,'compliance_value',$any($event.target).value)"
                   class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-800 bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 transition-colors appearance-none">
                   <option value="">Selecciona la periodicidad</option>
-                  @for (p of periodicidades; track p) {
-                    <option [value]="p" [selected]="row.compliance_value === p">{{ p }}</option>
+                  @for (p of periodicidades; track p.value) {
+                    <option [value]="p.value" [selected]="row.compliance_value === p.value">{{ p.label }}</option>
                   }
                 </select>
               }
-              @if (row.type_compliance === 'Permanente') {
+              @if (row.type_compliance === 'permanente') {
                 <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Cumplimiento</label>
                 <div class="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-400">
                   <svg class="w-4 h-4 text-sky-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
