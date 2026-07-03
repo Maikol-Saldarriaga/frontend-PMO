@@ -124,13 +124,22 @@
                           </svg>
                           <span class="text-[10px] font-bold text-accent-600 uppercase tracking-widest">Distribuciones Mensuales</span>
                         </div>
-                        <button type="button" (click)="addMonth(row); $event.stopPropagation()"
-                          class="flex items-center gap-1.5 text-xs text-accent hover:text-accent-700 font-semibold transition-colors">
-                          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-                          </svg>
-                          Agregar mes
-                        </button>
+                        <div class="flex items-center gap-3">
+                          <button type="button" (click)="goToInvoices(); $event.stopPropagation()"
+                            class="flex items-center gap-1.5 text-xs text-neutral-500 hover:text-primary-700 font-semibold transition-colors">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                            </svg>
+                            Ver facturas
+                          </button>
+                          <button type="button" (click)="addMonth(row); $event.stopPropagation()"
+                            class="flex items-center gap-1.5 text-xs text-accent hover:text-accent-700 font-semibold transition-colors">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                            </svg>
+                            Agregar mes
+                          </button>
+                        </div>
                       </div>
 
                       @if (row.distributions.length) {
@@ -142,6 +151,7 @@
                               <th class="text-right px-3 py-2 font-semibold text-accent">Contrapartida</th>
                               <th class="text-right px-3 py-2 font-semibold text-success">Aliado</th>
                               <th class="text-right px-3 py-2 font-semibold text-primary-600">Ejecutado</th>
+                              <th class="text-right px-3 py-2 font-semibold text-emerald-600">Facturado</th>
                               <th class="w-10 px-3 py-2"></th>
                             </tr>
                           </thead>
@@ -181,6 +191,11 @@
                                     (click)="$event.stopPropagation()"
                                     class="w-full px-2 py-1 rounded-lg border border-primary-200 text-xs text-right text-primary-600 bg-primary-50/20 focus:bg-surface outline-none focus:ring-1 focus:ring-primary-200 focus:border-primary-400 transition-colors"/>
                                 </td>
+                                <td class="px-3 py-2.5 text-right">
+                                  <span class="inline-flex items-center gap-1 text-xs font-semibold" [class.text-emerald-600]="(dist.billed_amount ?? 0) > 0" [class.text-neutral-300]="!(dist.billed_amount ?? 0)">
+                                    {{ formatCurrency(dist.billed_amount ?? 0) }}
+                                  </span>
+                                </td>
                                 <td class="px-3 py-2.5">
                                   <button type="button" (click)="removeMonth(row, mi); $event.stopPropagation()"
                                     class="opacity-0 group-hover/m:opacity-100 w-6 h-6 rounded-lg flex items-center justify-center text-neutral-300 hover:text-danger hover:bg-danger/10 transition-all mx-auto">
@@ -206,6 +221,7 @@
                                 {{ formatCurrency(distTotalAlly(row)) }} <span class="text-[10px] text-neutral-400 font-normal">/ {{ formatCurrency(row.allyCap) }}</span>
                               </td>
                               <td class="px-3 py-2.5 text-right text-xs font-bold text-primary-600">{{ formatCurrency(distTotalExecuted(row)) }}</td>
+                              <td class="px-3 py-2.5 text-right text-xs font-bold text-emerald-600">{{ formatCurrency(distTotalBilled(row)) }}</td>
                               <td></td>
                             </tr>
                           </tfoot>

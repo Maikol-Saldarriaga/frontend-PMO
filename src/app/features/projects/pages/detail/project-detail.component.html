@@ -155,6 +155,10 @@
   <app-tab-presupuesto [projectId]="projectId" />
 }
 
+@if (activeTab() === 'facturacion') {
+  <app-tab-facturacion [projectId]="projectId" />
+}
+
 @if (activeTab() === 'beneficiarios') {
   <app-tab-beneficiarios [projectId]="projectId" />
 }

@@ -145,9 +145,16 @@ export class MonthlyComponent implements OnInit {
   distTotalExecuted(row: MonthlyRow): number {
     return row.distributions.reduce((s, d) => s + (d.executed_amount ?? 0), 0);
   }
+  distTotalBilled(row: MonthlyRow): number {
+    return row.distributions.reduce((s, d) => s + (d.billed_amount ?? 0), 0);
+  }
 
   goBack(): void {
     this.router.navigate(['/projects', this.projectId], { queryParams: { tab: 'presupuesto' } });
+  }
+
+  goToInvoices(): void {
+    this.router.navigate(['/projects', this.projectId], { queryParams: { tab: 'facturacion' } });
   }
 
   monthName(m: number): string {

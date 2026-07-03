@@ -889,6 +889,16 @@ export interface MonthlyBulkRequest {
 
 export type MonthlyWizardResponse = BudgetWizardResponse;
 
+export type BudgetItemUnitMeasurement = 'mes' | 'bimestre' | 'trimestre' | 'semestre' | 'anio';
+
+export const BUDGET_ITEM_UNIT_OPTIONS: { value: BudgetItemUnitMeasurement; label: string }[] = [
+  { value: 'mes',       label: 'Mensual' },
+  { value: 'bimestre',  label: 'Bimestral' },
+  { value: 'trimestre', label: 'Trimestral' },
+  { value: 'semestre',  label: 'Semestral' },
+  { value: 'anio',      label: 'Anual' },
+];
+
 export interface BudgetItem {
   id:                       string;
   contract_agreement_id:    string;
@@ -903,6 +913,7 @@ export interface BudgetItem {
   ally_contribution:        number;
   sort_order:               number;
   created_at:               string;
+  start_date:               string | null; // usado para generar la distribución mensual automática
   monthly_distributions:    BudgetMonthlyDistribution[];
 }
 
@@ -999,6 +1010,7 @@ export interface BudgetItemRequest {
   counterpart_contribution: number;
   ally_contribution:        number;
   sort_order?:              number;
+  start_date?:              string; // ISO 8601 completo, ej. "2026-01-15T00:00:00Z"
   monthly_distributions?:   Pick<BudgetMonthlyDistribution, 'year' | 'month' | 'counterpart_amount' | 'ally_amount'>[];
 }
 
@@ -1019,6 +1031,40 @@ export const EMPTY_BUDGET_FORM = (): BudgetFormData => ({
   quantity: null, total_value: 0, counterpart_contribution: null,
   ally_contribution: null, monthly_distributions: [],
 });
+
+// ── Facturación (invoices contra un budget_item) ────────────────────────────
+
+export type InvoiceStatus = 'PEND' | 'FACT';
+
+export interface Invoice {
+  id:                        string;
+  contract_agreement_id:     string;
+  user_id:                   string;
+  budget_item_id:            string;
+  distribution_id:           string | null;
+  year:                      number | null;
+  month:                     number | null;
+  value:                     number;
+  value_before_tax:          number | null;
+  collection_act_number:     string | null;
+  status:                    InvoiceStatus;
+  description:               string | null;
+  date:                      string;
+  budget_component_name?:    string | null;
+  technical_component_id?:   string | null;
+  technical_component_name?: string | null;
+}
+
+export interface InvoiceRequest {
+  value:                  number;
+  year?:                  number | null; // deben ir siempre juntos con month; omitir ambos = factura del componente completo
+  month?:                 number | null;
+  value_before_tax?:      number;
+  collection_act_number?: string;
+  status?:                InvoiceStatus;
+  description?:           string;
+  date?:                  string; // ISO 8601 completo, ej. "2026-01-15T00:00:00Z"
+}
 
 export const PROJECT_STEPS = [
   { number: 1,  label: 'Información Básica',                                                   description: 'Datos básicos, tipo, código, contrato, fechas', icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },

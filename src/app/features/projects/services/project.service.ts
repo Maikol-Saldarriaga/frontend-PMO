@@ -30,6 +30,8 @@ import {
   BudgetWizardResponse,
   BudgetComponent,
   BudgetComponentRequest,
+  Invoice,
+  InvoiceRequest,
   GanttResponse,
   GanttFilters,
   ScopeComponent,
@@ -136,6 +138,10 @@ export class ProjectService {
     return this.http.get<BudgetWizardResponse>(ENDPOINTS.projects.budgetWizard(id));
   }
 
+  getBudgetItem(id: string, bid: string): Observable<BudgetItem> {
+    return this.http.get<BudgetItem>(ENDPOINTS.projects.budgetItem(id, bid));
+  }
+
   createBudgetItem(id: string, data: BudgetItemRequest): Observable<BudgetItem> {
     return this.http.post<BudgetItem>(ENDPOINTS.projects.budget(id), data);
   }
@@ -178,6 +184,18 @@ export class ProjectService {
 
   deleteMonthlyDistribution(id: string, bid: string, did: string): Observable<void> {
     return this.http.delete<void>(ENDPOINTS.projects.monthlySingle(id, bid, did));
+  }
+
+  generateMonthly(id: string, bid: string): Observable<BudgetMonthlyDistribution[]> {
+    return this.http.post<BudgetMonthlyDistribution[]>(ENDPOINTS.projects.monthlyGenerate(id, bid), {});
+  }
+
+  listInvoices(id: string, bid: string): Observable<Invoice[]> {
+    return this.http.get<Invoice[]>(ENDPOINTS.projects.invoices(id, bid));
+  }
+
+  createInvoice(id: string, bid: string, data: InvoiceRequest): Observable<Invoice> {
+    return this.http.post<Invoice>(ENDPOINTS.projects.invoices(id, bid), data);
   }
 
   getGantt(id: string, filters: GanttFilters = {}): Observable<GanttResponse> {

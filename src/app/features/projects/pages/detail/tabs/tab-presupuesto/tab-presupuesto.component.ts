@@ -4,9 +4,11 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ProjectService } from '../../../../services/project.service';
 import {
-  BudgetWizardResponse, BudgetEntry, BudgetItem, BudgetItemRequest,
+  BudgetWizardResponse, BudgetEntry, BudgetItem, BudgetItemRequest, BUDGET_ITEM_UNIT_OPTIONS,
+  BudgetMonthlyDistribution, Invoice,
 } from '../../../../models/project.model';
 import { MoneyMaskDirective } from '../../../../../../shared/directives/money-mask.directive';
+import { BudgetPeriodStatusComponent } from '../../../../components/budget-period-status/budget-period-status.component';
 
 const PALETTE = ['#0EA5E9','#10B981','#F59E0B','#EF4444','#8B5CF6','#EC4899','#14B8A6','#F97316'];
 
@@ -20,6 +22,7 @@ export interface ItemRow {
   total_value:               number;
   counterpart_contribution:  number | null;
   ally_contribution:         number | null;
+  start_date:                string | null; // "yyyy-MM-dd" para el input date
   expanded:                  boolean;
   dirty:                     boolean;
   saving:                    boolean;
@@ -27,6 +30,13 @@ export interface ItemRow {
   rowError:                  string | null;
   rowSuccess:                boolean;
   savedTotalValue:           number; // último total_value persistido en el backend (0 si es un ítem nuevo)
+  generating:                boolean;
+  generateError:             string | null;
+  generateSuccess:           boolean;
+  monthly_distributions:     BudgetMonthlyDistribution[];
+  showBilling:               boolean;
+  billingLoading:            boolean;
+  billingInvoices:           Invoice[] | null; // null = aún no se ha cargado
 }
 
 export interface EntrySection {
@@ -55,21 +65,27 @@ const EMPTY_ITEM_ROW = (): ItemRow => ({
   concept: '', description: '', unit_measurement: '',
   unit_value: null, quantity: null, total_value: 0,
   counterpart_contribution: null, ally_contribution: null,
+  start_date: null,
   expanded: true, dirty: false, saving: false,
   existingId: null, rowError: null, rowSuccess: false,
   savedTotalValue: 0,
+  generating: false, generateError: null, generateSuccess: false,
+  monthly_distributions: [],
+  showBilling: false, billingLoading: false, billingInvoices: null,
 });
 
 @Component({
   selector: 'app-tab-presupuesto',
   standalone: true,
-  imports: [CommonModule, FormsModule, MoneyMaskDirective],
+  imports: [CommonModule, FormsModule, MoneyMaskDirective, BudgetPeriodStatusComponent],
   templateUrl: './tab-presupuesto.component.html',
 })
 export class TabPresupuestoComponent implements OnInit {
   @Input() projectId!: string;
 
   constructor(private svc: ProjectService, private rtr: Router) {}
+
+  readonly unitOptions = BUDGET_ITEM_UNIT_OPTIONS;
 
   budgetWizard  = signal<BudgetWizardResponse | null>(null);
   budgetLoading = signal(true);
@@ -135,6 +151,7 @@ export class TabPresupuestoComponent implements OnInit {
           total_value:               item.total_value ?? 0,
           counterpart_contribution:  item.counterpart_contribution ?? null,
           ally_contribution:         item.ally_contribution ?? null,
+          start_date:                item.start_date ? item.start_date.slice(0, 10) : null,
           expanded:                  false,
           dirty:                     false,
           saving:                    false,
@@ -142,6 +159,13 @@ export class TabPresupuestoComponent implements OnInit {
           rowError:                  null,
           rowSuccess:                false,
           savedTotalValue:           item.total_value ?? 0,
+          generating:                false,
+          generateError:             null,
+          generateSuccess:           false,
+          monthly_distributions:     item.monthly_distributions ?? [],
+          showBilling:               false,
+          billingLoading:            false,
+          billingInvoices:           null,
         } as ItemRow)),
       } as EntrySection)),
     }));
@@ -340,6 +364,7 @@ export class TabPresupuestoComponent implements OnInit {
       total_value:              row.total_value,
       counterpart_contribution: row.counterpart_contribution ?? 0,
       ally_contribution:        row.ally_contribution        ?? 0,
+      start_date:               row.start_date ? `${row.start_date}T00:00:00Z` : undefined,
     };
 
     const request$ = row.existingId
@@ -378,6 +403,51 @@ export class TabPresupuestoComponent implements OnInit {
         this.refreshWizardMeta();
       },
       error: () => this.showMsg('Error al eliminar el ítem.'),
+    });
+  }
+
+  canGenerateDistribution(row: ItemRow): boolean {
+    return !!row.existingId && !!row.start_date && !!row.unit_measurement && !!row.quantity && row.quantity > 0 && Number.isInteger(row.quantity);
+  }
+
+  generateDistribution(row: ItemRow): void {
+    if (!row.existingId || row.generating || !this.canGenerateDistribution(row)) return;
+
+    if (!confirm('Esto reemplaza por completo la distribución mensual actual de este ítem (se conserva lo ya facturado en los meses que coincidan). ¿Continuar?')) {
+      return;
+    }
+
+    row.generating      = true;
+    row.generateError   = null;
+    row.generateSuccess = false;
+
+    this.svc.generateMonthly(this.projectId, row.existingId).subscribe({
+      next: (distributions) => {
+        row.generating             = false;
+        row.generateSuccess        = true;
+        row.monthly_distributions  = distributions ?? [];
+        row.showBilling            = true;
+        if (row.billingInvoices === null) this.loadBilling(row);
+      },
+      error: (err) => {
+        row.generating    = false;
+        row.generateError  = err?.error?.error ?? 'Error al generar la distribución automática.';
+      },
+    });
+  }
+
+  toggleBilling(row: ItemRow): void {
+    if (!row.existingId) return;
+    row.showBilling = !row.showBilling;
+    if (row.showBilling && row.billingInvoices === null) this.loadBilling(row);
+  }
+
+  private loadBilling(row: ItemRow): void {
+    if (!row.existingId) return;
+    row.billingLoading = true;
+    this.svc.listInvoices(this.projectId, row.existingId).subscribe({
+      next: (list) => { row.billingInvoices = list ?? []; row.billingLoading = false; },
+      error: () => { row.billingInvoices = []; row.billingLoading = false; },
     });
   }
 
