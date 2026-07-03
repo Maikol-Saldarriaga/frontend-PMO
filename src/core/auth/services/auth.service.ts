@@ -32,7 +32,7 @@ export class AuthService {
   refresh(): Observable<RefreshResponse> {
     const refreshToken = this.authStore.refreshToken();
     return this.http.post<RefreshResponse>(ENDPOINTS.auth.refresh, { refresh_token: refreshToken }).pipe(
-      tap(res => this.authStore.setAccessToken(res.access_token))
+      tap(res => this.authStore.setAccessToken(res.access_token, res.refresh_token))
     );
   }
 

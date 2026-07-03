@@ -22,161 +22,199 @@
   </div>
 
   <form [formGroup]="form" (ngSubmit)="save()" novalidate>
-    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mb-4">
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm mb-4">
 
-      <div formArrayName="locations" class="divide-y divide-gray-100">
-        @for (row of locationsArray.controls; track $index; let i = $index) {
-          <div [formGroupName]="i" class="px-5 py-5">
+      <div class="overflow-x-auto overflow-y-visible rounded-t-2xl">
+        <table class="w-full text-sm min-w-[860px] border-collapse" formArrayName="locations">
+          <thead>
+            <tr class="bg-gray-50 border-b border-gray-100 text-[10px] font-bold text-gray-500 uppercase tracking-wide">
+              <th class="text-left px-4 py-2.5 w-8">#</th>
+              <th class="text-left px-3 py-2.5 w-2/5">Municipio / Vereda</th>
+              <th class="text-left px-3 py-2.5">Departamento</th>
+              <th class="text-left px-3 py-2.5 w-1/3">Detalles de la zona de intervención</th>
+              <th class="px-3 py-2.5 w-16 text-right">Acciones</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            @for (row of locationsArray.controls; track $index; let i = $index) {
+              <tr [formGroupName]="i" class="align-top">
 
-            <div class="flex items-center justify-between mb-4">
-              <div class="flex items-center gap-2">
-                <div class="w-6 h-6 rounded-full bg-sky-500 flex items-center justify-center flex-shrink-0">
-                  <span class="text-[10px] font-black text-white">{{ i + 1 }}</span>
-                </div>
-                <span class="text-xs font-semibold text-gray-600">Ubicación {{ i + 1 }}</span>
-              </div>
-              @if (locationsArray.length > 1) {
-                <button type="button" (click)="removeRow(i)"
-                  class="flex items-center gap-1 text-xs text-gray-400 hover:text-red-500 transition-colors">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                  </svg>
-                  Eliminar
-                </button>
-              }
-            </div>
+                <td class="px-4 py-3">
+                  <div class="w-6 h-6 rounded-full bg-sky-500 flex items-center justify-center flex-shrink-0">
+                    <span class="text-[10px] font-black text-white">{{ i + 1 }}</span>
+                  </div>
+                </td>
 
-            <div class="grid grid-cols-1 gap-4">
-
-              <!-- Búsqueda única -->
-              <div class="relative">
-                <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">
-                  Municipio o Vereda <span class="text-red-500">*</span>
-                </label>
-
-                @if (getSearch(i).selected) {
-                  <!-- Seleccionado -->
-                  <div class="flex items-center gap-2.5 px-3 py-2 rounded-xl border border-sky-300 bg-sky-50">
-                    <div class="w-6 h-6 rounded-md bg-sky-500 flex items-center justify-center flex-shrink-0">
-                      <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
-                      </svg>
+                <!-- Municipio / Vereda -->
+                <td class="px-3 py-3 relative">
+                  @if (getSearch(i).selected) {
+                    <!-- Seleccionado -->
+                    <div class="flex items-center gap-2 px-3 py-2 rounded-xl border border-sky-300 bg-sky-50">
+                      <div class="flex-1 min-w-0">
+                        <p class="text-xs font-bold text-gray-800 truncate">{{ getSearch(i).selected!.name }}</p>
+                        <p class="text-[10px] text-gray-400 mt-0.5 truncate">
+                          {{ getSearch(i).selected!.type === 'vereda' ? 'Vereda' : 'Municipio' }}
+                        </p>
+                      </div>
+                      <button type="button" (click)="clearSelection(i)"
+                        class="p-1 rounded-md text-gray-400 hover:text-red-500 hover:bg-white transition-colors flex-shrink-0">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                      </button>
                     </div>
-                    <div class="flex-1 min-w-0">
-                      <p class="text-xs font-bold text-gray-800 truncate">{{ getSearch(i).selected!.name }}</p>
-                      <p class="text-[10px] text-gray-400 mt-0.5">
-                        @if (getSearch(i).selected!.type === 'vereda') {
-                          Vereda · {{ getSearch(i).selected!.municipality }} · {{ getSearch(i).selected!.department }} · Colombia
-                        } @else {
-                          Municipio · {{ getSearch(i).selected!.department }} · Colombia
+                  } @else if (getManual(i).active) {
+                    <!-- Alta manual: departamento → municipio → vereda -->
+                    <div class="space-y-1.5 p-2.5 rounded-xl border border-dashed border-sky-300 bg-sky-50/40">
+                      <select [value]="getManual(i).deptCod"
+                        (change)="onManualDeptChange(i, $any($event.target).value)"
+                        class="w-full px-2 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-700 bg-white outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 transition-colors">
+                        <option value="">Departamento...</option>
+                        @for (d of allDepts(); track d.cod_dpto) {
+                          <option [value]="d.cod_dpto" [selected]="getManual(i).deptCod === d.cod_dpto">{{ d.nom_dpto }}</option>
                         }
-                      </p>
+                      </select>
+                      <select [value]="getManual(i).mpioCod"
+                        (change)="onManualMpioChange(i, $any($event.target).value)"
+                        [attr.disabled]="!getManual(i).deptCod ? '' : null"
+                        class="w-full px-2 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-700 bg-white outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                        <option value="">{{ getManual(i).loadingMunicipios ? 'Cargando...' : 'Municipio...' }}</option>
+                        @for (m of getManual(i).municipios; track m.cod_mpio) {
+                          <option [value]="m.cod_mpio" [selected]="getManual(i).mpioCod === m.cod_mpio">{{ m.nom_mpio }}</option>
+                        }
+                      </select>
+                      <input type="text" [value]="getManual(i).veredaName"
+                        (input)="onManualVeredaTextChange(i, $any($event.target).value)"
+                        [disabled]="!getManual(i).mpioCod"
+                        placeholder="Vereda (opcional, no está en la API — escríbela)"
+                        class="w-full px-2 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-700 placeholder-gray-400 bg-white outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"/>
+                      <div class="flex items-center gap-2 pt-0.5">
+                        <button type="button" (click)="confirmManualEntry(i)" [disabled]="!getManual(i).mpioCod"
+                          class="text-[11px] font-semibold text-sky-600 hover:text-sky-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                          Usar esta ubicación
+                        </button>
+                        <button type="button" (click)="cancelManualEntry(i)"
+                          class="text-[11px] text-gray-400 hover:text-gray-600 transition-colors">Cancelar</button>
+                      </div>
                     </div>
-                    <button type="button" (click)="clearSelection(i)"
-                      class="p-1 rounded-md text-gray-400 hover:text-red-500 hover:bg-white transition-colors flex-shrink-0">
-                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                      </svg>
-                    </button>
-                  </div>
-                } @else {
-                  <!-- Búsqueda -->
-                  <div class="relative">
-                    <input
-                      type="text"
-                      [value]="getSearch(i).term"
-                      (input)="onSearchInput(i, $event)"
-                      (blur)="closeDropdown(i)"
-                      placeholder="Escribe el nombre del municipio o vereda..."
-                      autocomplete="off"
-                      class="w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm text-gray-800 placeholder-gray-400 bg-gray-50 focus:bg-white outline-none focus:ring-2 transition-colors"
-                      [class.border-gray-200]="!isInvalid($any(row), 'municipality')"
-                      [class.focus:ring-sky-200]="!isInvalid($any(row), 'municipality')"
-                      [class.focus:border-sky-400]="!isInvalid($any(row), 'municipality')"
-                      [class.border-red-300]="isInvalid($any(row), 'municipality')"
-                      [class.focus:ring-red-100]="isInvalid($any(row), 'municipality')"
-                    />
-                    <div class="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                      @if (getSearch(i).loading) {
-                        <svg class="animate-spin w-4 h-4 text-sky-500" fill="none" viewBox="0 0 24 24">
-                          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                        </svg>
-                      } @else {
-                        <svg class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                        </svg>
-                      }
-                    </div>
-                  </div>
-
-                  @if (isInvalid($any(row), 'municipality')) {
-                    <p class="mt-1 text-xs text-red-500">Selecciona un municipio o vereda</p>
-                  }
-
-                  <!-- Dropdown -->
-                  @if (getSearch(i).open) {
-                    <div class="absolute z-50 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden max-h-64 overflow-y-auto">
-                      @if (getSearch(i).loading) {
-                        <div class="px-4 py-4 text-xs text-gray-400 flex items-center gap-2">
-                          <svg class="animate-spin w-3.5 h-3.5 text-sky-500 flex-shrink-0" fill="none" viewBox="0 0 24 24">
+                  } @else {
+                    <!-- Búsqueda -->
+                    <div class="relative">
+                      <input
+                        type="text"
+                        [value]="getSearch(i).term"
+                        (input)="onSearchInput(i, $event)"
+                        (blur)="closeDropdown(i)"
+                        placeholder="Escribe el nombre del municipio o vereda..."
+                        autocomplete="off"
+                        class="w-full pl-9 pr-3 py-2 rounded-xl border text-xs text-gray-800 placeholder-gray-400 bg-gray-50 focus:bg-white outline-none focus:ring-2 transition-colors"
+                        [class.border-gray-200]="!isInvalid($any(row), 'municipality')"
+                        [class.focus:ring-sky-200]="!isInvalid($any(row), 'municipality')"
+                        [class.focus:border-sky-400]="!isInvalid($any(row), 'municipality')"
+                        [class.border-red-300]="isInvalid($any(row), 'municipality')"
+                        [class.focus:ring-red-100]="isInvalid($any(row), 'municipality')"
+                      />
+                      <div class="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                        @if (getSearch(i).loading) {
+                          <svg class="animate-spin w-4 h-4 text-sky-500" fill="none" viewBox="0 0 24 24">
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
                           </svg>
-                          Buscando municipios y veredas...
-                        </div>
-                      } @else if (getSearch(i).results.length === 0) {
-                        <div class="px-4 py-4 text-center">
-                          @if (getSearch(i).term.length >= 2) {
-                            <p class="text-xs text-gray-400">Sin resultados para <strong>"{{ getSearch(i).term }}"</strong></p>
-                          } @else {
-                            <p class="text-xs text-gray-400">Escribe al menos 2 caracteres para buscar</p>
-                          }
-                        </div>
-                      } @else {
-                        @for (r of getSearch(i).results; track r.cod) {
-                          <button type="button" (mousedown)="selectResult(i, r)"
-                            class="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-3 transition-colors border-b border-gray-50 last:border-b-0">
-                            <div class="w-7 h-7 rounded-lg bg-sky-100 flex items-center justify-center flex-shrink-0">
-                              <svg class="w-3.5 h-3.5 text-sky-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
-                              </svg>
-                            </div>
-                            <div class="flex-1 min-w-0">
-                              <p class="text-sm font-semibold text-gray-800 truncate">{{ r.name }}</p>
-                              <p class="text-[11px] text-gray-400 mt-0.5">
-                                @if (r.type === 'vereda') {
-                                  Vereda · {{ r.municipality }} · {{ r.department }}
-                                } @else {
-                                  Municipio · {{ r.department }}
-                                }
-                              </p>
-                            </div>
-                            <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-sky-100 text-sky-600 flex-shrink-0">
-                              {{ r.type === 'municipio' ? 'Municipio' : 'Vereda' }}
-                            </span>
-                          </button>
+                        } @else {
+                          <svg class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                          </svg>
                         }
-                      }
+                      </div>
                     </div>
+
+                    @if (isInvalid($any(row), 'municipality')) {
+                      <p class="mt-1 text-xs text-red-500">Selecciona un municipio o vereda</p>
+                    }
+
+                    <!-- Dropdown: position fixed y anclado al input, así queda por encima de la tarjeta/tabla sin que lo recorten -->
+                    @if (getSearch(i).open && getSearch(i).rect) {
+                      <div class="fixed z-50 bg-white border border-gray-200 rounded-xl shadow-2xl overflow-hidden max-h-72 overflow-y-auto"
+                        [style.top.px]="getSearch(i).rect!.top" [style.left.px]="getSearch(i).rect!.left" [style.width.px]="getSearch(i).rect!.width">
+                        @if (getSearch(i).loading) {
+                          <div class="px-4 py-4 text-xs text-gray-400 flex items-center gap-2">
+                            <svg class="animate-spin w-3.5 h-3.5 text-sky-500 flex-shrink-0" fill="none" viewBox="0 0 24 24">
+                              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                            </svg>
+                            Buscando municipios y veredas...
+                          </div>
+                        } @else if (getSearch(i).results.length === 0) {
+                          <div class="px-4 py-4 text-center">
+                            @if (getSearch(i).term.length >= 2) {
+                              <p class="text-xs text-gray-400 mb-2">Sin resultados para <strong>"{{ getSearch(i).term }}"</strong></p>
+                              <button type="button" (mousedown)="startManualEntry(i)"
+                                class="text-[11px] font-semibold text-sky-600 hover:text-sky-700 transition-colors">
+                                Esta ubicación no la tenemos registrada en la base de datos — agregar manualmente
+                              </button>
+                            } @else {
+                              <p class="text-xs text-gray-400">Escribe al menos 2 caracteres para buscar</p>
+                            }
+                          </div>
+                        } @else {
+                          @for (r of getSearch(i).results; track r.cod) {
+                            <button type="button" (mousedown)="selectResult(i, r)"
+                              class="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-3 transition-colors border-b border-gray-50 last:border-b-0">
+                              <div class="flex-1 min-w-0">
+                                <p class="text-sm font-semibold text-gray-800 truncate">{{ r.name }}</p>
+                                <p class="text-[11px] text-gray-400 mt-0.5">
+                                  @if (r.type === 'vereda') {
+                                    Vereda · {{ r.municipality }} · {{ r.department }}
+                                  } @else {
+                                    Municipio · {{ r.department }}
+                                  }
+                                </p>
+                              </div>
+                              <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-sky-100 text-sky-600 flex-shrink-0">
+                                {{ r.type === 'municipio' ? 'Municipio' : 'Vereda' }}
+                              </span>
+                            </button>
+                          }
+                        }
+                      </div>
+                    }
                   }
-                }
-              </div>
+                </td>
 
-              <!-- Detalles -->
-              <div>
-                <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Detalles de la zona de intervención</label>
-                <input formControlName="details" type="text"
-                  placeholder="Ej: Zona de intervención sur, barrios periféricos..."
-                  class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-800 placeholder-gray-400 bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 transition-colors"/>
-              </div>
+                <!-- Departamento -->
+                <td class="px-3 py-3">
+                  @if (getSearch(i).selected) {
+                    <span class="text-xs text-gray-600">{{ getSearch(i).selected!.department }}</span>
+                  } @else {
+                    <span class="text-xs text-gray-300">—</span>
+                  }
+                </td>
 
-            </div>
-          </div>
-        }
+                <!-- Detalles -->
+                <td class="px-3 py-3">
+                  <input formControlName="details" type="text"
+                    placeholder="Ej: Zona sur, barrios periféricos..."
+                    class="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs text-gray-800 placeholder-gray-400 bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 transition-colors"/>
+                </td>
+
+                <!-- Acciones -->
+                <td class="px-3 py-3 text-right">
+                  @if (locationsArray.length > 1) {
+                    <button type="button" (click)="removeRow(i)" title="Eliminar"
+                      class="w-7 h-7 inline-flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                      </svg>
+                    </button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
       </div>
 
-      <div class="px-5 py-4 border-t border-gray-100 bg-gray-50/50">
+      <div class="px-5 py-4 border-t border-gray-100 bg-gray-50/50 rounded-b-2xl">
         <button type="button" (click)="addRow()"
           class="flex items-center gap-2 text-sm text-sky-600 hover:text-sky-700 font-semibold transition-colors">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

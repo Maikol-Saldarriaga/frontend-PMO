@@ -231,7 +231,7 @@
               <div class="group relative w-16 h-16 rounded-lg border border-gray-100 bg-gray-50 overflow-hidden">
                 <a [href]="v.verification_url" target="_blank" rel="noopener"
                   class="w-full h-full flex items-center justify-center"
-                  [title]="v.name || 'Verificación'">
+                  [title]="(v.name || 'Verificación') + (v.verification_type ? ' · ' + (verificationTypeLabel(v.verification_type)) : '')">
                   @if (verificationKind(v) === 'image') {
                     <img [src]="v.verification_url" class="w-full h-full object-cover"/>
                   } @else if (verificationKind(v) === 'pdf') {
@@ -262,28 +262,6 @@
             }
 
             @if (!isDeliveryLocked()) {
-              <!-- Pendientes de subir -->
-              @for (sf of stagedFiles(); track $index; let i = $index) {
-                <div class="relative w-16 h-16 rounded-lg border border-dashed border-sky-200 bg-sky-50 overflow-hidden flex items-center justify-center"
-                  [title]="sf.file.name">
-                  @if (sf.kind === 'image' && sf.preview) {
-                    <img [src]="sf.preview" class="w-full h-full object-cover"/>
-                  } @else if (sf.kind === 'pdf' && sf.preview) {
-                    <embed [src]="sf.preview" type="application/pdf" class="w-full h-full pointer-events-none scale-[3] origin-top-left"/>
-                  } @else {
-                    <svg class="w-6 h-6 text-sky-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                    </svg>
-                  }
-                  <button (click)="removeStagedFile(i)"
-                    class="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80">
-                    <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-                    </svg>
-                  </button>
-                </div>
-              }
-
               <!-- Agregar archivo -->
               <label class="w-16 h-16 rounded-lg border border-dashed border-gray-300 flex items-center justify-center text-gray-400 hover:text-sky-500 hover:border-sky-300 cursor-pointer transition-colors">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -296,6 +274,60 @@
 
           @if ((!delivery() || delivery()!.verifications.length === 0) && stagedFiles().length === 0) {
             <p class="text-xs text-gray-400">Sin verificaciones adjuntas.</p>
+          }
+
+          @if (!isDeliveryLocked() && stagedFiles().length > 0) {
+            <!-- Pendientes de subir: cada una necesita su tipo y nombre de medio de verificación -->
+            <div class="space-y-3 mt-3">
+              @for (sf of stagedFiles(); track $index; let i = $index) {
+                <div class="flex items-start gap-3 p-3 rounded-xl border border-dashed border-sky-200 bg-sky-50/50">
+                  <div class="relative w-14 h-14 shrink-0 rounded-lg border border-dashed border-sky-200 bg-sky-50 overflow-hidden flex items-center justify-center"
+                    [title]="sf.file.name">
+                    @if (sf.kind === 'image' && sf.preview) {
+                      <img [src]="sf.preview" class="w-full h-full object-cover"/>
+                    } @else if (sf.kind === 'pdf' && sf.preview) {
+                      <embed [src]="sf.preview" type="application/pdf" class="w-full h-full pointer-events-none scale-[3] origin-top-left"/>
+                    } @else {
+                      <svg class="w-6 h-6 text-sky-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                      </svg>
+                    }
+                    <button (click)="removeStagedFile(i)"
+                      class="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80">
+                      <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                      </svg>
+                    </button>
+                  </div>
+
+                  <div class="flex-1 min-w-0 grid grid-cols-2 gap-2">
+                    <div>
+                      <label class="block text-[9px] font-bold text-gray-400 uppercase tracking-wide mb-1">Tipo</label>
+                      <select [value]="sf.support_type"
+                        (change)="updateStagedField(i, 'support_type', $any($event.target).value)"
+                        class="w-full px-2 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-700 bg-white outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 transition-colors">
+                        <option value="">Selecciona...</option>
+                        @for (key of supportTypeKeys; track key) {
+                          <option [value]="key" [selected]="sf.support_type === key">{{ supportTypeLabels[key] }}</option>
+                        }
+                      </select>
+                    </div>
+                    <div>
+                      <label class="block text-[9px] font-bold text-gray-400 uppercase tracking-wide mb-1">Nombre</label>
+                      <select [value]="sf.name"
+                        [attr.disabled]="!sf.support_type ? '' : null"
+                        (change)="updateStagedField(i, 'name', $any($event.target).value)"
+                        class="w-full px-2 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-700 bg-white outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                        <option value="">{{ sf.support_type ? 'Selecciona...' : 'Elige el tipo' }}</option>
+                        @for (name of getSupportNames(i); track name) {
+                          <option [value]="name" [selected]="sf.name === name">{{ name }}</option>
+                        }
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              }
+            </div>
           }
         </div>
 
@@ -312,7 +344,7 @@
             </p>
           }
 
-          <button (click)="saveAll()" [disabled]="saving() || (!isDirty() && stagedFiles().length === 0)"
+          <button (click)="saveAll()" [disabled]="saving() || (!isDirty() && stagedFiles().length === 0) || (stagedFiles().length > 0 && !canSaveStagedFiles())"
             class="flex items-center gap-2 px-5 py-2 rounded-xl bg-sky-500 hover:bg-sky-600 disabled:opacity-50 text-white text-sm font-semibold transition-colors">
             @if (saving()) {
               <div class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>

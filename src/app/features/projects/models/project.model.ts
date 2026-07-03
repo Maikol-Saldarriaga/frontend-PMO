@@ -709,6 +709,7 @@ export interface DeliveryVerification {
   id_activity:        string;
   id_checkpoint:      string;
   id_company:         string;
+  verification_type:  string | null;
   name:               string | null;
   file_name:          string | null;
   verification_url:   string;

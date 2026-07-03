@@ -132,6 +132,15 @@
                             </svg>
                             Ver facturas
                           </button>
+                          <button type="button" (click)="generateDistribution(row); $event.stopPropagation()"
+                            [disabled]="!canGenerateDistribution(row) || row.generating"
+                            title="Requiere unidad, cantidad entera y fecha de inicio. Reemplaza la distribución actual (conserva lo ya facturado)."
+                            class="flex items-center gap-1.5 text-xs text-neutral-500 hover:text-primary-700 font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                            </svg>
+                            @if (row.generating) { Regenerando... } @else { Regenerar distribución automáticamente }
+                          </button>
                           <button type="button" (click)="addMonth(row); $event.stopPropagation()"
                             class="flex items-center gap-1.5 text-xs text-accent hover:text-accent-700 font-semibold transition-colors">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -141,6 +150,10 @@
                           </button>
                         </div>
                       </div>
+
+                      @if (row.generateError && row.distributions.length) {
+                        <p class="px-5 py-2 text-[11px] font-semibold text-danger border-b border-neutral-100">{{ row.generateError }}</p>
+                      }
 
                       @if (row.distributions.length) {
                         <table class="w-full text-xs">
@@ -228,14 +241,33 @@
                         </table>
                       } @else {
                         <div class="px-5 py-6 text-center">
-                          <p class="text-xs text-neutral-400 mb-3">Sin distribuciones mensuales aún.</p>
-                          <button type="button" (click)="addMonth(row); $event.stopPropagation()"
-                            class="inline-flex items-center gap-1.5 text-xs font-semibold text-accent hover:text-accent-700 border border-accent-200 hover:bg-accent-50 px-3 py-1.5 rounded-lg transition-colors">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                          <div class="flex items-start gap-2 p-3 mb-3 rounded-xl bg-warning/5 border border-warning/20 text-left">
+                            <svg class="w-4 h-4 text-warning flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                             </svg>
-                            Agregar primer mes
-                          </button>
+                            <p class="text-xs text-neutral-500">Este ítem no tiene distribución mensual (puede que no se haya podido generar automáticamente al crearlo). Puedes generarla ahora o agregar los meses manualmente.</p>
+                          </div>
+                          @if (row.generateError) {
+                            <p class="text-[11px] font-semibold text-danger mb-2">{{ row.generateError }}</p>
+                          }
+                          <div class="flex items-center justify-center gap-2 flex-wrap">
+                            <button type="button" (click)="generateDistribution(row); $event.stopPropagation()"
+                              [disabled]="!canGenerateDistribution(row) || row.generating"
+                              title="Requiere unidad, cantidad entera y fecha de inicio"
+                              class="inline-flex items-center gap-1.5 text-xs font-semibold text-accent hover:text-accent-700 border border-accent-200 hover:bg-accent-50 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                              </svg>
+                              @if (row.generating) { Generando... } @else { Generar distribución automática }
+                            </button>
+                            <button type="button" (click)="addMonth(row); $event.stopPropagation()"
+                              class="inline-flex items-center gap-1.5 text-xs font-semibold text-neutral-500 hover:text-primary-700 border border-neutral-200 hover:bg-neutral-50 px-3 py-1.5 rounded-lg transition-colors">
+                              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                              </svg>
+                              Agregar mes manualmente
+                            </button>
+                          </div>
                         </div>
                       }
                     </div>

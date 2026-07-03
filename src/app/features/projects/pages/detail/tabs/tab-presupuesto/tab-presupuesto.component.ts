@@ -5,10 +5,8 @@ import { Router } from '@angular/router';
 import { ProjectService } from '../../../../services/project.service';
 import {
   BudgetWizardResponse, BudgetEntry, BudgetItem, BudgetItemRequest, BUDGET_ITEM_UNIT_OPTIONS,
-  BudgetMonthlyDistribution, Invoice,
 } from '../../../../models/project.model';
 import { MoneyMaskDirective } from '../../../../../../shared/directives/money-mask.directive';
-import { BudgetPeriodStatusComponent } from '../../../../components/budget-period-status/budget-period-status.component';
 
 const PALETTE = ['#0EA5E9','#10B981','#F59E0B','#EF4444','#8B5CF6','#EC4899','#14B8A6','#F97316'];
 
@@ -30,13 +28,6 @@ export interface ItemRow {
   rowError:                  string | null;
   rowSuccess:                boolean;
   savedTotalValue:           number; // último total_value persistido en el backend (0 si es un ítem nuevo)
-  generating:                boolean;
-  generateError:             string | null;
-  generateSuccess:           boolean;
-  monthly_distributions:     BudgetMonthlyDistribution[];
-  showBilling:               boolean;
-  billingLoading:            boolean;
-  billingInvoices:           Invoice[] | null; // null = aún no se ha cargado
 }
 
 export interface EntrySection {
@@ -69,15 +60,12 @@ const EMPTY_ITEM_ROW = (): ItemRow => ({
   expanded: true, dirty: false, saving: false,
   existingId: null, rowError: null, rowSuccess: false,
   savedTotalValue: 0,
-  generating: false, generateError: null, generateSuccess: false,
-  monthly_distributions: [],
-  showBilling: false, billingLoading: false, billingInvoices: null,
 });
 
 @Component({
   selector: 'app-tab-presupuesto',
   standalone: true,
-  imports: [CommonModule, FormsModule, MoneyMaskDirective, BudgetPeriodStatusComponent],
+  imports: [CommonModule, FormsModule, MoneyMaskDirective],
   templateUrl: './tab-presupuesto.component.html',
 })
 export class TabPresupuestoComponent implements OnInit {
@@ -159,13 +147,6 @@ export class TabPresupuestoComponent implements OnInit {
           rowError:                  null,
           rowSuccess:                false,
           savedTotalValue:           item.total_value ?? 0,
-          generating:                false,
-          generateError:             null,
-          generateSuccess:           false,
-          monthly_distributions:     item.monthly_distributions ?? [],
-          showBilling:               false,
-          billingLoading:            false,
-          billingInvoices:           null,
         } as ItemRow)),
       } as EntrySection)),
     }));
@@ -205,6 +186,17 @@ export class TabPresupuestoComponent implements OnInit {
   capPct(s: ComponentSection): number {
     if (!s.budgetCap) return 0;
     return Math.min(100, Math.round((this.compItemsTotal(s) / s.budgetCap) * 100));
+  }
+
+  /** Estado real del componente técnico según su consumo de presupuesto (independiente de `is_complete` del backend). */
+  sectionStatus(s: ComponentSection): { label: string; classes: string } {
+    if (s.budgetCap !== null && s.budgetCap > 0 && this.compItemsTotal(s) >= s.budgetCap) {
+      return { label: 'Completado', classes: 'bg-emerald-50 text-emerald-700 border-emerald-100' };
+    }
+    if (s.entries.length > 0) {
+      return { label: 'En Asignación', classes: 'bg-accent-50 text-accent-700 border-accent-100' };
+    }
+    return { label: 'Pendiente', classes: 'bg-amber-50 text-amber-700 border-amber-100' };
   }
 
   color(i: number): string { return PALETTE[i % PALETTE.length]; }
@@ -367,6 +359,7 @@ export class TabPresupuestoComponent implements OnInit {
       start_date:               row.start_date ? `${row.start_date}T00:00:00Z` : undefined,
     };
 
+    const isCreate = !row.existingId;
     const request$ = row.existingId
       ? this.svc.updateBudgetItem(this.projectId, row.existingId, payload)
       : this.svc.createBudgetItem(this.projectId, payload);
@@ -382,6 +375,12 @@ export class TabPresupuestoComponent implements OnInit {
         row.expanded        = false;
         this.refreshEntryTotals(entry);
         this.refreshWizardMeta();
+
+        // Al crear un ítem por primera vez, se genera automáticamente su distribución mensual.
+        // Al editar uno existente no se regenera para no perder ajustes manuales ya hechos.
+        if (isCreate && row.existingId && row.start_date && row.unit_measurement && row.quantity && row.quantity > 0 && Number.isInteger(row.quantity)) {
+          this.svc.generateMonthly(this.projectId, row.existingId).subscribe({ next: () => {}, error: () => {} });
+        }
       },
       error: () => {
         row.saving = false;
@@ -396,6 +395,8 @@ export class TabPresupuestoComponent implements OnInit {
       return;
     }
 
+    if (!confirm(`¿Eliminar el ítem "${row.concept || 'sin concepto'}"? Esta acción no se puede revertir.`)) return;
+
     this.svc.deleteBudgetItem(this.projectId, row.existingId).subscribe({
       next: () => {
         entry.items = entry.items.filter(r => r.id !== row.id);
@@ -403,51 +404,6 @@ export class TabPresupuestoComponent implements OnInit {
         this.refreshWizardMeta();
       },
       error: () => this.showMsg('Error al eliminar el ítem.'),
-    });
-  }
-
-  canGenerateDistribution(row: ItemRow): boolean {
-    return !!row.existingId && !!row.start_date && !!row.unit_measurement && !!row.quantity && row.quantity > 0 && Number.isInteger(row.quantity);
-  }
-
-  generateDistribution(row: ItemRow): void {
-    if (!row.existingId || row.generating || !this.canGenerateDistribution(row)) return;
-
-    if (!confirm('Esto reemplaza por completo la distribución mensual actual de este ítem (se conserva lo ya facturado en los meses que coincidan). ¿Continuar?')) {
-      return;
-    }
-
-    row.generating      = true;
-    row.generateError   = null;
-    row.generateSuccess = false;
-
-    this.svc.generateMonthly(this.projectId, row.existingId).subscribe({
-      next: (distributions) => {
-        row.generating             = false;
-        row.generateSuccess        = true;
-        row.monthly_distributions  = distributions ?? [];
-        row.showBilling            = true;
-        if (row.billingInvoices === null) this.loadBilling(row);
-      },
-      error: (err) => {
-        row.generating    = false;
-        row.generateError  = err?.error?.error ?? 'Error al generar la distribución automática.';
-      },
-    });
-  }
-
-  toggleBilling(row: ItemRow): void {
-    if (!row.existingId) return;
-    row.showBilling = !row.showBilling;
-    if (row.showBilling && row.billingInvoices === null) this.loadBilling(row);
-  }
-
-  private loadBilling(row: ItemRow): void {
-    if (!row.existingId) return;
-    row.billingLoading = true;
-    this.svc.listInvoices(this.projectId, row.existingId).subscribe({
-      next: (list) => { row.billingInvoices = list ?? []; row.billingLoading = false; },
-      error: () => { row.billingInvoices = []; row.billingLoading = false; },
     });
   }
 

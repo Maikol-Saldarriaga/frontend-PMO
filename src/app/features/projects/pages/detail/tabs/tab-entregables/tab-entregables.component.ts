@@ -7,6 +7,7 @@ import { ServerTimeService } from '../../../../../../core/services/server-time.s
 import {
   ProjectSnapshotItem, Delivery, DeliveryVerification, ScopeComponent,
 } from '../../../../models/project.model';
+import { SupportTypeKey, SUPPORT_TYPES, SUPPORT_TYPE_LABELS } from '../../../../models/support-types.constant';
 
 type DeliveryEstado = 'pendiente' | 'vencido' | 'retrasado' | 'completado' | 'adelantado';
 type DeliveryFilter = 'todos' | 'completados' | 'atrasados' | 'adelantados';
@@ -20,9 +21,11 @@ interface DeliveryDateGroup {
 type FileKind = 'image' | 'pdf' | 'other';
 
 interface StagedFile {
-  file:    File;
-  preview: string | null;
-  kind:    FileKind;
+  file:          File;
+  preview:       string | null;
+  kind:          FileKind;
+  support_type:  SupportTypeKey | '';
+  name:          string;
 }
 
 /** El backend puede enviar fechas con hora/zona ("2026-01-01T00:00:00Z"); solo nos interesa la parte de fecha. */
@@ -73,6 +76,9 @@ export class TabEntregablesComponent implements OnInit {
   private savedMessageTimer: ReturnType<typeof setTimeout> | null = null;
 
   stagedFiles = signal<StagedFile[]>([]);
+
+  readonly supportTypeKeys   = Object.keys(SUPPORT_TYPES) as SupportTypeKey[];
+  readonly supportTypeLabels = SUPPORT_TYPE_LABELS;
 
   componentNames = computed(() => {
     const names = this.scopeComponents().map(c => c.name);
@@ -257,6 +263,10 @@ export class TabEntregablesComponent implements OnInit {
     if (this.selectedDelivery()) this.closeDelivery();
   }
 
+  verificationTypeLabel(type: string): string {
+    return SUPPORT_TYPE_LABELS[type as SupportTypeKey] ?? type;
+  }
+
   /** El backend guarda la URL sin extensión (solo el id de la verificación); la extensión real viene en `file_name` (el nombre de archivo original capturado en el servidor al subir). */
   verificationKind(v: DeliveryVerification): FileKind {
     const ext = (v.file_name || v.name || v.verification_url).match(/\.([a-z0-9]+)(\?.*)?$/i)?.[1]?.toLowerCase() ?? '';
@@ -305,6 +315,8 @@ export class TabEntregablesComponent implements OnInit {
         file,
         kind,
         preview: kind !== 'other' ? URL.createObjectURL(file) : null,
+        support_type: '',
+        name: '',
       };
     });
     this.stagedFiles.update(list => [...list, ...staged]);
@@ -319,6 +331,26 @@ export class TabEntregablesComponent implements OnInit {
     });
   }
 
+  /** Cambia tipo o nombre de un archivo pendiente de subir; al cambiar el tipo se limpia el nombre elegido. */
+  updateStagedField(index: number, field: 'support_type' | 'name', value: string): void {
+    this.stagedFiles.update(list => list.map((sf, i) => {
+      if (i !== index) return sf;
+      const updated = { ...sf, [field]: value };
+      if (field === 'support_type') updated.name = '';
+      return updated;
+    }));
+  }
+
+  getSupportNames(index: number): string[] {
+    const key = this.stagedFiles()[index]?.support_type as SupportTypeKey;
+    return key ? SUPPORT_TYPES[key] : [];
+  }
+
+  /** Todos los archivos pendientes deben tener tipo y nombre elegidos antes de poder guardar. */
+  canSaveStagedFiles(): boolean {
+    return this.stagedFiles().every(sf => !!sf.support_type && !!sf.name);
+  }
+
   saveAll(): void {
     const item = this.selectedDelivery();
     if (!item || !item.id_checkpoint) return;
@@ -329,6 +361,11 @@ export class TabEntregablesComponent implements OnInit {
 
     if (dirty && (this.deliveryForm.actual_pct === null || this.deliveryForm.actual_pct < 0 || this.deliveryForm.actual_pct > 100)) {
       this.saveError.set('El % de avance real debe estar entre 0 y 100.');
+      return;
+    }
+
+    if (files.length && !this.canSaveStagedFiles()) {
+      this.saveError.set('Selecciona el tipo y el nombre del medio de verificación para cada archivo pendiente.');
       return;
     }
 
@@ -347,7 +384,8 @@ export class TabEntregablesComponent implements OnInit {
       ? files.map(sf => {
           const fd = new FormData();
           fd.append('file', sf.file);
-          fd.append('name', sf.file.name);
+          fd.append('verification_type', sf.support_type);
+          fd.append('name', sf.name);
           return this.svc.uploadDeliveryVerification(this.projectId, item.id_activity, item.id_checkpoint, fd);
         })
       : [of(null)];

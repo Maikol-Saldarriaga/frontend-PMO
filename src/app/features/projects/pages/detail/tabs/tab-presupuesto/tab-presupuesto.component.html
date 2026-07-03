@@ -127,11 +127,7 @@
                 </td>
                 <td class="px-3 py-3 text-xs font-semibold text-gray-800">{{ sec.name }}</td>
                 <td class="px-3 py-3">
-                  @if (sec.is_complete) {
-                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">Completo</span>
-                  } @else {
-                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-100">Pendiente</span>
-                  }
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border" [ngClass]="sectionStatus(sec).classes">{{ sectionStatus(sec).label }}</span>
                 </td>
                 <td class="px-3 py-3 text-right whitespace-nowrap">
                   @if (sec.budgetCap !== null) {
@@ -232,7 +228,7 @@
                           class="w-full px-2 py-1.5 rounded-lg border border-neutral-200 text-xs font-semibold text-primary-700 placeholder-neutral-300 bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors mb-1"/>
                         <div class="flex gap-1.5">
                           <select [(ngModel)]="row.unit_measurement" (ngModelChange)="markDirty(row)"
-                            class="w-1/2 px-2 py-1 rounded-lg border border-neutral-200 text-[11px] text-neutral-600 bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors cursor-pointer">
+                            class="w-1/3 px-2 py-1 rounded-lg border border-neutral-200 text-[11px] text-neutral-600 bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors cursor-pointer">
                             <option value="">Unidad de medida...</option>
                             @for (opt of unitOptions; track opt.value) {
                               <option [value]="opt.value">{{ opt.label }}</option>
@@ -240,12 +236,10 @@
                           </select>
                           <input type="text" [(ngModel)]="row.description" (ngModelChange)="markDirty(row)"
                             placeholder="Descripción (opcional)"
-                            class="w-1/2 px-2 py-1 rounded-lg border border-neutral-200 text-[11px] text-neutral-600 placeholder-neutral-300 bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
-                        </div>
-                        <div class="flex items-center gap-2 mt-1.5">
-                          <label class="text-[10px] font-semibold text-neutral-400 uppercase tracking-wide whitespace-nowrap">Fecha de inicio</label>
+                            class="w-1/3 px-2 py-1 rounded-lg border border-neutral-200 text-[11px] text-neutral-600 placeholder-neutral-300 bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
                           <input type="date" [(ngModel)]="row.start_date" (ngModelChange)="markDirty(row)"
-                            class="px-2 py-1 rounded-lg border border-neutral-200 text-[11px] text-neutral-600 bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+                            title="Fecha de inicio"
+                            class="w-1/3 px-2 py-1 rounded-lg border border-neutral-200 text-[11px] text-neutral-600 bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
                         </div>
                         @if (row.rowError) {
                           <p class="text-[10px] font-semibold text-danger mt-1">{{ row.rowError }}</p>
@@ -344,56 +338,6 @@
 
                   </tr>
 
-                  @if (row.expanded && row.existingId) {
-                    <tr>
-                      <td colspan="7" class="px-3 pb-3 pt-2 bg-accent-50/40 border-t border-dashed border-accent-100">
-                        <div class="flex flex-wrap items-center gap-3">
-                          <button type="button" (click)="generateDistribution(row)"
-                            [disabled]="!canGenerateDistribution(row) || row.generating"
-                            title="Genera la distribución mensual automáticamente según unidad, cantidad y fecha de inicio"
-                            class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-accent-200 bg-white hover:bg-accent-50 text-accent text-xs font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-                            </svg>
-                            @if (row.generating) { Generando... } @else { Generar distribución automática }
-                          </button>
-                          <button type="button" (click)="toggleBilling(row)"
-                            class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-200 bg-white hover:bg-neutral-50 text-neutral-600 text-xs font-semibold transition-colors">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                            </svg>
-                            @if (row.showBilling) { Ocultar distribución y facturación } @else { Ver distribución y facturación }
-                          </button>
-                          <div class="flex-1 min-w-[220px]">
-                            @if (row.generateError) {
-                              <p class="text-[11px] font-semibold text-danger">{{ row.generateError }}</p>
-                            } @else {
-                              <p class="text-[10px] text-neutral-400">Requiere unidad, cantidad entera y fecha de inicio. Generar reemplaza la distribución mensual existente (conserva lo ya facturado).</p>
-                            }
-                          </div>
-                        </div>
-
-                        @if (row.showBilling) {
-                          <div class="mt-3">
-                            @if (row.billingLoading) {
-                              <div class="flex items-center justify-center py-8 bg-surface rounded-lg border border-neutral-100">
-                                <div class="w-5 h-5 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
-                              </div>
-                            } @else {
-                              <app-budget-period-status
-                                [concept]="row.concept"
-                                [unitMeasurement]="row.unit_measurement"
-                                [quantity]="row.quantity"
-                                [monthlyDistributions]="row.monthly_distributions"
-                                [invoices]="row.billingInvoices ?? []" />
-                            }
-                          </div>
-                        }
-                      </td>
-                    </tr>
-                  }
-
                 }
               </tbody>
 
@@ -401,7 +345,7 @@
               @if (entry.items.length) {
                 <tfoot>
                   <tr class="bg-neutral-50 font-bold border-t border-gray-200">
-                    <td colspan="4" class="px-5 py-2.5 text-[11px] text-neutral-500 uppercase tracking-wide">Subtotal — {{ entry.name }}</td>
+                    <td colspan="3" class="px-5 py-2.5 text-[11px] text-neutral-500 uppercase tracking-wide">Subtotal — {{ entry.name }}</td>
                     <td class="px-3 py-2.5 text-right whitespace-nowrap text-xs text-primary-700">{{ formatCurrency(entry.total_contribution ?? entryTotal(entry)) }}</td>
                     <td class="px-3 py-2.5 text-right whitespace-nowrap text-xs text-accent">{{ formatCurrency(entry.company_contribution ?? 0) }}</td>
                     <td class="px-3 py-2.5 text-right whitespace-nowrap text-xs text-success">{{ formatCurrency(entry.ally_contribution ?? 0) }}</td>

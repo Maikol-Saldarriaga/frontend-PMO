@@ -11,6 +11,9 @@ export interface MonthlyRow {
   entry_name:        string;
   budget_id:         string | null;
   concept:           string;
+  unit_measurement:  string;
+  quantity:          number | null;
+  start_date:        string | null;
   counterpartCap:    number;
   allyCap:           number;
   distributions:     BudgetMonthlyDistribution[];
@@ -19,6 +22,8 @@ export interface MonthlyRow {
   saving:            boolean;
   rowError:          string | null;
   rowSuccess:        boolean;
+  generating:        boolean;
+  generateError:     string | null;
 }
 
 export interface MonthlySection {
@@ -61,6 +66,9 @@ export class MonthlyComponent implements OnInit {
               entry_name:    entry.name,
               budget_id:     item.id,
               concept:       item.concept ?? '',
+              unit_measurement: item.unit_measurement ?? '',
+              quantity:      item.quantity ?? null,
+              start_date:    item.start_date ? item.start_date.slice(0, 10) : null,
               counterpartCap: item.counterpart_contribution ?? 0,
               allyCap:        item.ally_contribution        ?? 0,
               distributions: [...(item.monthly_distributions ?? [])],
@@ -69,6 +77,8 @@ export class MonthlyComponent implements OnInit {
               saving:        false,
               rowError:      null,
               rowSuccess:    false,
+              generating:    false,
+              generateError: null,
             } as MonthlyRow))
           ),
         }));
@@ -132,6 +142,34 @@ export class MonthlyComponent implements OnInit {
       error: () => {
         row.saving = false;
         row.rowError = 'Error al guardar la distribución.';
+      },
+    });
+  }
+
+  canGenerateDistribution(row: MonthlyRow): boolean {
+    return !!row.budget_id && !!row.start_date && !!row.unit_measurement && !!row.quantity && row.quantity > 0 && Number.isInteger(row.quantity);
+  }
+
+  generateDistribution(row: MonthlyRow): void {
+    if (!row.budget_id || row.generating || !this.canGenerateDistribution(row)) return;
+
+    if (!confirm('No se detectó una distribución mensual para este ítem. ¿Generarla automáticamente según su unidad, cantidad y fecha de inicio? Esto reemplaza cualquier distribución existente (se conserva lo ya facturado en los meses que coincidan).')) {
+      return;
+    }
+
+    row.generating    = true;
+    row.generateError = null;
+
+    this.service.generateMonthly(this.projectId, row.budget_id).subscribe({
+      next: (distributions) => {
+        row.generating    = false;
+        row.distributions = distributions ?? [];
+        row.dirty         = false;
+        row.rowSuccess     = true;
+      },
+      error: (err) => {
+        row.generating    = false;
+        row.generateError = err?.error?.error ?? 'Error al generar la distribución automática.';
       },
     });
   }

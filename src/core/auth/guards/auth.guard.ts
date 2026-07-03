@@ -12,3 +12,12 @@ export const authGuard: CanActivateFn = () => {
 
   return router.createUrlTree(['/login']);
 };
+
+// Enruta '/' y cualquier ruta no encontrada según haya o no sesión persistida,
+// en vez de mandar siempre a /login sin mirar el token guardado.
+export const rootRedirectGuard: CanActivateFn = () => {
+  const authStore = inject(AuthStore);
+  const router    = inject(Router);
+
+  return router.createUrlTree([authStore.isLoggedIn() ? '/dashboard' : '/login']);
+};

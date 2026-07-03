@@ -13,10 +13,10 @@ import { DocumentsListComponent } from './features/documents/pages/list/document
 import { ScheduleListComponent } from './features/schedule/pages/list/schedule-list.component';
 import { ResourcesComponent } from './features/resources/pages/resources.component';
 import { ReportsComponent } from './features/reports/pages/reports.component';
-import { authGuard } from '../core/auth/guards/auth.guard';
+import { authGuard, rootRedirectGuard } from '../core/auth/guards/auth.guard';
 
 export const routes: Routes = [
-  { path: '', redirectTo: 'login', pathMatch: 'full' },
+  { path: '', pathMatch: 'full', canActivate: [rootRedirectGuard], children: [] },
   { path: 'login',   component: LoginComponent },
   { path: 'welcome', component: WelcomeComponent },
   {
@@ -39,5 +39,5 @@ export const routes: Routes = [
       { path: 'reports',               component: ReportsComponent },
     ]
   },
-  { path: '**', redirectTo: 'login' }
+  { path: '**', canActivate: [rootRedirectGuard], children: [] }
 ];

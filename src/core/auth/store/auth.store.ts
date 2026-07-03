@@ -29,9 +29,13 @@ export class AuthStore {
     localStorage.setItem(USER_KEY, JSON.stringify(user));
   }
 
-  setAccessToken(token: string): void {
+  setAccessToken(token: string, refreshToken?: string): void {
     this._token.set(token);
     localStorage.setItem(TOKEN_KEY, token);
+    if (refreshToken) {
+      this._refreshToken.set(refreshToken);
+      localStorage.setItem(REFRESH_KEY, refreshToken);
+    }
   }
 
   updateUser(partial: Partial<UserProfile>): void {
