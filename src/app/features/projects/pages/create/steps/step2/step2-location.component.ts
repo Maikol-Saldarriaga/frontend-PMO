@@ -1,8 +1,20 @@
-import { Component, Input, Output, EventEmitter, OnInit, signal, inject } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, signal, WritableSignal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormArray, FormGroup, Validators } from '@angular/forms';
-import { SocrataGeoService, SocrataDept, SocrataMunicipio, SocrataVereda } from '../../../../../../core/services/socrata-geo.service';
+import { SocrataGeoService, LocationResult } from '../../../../../../core/services/socrata-geo.service';
 import { ContractLocation, ContractLocationItem } from '../../../../models/contract.model';
+
+interface RowSearch {
+  term:     string;
+  results:  LocationResult[];
+  loading:  boolean;
+  open:     boolean;
+  selected: LocationResult | null;
+}
+
+const emptySearch = (): RowSearch => ({
+  term: '', results: [], loading: false, open: false, selected: null,
+});
 
 @Component({
   selector: 'app-step2-location',
@@ -21,36 +33,13 @@ export class Step2LocationComponent implements OnInit {
   private fb  = inject(FormBuilder);
   private geo = inject(SocrataGeoService);
 
-  departments     = signal<SocrataDept[]>([]);
-  municipiosMap   = signal<Record<number, SocrataMunicipio[]>>({});
-  veredasMap      = signal<Record<number, SocrataVereda[]>>({});
-  loadingVeredasMap = signal<Record<number, boolean>>({});
-  loadingDepts    = signal(true);
+  searches: WritableSignal<RowSearch[]> = signal([]);
+  private timers: Record<number, ReturnType<typeof setTimeout>> = {};
 
-  private deptCodes: Record<number, string> = {};
-  private mpioCodes: Record<number, string> = {};
-
-  form = this.fb.group({
-    locations: this.fb.array<FormGroup>([]),
-  });
-
+  form = this.fb.group({ locations: this.fb.array<FormGroup>([]) });
   get locationsArray(): FormArray { return this.form.get('locations') as FormArray; }
 
   ngOnInit(): void {
-    this.geo.getDepartamentos().subscribe({
-      next: depts => {
-        this.departments.set(depts);
-        this.loadingDepts.set(false);
-        this.initRows();
-      },
-      error: () => {
-        this.loadingDepts.set(false);
-        this.initRows();
-      },
-    });
-  }
-
-  private initRows(): void {
     if (this.savedLocations?.length) {
       this.savedLocations.forEach(loc => this.addRow(loc));
     } else {
@@ -62,81 +51,77 @@ export class Step2LocationComponent implements OnInit {
   private newRow(loc?: Partial<ContractLocationItem>): FormGroup {
     return this.fb.group({
       country:      [loc?.country      ?? 'Colombia', Validators.required],
-      department:   [loc?.department   ?? '',          Validators.required],
-      municipality: [loc?.municipality ?? '',          Validators.required],
+      department:   [loc?.department   ?? ''],
+      municipality: [loc?.municipality ?? '', Validators.required],
       sidewalk:     [loc?.sidewalk     ?? ''],
       details:      [loc?.details      ?? ''],
     });
   }
 
   addRow(loc?: Partial<ContractLocationItem>): void {
-    const row = this.newRow(loc);
-    this.locationsArray.push(row);
-    const idx = this.locationsArray.length - 1;
-
-    // Pre-load municipios and veredas for saved rows
-    if (loc?.department) {
-      const dept = this.departments().find(d => d.nom_dpto === loc.department);
-      if (dept) {
-        this.deptCodes[idx] = dept.cod_dpto;
-        this.geo.getMunicipios(dept.cod_dpto).subscribe(mpios => {
-          this.municipiosMap.update(m => ({ ...m, [idx]: mpios }));
-          if (loc.municipality) {
-            const mpio = mpios.find(m => m.nom_mpio === loc.municipality);
-            if (mpio) {
-              this.mpioCodes[idx] = mpio.cod_mpio;
-              this.loadVeredas(mpio.cod_mpio, idx);
-            }
-          }
-        });
-      }
+    this.locationsArray.push(this.newRow(loc));
+    const s = emptySearch();
+    if (loc?.municipality) {
+      // Reconstruct a display label for saved data
+      const label = loc.sidewalk ? loc.sidewalk : loc.municipality;
+      s.term = label ?? '';
+      s.selected = {
+        type:        loc.sidewalk ? 'vereda' : 'municipio',
+        name:        label ?? '',
+        municipality: loc.municipality ?? '',
+        department:  loc.department ?? '',
+        cod:         '',
+      };
     }
-
-    row.get('department')?.valueChanges.subscribe(deptName => {
-      const dept = this.departments().find(d => d.nom_dpto === deptName);
-      row.get('municipality')?.setValue('');
-      row.get('sidewalk')?.setValue('');
-      this.municipiosMap.update(m => ({ ...m, [idx]: [] }));
-      this.veredasMap.update(v => ({ ...v, [idx]: [] }));
-      if (dept) {
-        this.deptCodes[idx] = dept.cod_dpto;
-        this.geo.getMunicipios(dept.cod_dpto).subscribe(mpios => {
-          this.municipiosMap.update(m => ({ ...m, [idx]: mpios }));
-        });
-      }
-    });
-
-    row.get('municipality')?.valueChanges.subscribe(mpioName => {
-      row.get('sidewalk')?.setValue('');
-      this.veredasMap.update(v => ({ ...v, [idx]: [] }));
-      const mpios = this.municipiosMap()[idx] ?? [];
-      const mpio = mpios.find(m => m.nom_mpio === mpioName);
-      if (mpio) {
-        this.mpioCodes[idx] = mpio.cod_mpio;
-        this.loadVeredas(mpio.cod_mpio, idx);
-      }
-    });
+    this.searches.update(arr => [...arr, s]);
   }
 
-  removeRow(index: number): void {
-    this.locationsArray.removeAt(index);
+  removeRow(i: number): void {
+    this.locationsArray.removeAt(i);
+    this.searches.update(arr => arr.filter((_, idx) => idx !== i));
     this.dataChange.emit(this.buildPayload());
   }
 
-  private loadVeredas(codMpio: string, rowIndex: number): void {
-    this.loadingVeredasMap.update(m => ({ ...m, [rowIndex]: true }));
-    this.geo.getVeredas(codMpio).subscribe({
-      next: veredas => {
-        this.veredasMap.update(v => ({ ...v, [rowIndex]: veredas }));
-        this.loadingVeredasMap.update(m => ({ ...m, [rowIndex]: false }));
-      },
-      error: () => this.loadingVeredasMap.update(m => ({ ...m, [rowIndex]: false })),
-    });
+  onSearchInput(i: number, event: Event): void {
+    const term = (event.target as HTMLInputElement).value;
+    this.patchSearch(i, { term, open: true, selected: null });
+    this.locationsArray.at(i).get('municipality')?.setValue('', { emitEvent: false });
+    this.locationsArray.at(i).get('department')?.setValue('', { emitEvent: false });
+    this.locationsArray.at(i).get('sidewalk')?.setValue('', { emitEvent: false });
+    clearTimeout(this.timers[i]);
+    if (term.length < 2) { this.patchSearch(i, { results: [], loading: false }); return; }
+    this.patchSearch(i, { loading: true });
+    this.timers[i] = setTimeout(() => {
+      this.geo.searchAll(term).subscribe({
+        next: r => this.patchSearch(i, { results: r, loading: false, open: true }),
+        error: () => this.patchSearch(i, { results: [], loading: false }),
+      });
+    }, 350);
   }
 
-  getMunicipios(rowIndex: number): SocrataMunicipio[] { return this.municipiosMap()[rowIndex] ?? []; }
-  getVeredas(rowIndex: number): SocrataVereda[]       { return this.veredasMap()[rowIndex]    ?? []; }
-  isLoadingVeredas(rowIndex: number): boolean         { return this.loadingVeredasMap()[rowIndex] ?? false; }
+  selectResult(i: number, r: LocationResult): void {
+    const row = this.locationsArray.at(i);
+    row.get('municipality')?.setValue(r.municipality);
+    row.get('department')?.setValue(r.department);
+    row.get('sidewalk')?.setValue(r.type === 'vereda' ? r.name : '');
+    this.patchSearch(i, { selected: r, term: r.name, open: false, results: [] });
+  }
+
+  clearSelection(i: number): void {
+    const row = this.locationsArray.at(i);
+    row.get('municipality')?.setValue('');
+    row.get('department')?.setValue('');
+    row.get('sidewalk')?.setValue('');
+    this.patchSearch(i, emptySearch());
+  }
+
+  closeDropdown(i: number): void { setTimeout(() => this.patchSearch(i, { open: false }), 200); }
+
+  private patchSearch(i: number, patch: Partial<RowSearch>): void {
+    this.searches.update(arr => arr.map((s, idx) => idx === i ? { ...s, ...patch } : s));
+  }
+
+  getSearch(i: number): RowSearch { return this.searches()[i] ?? emptySearch(); }
 
   isInvalid(group: FormGroup, field: string): boolean {
     const ctrl = group.get(field);
@@ -146,13 +131,7 @@ export class Step2LocationComponent implements OnInit {
   private buildPayload(): ContractLocation[] {
     return this.locationsArray.controls.map(c => {
       const v = c.getRawValue();
-      return {
-        country:      v.country,
-        department:   v.department,
-        municipality: v.municipality,
-        sidewalk:     v.sidewalk || null,
-        details:      v.details  || null,
-      };
+      return { country: v.country, department: v.department, municipality: v.municipality, sidewalk: v.sidewalk || null, details: v.details || null };
     });
   }
 
@@ -161,9 +140,8 @@ export class Step2LocationComponent implements OnInit {
     if (this.form.invalid) {
       const missing: string[] = [];
       this.locationsArray.controls.forEach((grp, i) => {
-        const g = grp as FormGroup;
-        if (g.get('department')?.invalid)   missing.push(`Ubicación ${i + 1}: Departamento`);
-        if (g.get('municipality')?.invalid) missing.push(`Ubicación ${i + 1}: Municipio`);
+        if ((grp as FormGroup).get('municipality')?.invalid)
+          missing.push(`Ubicación ${i + 1}: Municipio`);
       });
       this.validationError.emit(missing);
       return;

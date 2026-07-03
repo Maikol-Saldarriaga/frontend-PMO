@@ -1,6 +1,5 @@
 <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
 
-  <!-- Header info -->
   <div class="bg-surface rounded-2xl shadow-card border border-neutral-200 overflow-hidden mb-5">
     <div class="flex items-center gap-3 px-6 py-4 border-b border-neutral-100 bg-gradient-to-r from-accent-50 to-transparent">
       <div class="w-9 h-9 rounded-xl bg-accent-100 flex items-center justify-center flex-shrink-0">
@@ -10,168 +9,174 @@
       </div>
       <div class="flex-1">
         <h3 class="text-sm font-bold text-primary-700">Ubicaciones del Proyecto</h3>
-        <p class="text-xs text-neutral-500">Agrega todos los municipios o zonas donde se ejecutará el proyecto</p>
+        <p class="text-xs text-neutral-500">Busca directamente por nombre de municipio o vereda</p>
       </div>
     </div>
 
-    <!-- Loading departments -->
-    @if (loadingDepts()) {
-      <div class="px-6 py-8 text-center">
-        <svg class="animate-spin w-6 h-6 text-accent mx-auto" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-        </svg>
-        <p class="mt-2 text-xs text-neutral-400">Cargando departamentos...</p>
-      </div>
-    }
+    <div formArrayName="locations" class="divide-y divide-neutral-100">
+      @for (row of locationsArray.controls; track $index; let i = $index) {
+        <div [formGroupName]="i" class="px-6 py-5">
 
-    <!-- Location rows -->
-    @if (!loadingDepts()) {
-      <div formArrayName="locations" class="divide-y divide-neutral-100">
-
-        @for (row of locationsArray.controls; track $index; let i = $index) {
-          <div [formGroupName]="i" class="px-6 py-5">
-
-            <!-- Row header -->
-            <div class="flex items-center justify-between mb-4">
-              <div class="flex items-center gap-2">
-                <div class="w-6 h-6 rounded-full bg-accent flex items-center justify-center flex-shrink-0">
-                  <span class="text-[10px] font-black text-white">{{ i + 1 }}</span>
-                </div>
-                <span class="text-xs font-semibold text-neutral-600">Ubicación {{ i + 1 }}</span>
+          <!-- Row header -->
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+              <div class="w-6 h-6 rounded-full bg-accent flex items-center justify-center flex-shrink-0">
+                <span class="text-[10px] font-black text-white">{{ i + 1 }}</span>
               </div>
-              @if (locationsArray.length > 1) {
-                <button type="button" (click)="removeRow(i)"
-                  class="flex items-center gap-1 text-xs text-neutral-400 hover:text-danger transition-colors">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                  </svg>
-                  Eliminar
-                </button>
+              <span class="text-xs font-semibold text-neutral-600">Ubicación {{ i + 1 }}</span>
+            </div>
+            @if (locationsArray.length > 1) {
+              <button type="button" (click)="removeRow(i)"
+                class="flex items-center gap-1 text-xs text-neutral-400 hover:text-danger transition-colors">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                </svg>
+                Eliminar
+              </button>
+            }
+          </div>
+
+          <div class="grid grid-cols-1 gap-4">
+
+            <!-- Búsqueda única (municipio o vereda) -->
+            <div class="relative">
+              <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">
+                Municipio o Vereda <span class="text-danger">*</span>
+              </label>
+
+              @if (getSearch(i).selected) {
+                <!-- Estado: seleccionado -->
+                <div class="flex items-center gap-2.5 px-3 py-2 rounded-xl border border-accent bg-accent-50">
+                  <div class="w-6 h-6 rounded-md bg-accent flex items-center justify-center flex-shrink-0">
+                    <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-xs font-bold text-primary-700 truncate">{{ getSearch(i).selected!.name }}</p>
+                    <p class="text-[10px] text-neutral-400 mt-0.5">
+                      @if (getSearch(i).selected!.type === 'vereda') {
+                        Vereda · {{ getSearch(i).selected!.municipality }} · {{ getSearch(i).selected!.department }} · Colombia
+                      } @else {
+                        Municipio · {{ getSearch(i).selected!.department }} · Colombia
+                      }
+                    </p>
+                  </div>
+                  <button type="button" (click)="clearSelection(i)"
+                    class="p-1 rounded-md text-neutral-400 hover:text-danger hover:bg-white transition-colors flex-shrink-0">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                  </button>
+                </div>
+              } @else {
+                <!-- Estado: buscando -->
+                <div class="relative">
+                  <input
+                    type="text"
+                    [value]="getSearch(i).term"
+                    (input)="onSearchInput(i, $event)"
+                    (blur)="closeDropdown(i)"
+                    placeholder="Escribe el nombre del municipio o vereda..."
+                    autocomplete="off"
+                    class="w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm text-primary-700 placeholder-neutral-400 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 transition-colors"
+                    [class.border-neutral-200]="!isInvalid($any(row), 'municipality')"
+                    [class.focus:ring-accent-200]="!isInvalid($any(row), 'municipality')"
+                    [class.focus:border-accent]="!isInvalid($any(row), 'municipality')"
+                    [class.border-danger]="isInvalid($any(row), 'municipality')"
+                    [class.focus:ring-red-100]="isInvalid($any(row), 'municipality')"
+                  />
+                  <div class="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                    @if (getSearch(i).loading) {
+                      <svg class="animate-spin w-4 h-4 text-accent" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                      </svg>
+                    } @else {
+                      <svg class="w-4 h-4 text-neutral-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                      </svg>
+                    }
+                  </div>
+                </div>
+
+                @if (isInvalid($any(row), 'municipality')) {
+                  <p class="mt-1 text-xs text-danger">Selecciona un municipio o vereda</p>
+                }
+
+                <!-- Dropdown resultados -->
+                @if (getSearch(i).open) {
+                  <div class="absolute z-50 left-0 right-0 mt-1 bg-white border border-neutral-200 rounded-xl shadow-xl overflow-hidden max-h-64 overflow-y-auto">
+                    @if (getSearch(i).loading) {
+                      <div class="px-4 py-4 text-xs text-neutral-400 flex items-center gap-2">
+                        <svg class="animate-spin w-3.5 h-3.5 text-accent flex-shrink-0" fill="none" viewBox="0 0 24 24">
+                          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                        </svg>
+                        Buscando municipios y veredas...
+                      </div>
+                    } @else if (getSearch(i).results.length === 0) {
+                      <div class="px-4 py-4 text-center">
+                        @if (getSearch(i).term.length >= 2) {
+                          <p class="text-xs text-neutral-400">Sin resultados para <strong>"{{ getSearch(i).term }}"</strong></p>
+                        } @else {
+                          <p class="text-xs text-neutral-400">Escribe al menos 2 caracteres para buscar</p>
+                        }
+                      </div>
+                    } @else {
+                      @for (r of getSearch(i).results; track r.cod) {
+                        <button type="button" (mousedown)="selectResult(i, r)"
+                          class="w-full text-left px-4 py-3 hover:bg-neutral-50 flex items-center gap-3 transition-colors border-b border-neutral-50 last:border-b-0">
+                          <div class="w-7 h-7 rounded-lg bg-accent-100 flex items-center justify-center flex-shrink-0">
+                            <svg class="w-3.5 h-3.5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                            </svg>
+                          </div>
+                          <div class="flex-1 min-w-0">
+                            <p class="text-sm font-semibold text-primary-700 truncate">{{ r.name }}</p>
+                            <p class="text-[11px] text-neutral-400 mt-0.5">
+                              @if (r.type === 'vereda') {
+                                Vereda · {{ r.municipality }} · {{ r.department }}
+                              } @else {
+                                Municipio · {{ r.department }}
+                              }
+                            </p>
+                          </div>
+                          <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-accent-100 text-accent flex-shrink-0">
+                            {{ r.type === 'municipio' ? 'Municipio' : 'Vereda' }}
+                          </span>
+                        </button>
+                      }
+                    }
+                  </div>
+                }
               }
             </div>
 
-            <!-- Fields grid -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-
-              <!-- País (fixed) -->
-              <div>
-                <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">
-                  País <span class="text-danger">*</span>
-                </label>
-                <div class="px-4 py-2.5 rounded-xl border border-neutral-200 bg-neutral-50 text-sm text-neutral-500 flex items-center gap-2">
-                  <svg class="w-4 h-4 text-neutral-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064"/>
-                  </svg>
-                  Colombia
-                </div>
-              </div>
-
-              <!-- Departamento -->
-              <div>
-                <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">
-                  Departamento <span class="text-danger">*</span>
-                </label>
-                <select formControlName="department"
-                  class="w-full px-4 py-2.5 rounded-xl border text-sm text-primary-700 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 transition-colors appearance-none"
-                  [class.border-neutral-200]="!isInvalid($any(row), 'department')"
-                  [class.focus:ring-accent-200]="!isInvalid($any(row), 'department')"
-                  [class.focus:border-accent]="!isInvalid($any(row), 'department')"
-                  [class.border-danger]="isInvalid($any(row), 'department')"
-                  [class.focus:ring-red-100]="isInvalid($any(row), 'department')"
-                >
-                  <option value="">Selecciona un departamento</option>
-                  @for (dept of departments(); track dept.cod_dpto) {
-                    <option [value]="dept.nom_dpto">{{ dept.nom_dpto }}</option>
-                  }
-                </select>
-                @if (isInvalid($any(row), 'department')) {
-                  <p class="mt-1 text-xs text-danger">El departamento es obligatorio</p>
-                }
-              </div>
-
-              <!-- Municipio -->
-              <div>
-                <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">
-                  Municipio <span class="text-danger">*</span>
-                </label>
-                <select formControlName="municipality"
-                  [attr.disabled]="!$any(row).get('department')?.value ? '' : null"
-                  class="w-full px-4 py-2.5 rounded-xl border text-sm text-primary-700 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 transition-colors appearance-none disabled:opacity-50 disabled:cursor-not-allowed"
-                  [class.border-neutral-200]="!isInvalid($any(row), 'municipality')"
-                  [class.focus:ring-accent-200]="!isInvalid($any(row), 'municipality')"
-                  [class.focus:border-accent]="!isInvalid($any(row), 'municipality')"
-                  [class.border-danger]="isInvalid($any(row), 'municipality')"
-                  [class.focus:ring-red-100]="isInvalid($any(row), 'municipality')"
-                >
-                  <option value="">{{ getMunicipios(i).length ? 'Selecciona un municipio' : 'Primero elige el departamento' }}</option>
-                  @for (mpio of getMunicipios(i); track mpio.cod_mpio) {
-                    <option [value]="mpio.nom_mpio">{{ mpio.nom_mpio }}</option>
-                  }
-                </select>
-                @if (isInvalid($any(row), 'municipality')) {
-                  <p class="mt-1 text-xs text-danger">El municipio es obligatorio</p>
-                }
-              </div>
-
-              <!-- Vereda -->
-              <div class="md:col-span-1">
-                <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">
-                  Vereda / Zona
-                </label>
-                @if (isLoadingVeredas(i)) {
-                  <div class="px-4 py-2.5 rounded-xl border border-neutral-200 bg-neutral-50 text-sm text-neutral-400 flex items-center gap-2">
-                    <svg class="animate-spin w-4 h-4 text-accent flex-shrink-0" fill="none" viewBox="0 0 24 24">
-                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                    </svg>
-                    Cargando veredas...
-                  </div>
-                } @else if (getVeredas(i).length > 0) {
-                  <select formControlName="sidewalk"
-                    class="w-full px-4 py-2.5 rounded-xl border border-neutral-200 text-sm text-primary-700 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors appearance-none">
-                    <option value="">Selecciona una vereda</option>
-                    @for (v of getVeredas(i); track v.cod_vere) {
-                      <option [value]="v.nom_vere">{{ v.nom_vere }}</option>
-                    }
-                  </select>
-                } @else {
-                  <input formControlName="sidewalk" type="text"
-                    placeholder="Ej: Vereda El Pital / Zona Rural Norte"
-                    class="w-full px-4 py-2.5 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-400 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
-                }
-              </div>
-
-              <!-- Detalles -->
-              <div class="md:col-span-2">
-                <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">
-                  Detalles de la zona de intervención
-                </label>
-                <input formControlName="details" type="text"
-                  placeholder="Ej: Zona de intervención sur, barrios periféricos..."
-                  class="w-full px-4 py-2.5 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-400 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
-              </div>
-
+            <!-- Detalles -->
+            <div>
+              <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Detalles de la zona de intervención</label>
+              <input formControlName="details" type="text"
+                placeholder="Ej: Zona de intervención sur, barrios periféricos..."
+                class="w-full px-4 py-2.5 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-400 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
             </div>
+
           </div>
-        }
+        </div>
+      }
+    </div>
 
-      </div>
-
-      <!-- Add location button -->
-      <div class="px-6 py-4 border-t border-neutral-100 bg-neutral-50/50">
-        <button type="button" (click)="addRow()"
-          class="flex items-center gap-2 text-sm text-accent hover:text-accent-700 font-medium transition-colors">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-          </svg>
-          Agregar otra ubicación
-        </button>
-      </div>
-    }
+    <div class="px-6 py-4 border-t border-neutral-100 bg-neutral-50/50">
+      <button type="button" (click)="addRow()"
+        class="flex items-center gap-2 text-sm text-accent hover:text-accent-700 font-medium transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        Agregar otra ubicación
+      </button>
+    </div>
   </div>
 
-  <!-- Footer actions -->
   <div class="flex items-center justify-between py-2">
     <button type="button" (click)="goBack.emit()"
       class="flex items-center gap-2 px-5 py-2.5 border border-neutral-200 text-neutral-600 text-sm font-semibold rounded-xl hover:bg-neutral-50 transition-colors">
