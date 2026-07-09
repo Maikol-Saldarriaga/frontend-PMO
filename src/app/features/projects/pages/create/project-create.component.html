@@ -30,7 +30,7 @@
           </div>
           <div class="hidden sm:block">
             <p class="text-xs font-bold text-success leading-none">Borrador guardado</p>
-            <p class="text-[10px] text-success/70 mt-0.5">Fase {{ currentStep() }} — {{ percentDone() }}% completado</p>
+            <p class="text-[10px] text-success/70 mt-0.5">Fase {{ currentStep() }} — {{ percentDone() | number:'1.0-1' }}% completado</p>
           </div>
           <svg class="w-4 h-4 text-success sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
@@ -120,7 +120,7 @@
             <div class="h-full bg-gradient-to-r from-accent to-success rounded-full transition-all duration-700"
                  [style.width]="progressWidth()"></div>
           </div>
-          <span class="text-xs font-black text-accent w-10 text-right">{{ percentDone() }}%</span>
+          <span class="text-xs font-black text-accent w-10 text-right">{{ percentDone() | number:'1.0-1' }}%</span>
         </div>
       </div>
 

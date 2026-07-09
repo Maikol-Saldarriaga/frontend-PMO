@@ -8,6 +8,7 @@ import {
   ProjectSnapshotItem, Delivery, DeliveryVerification, ScopeComponent,
 } from '../../../../models/project.model';
 import { SupportTypeKey, SUPPORT_TYPES, SUPPORT_TYPE_LABELS } from '../../../../models/support-types.constant';
+import { environment } from '../../../../../../../environments/environment';
 
 type DeliveryEstado = 'pendiente' | 'vencido' | 'retrasado' | 'completado' | 'adelantado';
 type DeliveryFilter = 'todos' | 'completados' | 'atrasados' | 'adelantados';
@@ -245,8 +246,12 @@ export class TabEntregablesComponent implements OnInit {
     });
   }
 
-  /** Una vez vencida la fecha fin, el entregable queda en solo lectura sin importar si ya tenía avance registrado. */
+  /**
+   * Una vez vencida la fecha fin, el entregable queda en solo lectura sin importar si ya tenía avance registrado.
+   * `environment.enforceDeliveryDateLocks` permite desactivar esta restricción temporalmente (ej. pruebas).
+   */
   isDeliveryLocked(): boolean {
+    if (!environment.enforceDeliveryDateLocks) return false;
     const item = this.selectedDelivery();
     return !!item && this.isPastDue(item);
   }

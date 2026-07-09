@@ -1,6 +1,16 @@
 export type ProjectType = 'Contrato' | 'Proyecto';
 export type ProjectStatus = 'Draft' | 'Active' | 'Completed' | 'Cancelled';
 
+export interface ProjectScheduleItem {
+  contract_id:      string;
+  project_number:   string;
+  project_name:     string | null;
+  status:           string;
+  start_date:       string | null;
+  end_date:         string | null;
+  overall_progress: number;
+}
+
 export interface ProjectStep1Request {
   project_number:       string;
   social_reason:        string;

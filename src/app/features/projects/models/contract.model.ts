@@ -427,3 +427,130 @@ export interface ContractDraft {
   percentDone:    number;
   stepData:       Record<string, unknown>;
 }
+
+// ── Matriz de Cumplimiento (Compliance Matrix) ────────────────────────────────
+
+export interface ObligationEvidence {
+  id:                       string;
+  company_id?:              string;
+  obligation_id:            string;
+  compliance_method:        string | null;
+  compliance_location_url:  string;
+  verification_note:        string | null;
+  /** Nombre original del archivo subido (solo si la evidencia fue un upload, no un enlace externo). */
+  file_name?:               string | null;
+  sort_order:                number;
+  created_at?:               string;
+}
+
+export interface ContractObligation {
+  id:                     string;
+  company_id?:            string;
+  contract_agreement_id:  string;
+  contract_clause:        string;
+  clause_reference:       string | null;
+  obligation_text:        string;
+  sort_order:              number;
+  created_at?:             string;
+  evidences:               ObligationEvidence[];
+}
+
+export interface ObligationRequest {
+  contract_clause:   string;
+  clause_reference?: string | null;
+  obligation_text:   string;
+  sort_order?:        number;
+}
+
+export interface ObligationEvidenceRequest {
+  compliance_method?:        string | null;
+  compliance_location_url:   string;
+  verification_note?:        string | null;
+  sort_order?:                number;
+}
+
+export interface ObligationImportRow {
+  contract_clause:           string;
+  clause_reference?:         string | null;
+  obligation_text:           string;
+  compliance_method?:        string | null;
+  compliance_location_url?:  string | null;
+  verification_note?:        string | null;
+}
+
+export interface ObligationImportRequest {
+  rows: ObligationImportRow[];
+}
+
+// ── Plan de Abastecimiento (Supply Plan) ──────────────────────────────────────
+
+export type SupplyPlanStatus = 'en_ejecucion' | 'finalizado' | 'cancelado' | 'pendiente';
+
+export interface SupplyPlanItem {
+  id:                      string;
+  company_id?:             string;
+  contract_agreement_id:   string;
+  consecutive_number:      number;
+  status:                  SupplyPlanStatus;
+  project_name:            string | null;
+  requirement_category:    string | null;
+  requirement_detail:      string | null;
+  requested_by:            string | null;
+  receiving_party:         string | null;
+  estimated_request_date:  string | null;
+  actual_request_date:     string | null;
+  requirement_start_date:  string | null;
+  requirement_end_date:    string | null;
+  initial_budget:          number;
+  executed_budget:         number;
+  legalization_date:       string | null;
+  legalization_status:     string | null;
+  payment_date:            string | null;
+  invoice_number:          string | null;
+  nit:                     string | null;
+  provider:                string | null;
+  acta_received_status:    string | null;
+  observation:             string | null;
+  period_year:             number;
+  period_month:            number;
+  created_at?:              string;
+}
+
+export interface SupplyPlanRequest {
+  consecutive_number:       number;
+  status:                   SupplyPlanStatus;
+  project_name?:            string | null;
+  requirement_category?:    string | null;
+  requirement_detail?:      string | null;
+  requested_by?:            string | null;
+  receiving_party?:         string | null;
+  estimated_request_date?:  string | null;
+  actual_request_date?:     string | null;
+  requirement_start_date?:  string | null;
+  requirement_end_date?:    string | null;
+  initial_budget:           number;
+  executed_budget:          number;
+  legalization_date?:       string | null;
+  legalization_status?:     string | null;
+  payment_date?:            string | null;
+  invoice_number?:          string | null;
+  nit?:                     string | null;
+  provider?:                string | null;
+  acta_received_status?:    string | null;
+  observation?:             string | null;
+  period_year:              number;
+  period_month:             number;
+}
+
+export interface SupplyPlanSummary {
+  total_initial_budget:  number;
+  total_executed_budget: number;
+  pct_executed:          number;
+}
+
+export interface SupplyPlanFilters {
+  year?:     number | null;
+  month?:    number | null;
+  category?: string | null;
+  status?:   SupplyPlanStatus | '' | null;
+}

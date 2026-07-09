@@ -3,9 +3,9 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject, debounceTime, distinctUntilChanged, takeUntil } from 'rxjs';
 import { DocumentFilters, DocumentService } from '../../services/document.service';
-import { DocumentsSummary, DocumentType, ProjectDocument } from '../../models/document.model';
-import { ProjectService } from '../../../projects/services/project.service';
-import { ProjectCreateResponse } from '../../../projects/models/project.model';
+import { DocumentSource, DocumentsSummary, GlobalDocument } from '../../models/document.model';
+
+interface ProjectOption { id: string; label: string; }
 
 @Component({
   selector: 'app-documents-list',
@@ -15,24 +15,30 @@ import { ProjectCreateResponse } from '../../../projects/models/project.model';
 })
 export class DocumentsListComponent implements OnInit, OnDestroy {
   private documentService = inject(DocumentService);
-  private projectService  = inject(ProjectService);
   private destroy$      = new Subject<void>();
   private nameSearch$    = new Subject<string>();
 
-  documents = signal<ProjectDocument[]>([]);
+  documents = signal<GlobalDocument[]>([]);
   summary   = signal<DocumentsSummary | null>(null);
-  projects  = signal<ProjectCreateResponse[]>([]);
   loading   = signal(true);
   error     = signal<string | null>(null);
   showFilters = signal(false);
 
-  filters = signal<Required<DocumentFilters>>({ name: '', project_id: '', type: '' });
+  filters = signal<Required<DocumentFilters>>({ name: '', project_id: '', source: '' });
 
-  readonly typeOptions: DocumentType[] = ['contrato', 'acta', 'informe', 'anexo', 'otro'];
+  readonly sourceOptions: DocumentSource[] = ['condicion', 'entregable', 'indicador', 'cumplimiento', 'cambio', 'firma'];
+
+  projects = computed<ProjectOption[]>(() => {
+    const seen = new Map<string, string>();
+    for (const d of this.documents()) {
+      if (!seen.has(d.contract_id)) seen.set(d.contract_id, d.project_name || d.project_number || '—');
+    }
+    return Array.from(seen, ([id, label]) => ({ id, label }));
+  });
 
   activeFilterCount = computed(() => {
     const f = this.filters();
-    return [f.name, f.project_id, f.type].filter(Boolean).length;
+    return [f.name, f.project_id, f.source].filter(Boolean).length;
   });
 
   ngOnInit(): void {
@@ -45,7 +51,6 @@ export class DocumentsListComponent implements OnInit, OnDestroy {
       this.fetchDocuments();
     });
 
-    this.projectService.getProjects(50, 0, {}).subscribe(res => this.projects.set(res.data ?? []));
     this.fetchDocuments();
   }
 
@@ -75,7 +80,7 @@ export class DocumentsListComponent implements OnInit, OnDestroy {
   }
 
   setProject(value: string): void { this.filters.update(f => ({ ...f, project_id: value })); this.fetchDocuments(); }
-  setType(value: string):    void { this.filters.update(f => ({ ...f, type: value as DocumentType | '' })); this.fetchDocuments(); }
+  setSource(value: string):  void { this.filters.update(f => ({ ...f, source: value as DocumentSource | '' })); this.fetchDocuments(); }
 
   clearFilter(key: keyof Required<DocumentFilters>): void {
     this.filters.update(f => ({ ...f, [key]: '' }));
@@ -83,33 +88,35 @@ export class DocumentsListComponent implements OnInit, OnDestroy {
   }
 
   clearAllFilters(): void {
-    this.filters.set({ name: '', project_id: '', type: '' });
+    this.filters.set({ name: '', project_id: '', source: '' });
     this.fetchDocuments();
   }
 
-  typeLabel(type: DocumentType): string {
-    const map: Record<DocumentType, string> = {
-      contrato: 'Contrato', acta: 'Acta', informe: 'Informe', anexo: 'Anexo', otro: 'Otro',
+  sourceLabel(source: DocumentSource): string {
+    const map: Record<DocumentSource, string> = {
+      condicion:    'Condición',
+      entregable:   'Entregable',
+      indicador:    'Indicador',
+      cumplimiento: 'Cumplimiento',
+      cambio:       'Cambio',
+      firma:        'Firma',
     };
-    return map[type];
+    return map[source];
   }
 
-  typeBadgeClasses(type: DocumentType): string {
-    const map: Record<DocumentType, string> = {
-      contrato: 'text-accent-700 bg-accent-50 border-accent-200',
-      acta:     'text-emerald-600 bg-emerald-50 border-emerald-200',
-      informe:  'text-sky-600 bg-sky-50 border-sky-200',
-      anexo:    'text-amber-600 bg-amber-50 border-amber-200',
-      otro:     'text-neutral-500 bg-neutral-100 border-neutral-200',
+  sourceBadgeClasses(source: DocumentSource): string {
+    const map: Record<DocumentSource, string> = {
+      condicion:    'text-accent-700 bg-accent-50 border-accent-200',
+      entregable:   'text-emerald-600 bg-emerald-50 border-emerald-200',
+      indicador:    'text-sky-600 bg-sky-50 border-sky-200',
+      cumplimiento: 'text-amber-600 bg-amber-50 border-amber-200',
+      cambio:       'text-purple-600 bg-purple-50 border-purple-200',
+      firma:        'text-neutral-500 bg-neutral-100 border-neutral-200',
     };
-    return map[type];
+    return map[source];
   }
 
-  formatSize(kb: number): string {
-    return kb >= 1024 ? `${(kb / 1024).toFixed(1)} MB` : `${kb} KB`;
-  }
-
-  getInitials(name: string | undefined): string {
+  getInitials(name: string | null | undefined): string {
     if (!name) return '?';
     return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
   }

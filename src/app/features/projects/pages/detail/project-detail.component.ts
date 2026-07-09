@@ -17,6 +17,8 @@ import { TabCondicionesComponent } from './tabs/tab-condiciones/tab-condiciones.
 import { TabEntregablesComponent } from './tabs/tab-entregables/tab-entregables.component';
 import { TabIndicadoresComponent } from './tabs/tab-indicadores/tab-indicadores.component';
 import { TabDocumentosComponent } from './tabs/tab-documentos/tab-documentos.component';
+import { TabObligacionesComponent } from './tabs/tab-obligaciones/tab-obligaciones.component';
+import { TabAbastecimientoComponent } from './tabs/tab-abastecimiento/tab-abastecimiento.component';
 
 @Component({
   selector: 'app-project-detail',
@@ -36,6 +38,8 @@ import { TabDocumentosComponent } from './tabs/tab-documentos/tab-documentos.com
     TabEntregablesComponent,
     TabIndicadoresComponent,
     TabDocumentosComponent,
+    TabObligacionesComponent,
+    TabAbastecimientoComponent,
   ],
   templateUrl: './project-detail.component.html',
 })
@@ -109,19 +113,43 @@ export class ProjectDetailComponent implements OnInit {
       icon: `<path stroke-linecap="round" stroke-linejoin="round" d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>`,
     },
     {
+      id: 'obligaciones', label: 'Matriz de Cumplimiento', color: 'fuchsia',
+      icon: `<path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>`,
+    },
+    {
+      id: 'abastecimiento', label: 'Plan de Abastecimiento', color: 'orange',
+      icon: `<path stroke-linecap="round" stroke-linejoin="round" d="M20 12H4m16 0l-4-4m4 4l-4 4M4 12l4-4m-4 4l4 4"/>`,
+    },
+    {
       id: 'historial', label: 'Historial', color: 'pink',
       icon: `<path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>`,
     },
   ];
 
+  private sk(s: string | undefined) {
+    const v = (s ?? '').toLowerCase().trim();
+    const en: Record<string, string> = {
+      active: 'activo', completed: 'completado', cancelled: 'cancelado', canceled: 'cancelado', registro: 'draft',
+    };
+    return en[v] ?? v;
+  }
+
   statusCls = computed(() => {
-    const s = (this.details()?.status ?? '').toLowerCase();
+    const s = this.sk(this.details()?.status);
     return {
       'bg-emerald-50 border-emerald-200 text-emerald-700': s === 'activo',
-      'bg-amber-50 border-amber-200 text-amber-700':       s === 'borrador' || s === 'registro',
+      'bg-amber-50 border-amber-200 text-amber-700':       s === 'draft' || s === 'borrador' || s === 'registro',
       'bg-sky-50 border-sky-200 text-sky-700':             s === 'completado',
       'bg-red-50 border-red-200 text-red-700':             s === 'cancelado',
     };
+  });
+
+  statusLabel = computed(() => {
+    const s = this.sk(this.details()?.status);
+    const map: Record<string, string> = {
+      draft: 'Borrador', activo: 'Activo', completado: 'Completado', cancelado: 'Cancelado',
+    };
+    return map[s] ?? this.details()?.status ?? '';
   });
 
   ngOnInit(): void {

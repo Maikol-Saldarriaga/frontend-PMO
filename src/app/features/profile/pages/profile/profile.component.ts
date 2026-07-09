@@ -28,6 +28,7 @@ export class ProfileComponent implements OnInit {
   saveError      = signal<string | null>(null);
   avatarPreview  = signal<string | null>(null);
   selectedFile   = signal<File | null>(null);
+  private avatarRetried = false;
 
   profileForm = this.fb.group({
     first_name:               ['', Validators.required],
@@ -71,6 +72,16 @@ export class ProfileComponent implements OnInit {
       this.avatarPreview.set(d.image_url.replace('localhost', host));
     }
     this.loadingProfile.set(false);
+  }
+
+  /** No reintentar si el preview actual es un archivo recién seleccionado (base64 local); solo aplica a la URL remota firmada. */
+  onAvatarError(): void {
+    if (this.avatarRetried || this.selectedFile()) return;
+    this.avatarRetried = true;
+    this.userService.refreshMyAvatarUrl().subscribe({
+      next: url => { if (url) { this.avatarPreview.set(url); this.avatarRetried = false; } },
+      error: () => {},
+    });
   }
 
   onFileChange(event: Event): void {

@@ -77,7 +77,7 @@
 
         <!-- Avatar: imagen base64 o iniciales -->
         <div class="topbar__avatar">
-          <img *ngIf="avatarUrl" [src]="avatarUrl" alt="avatar" class="w-full h-full object-cover rounded-full"/>
+          <img *ngIf="avatarUrl" [src]="avatarUrl" alt="avatar" class="w-full h-full object-cover rounded-full" (error)="onAvatarError()"/>
           <span *ngIf="!avatarUrl">{{ initials }}</span>
         </div>
 

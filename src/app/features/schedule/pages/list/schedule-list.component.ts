@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ProjectService } from '../../../projects/services/project.service';
-import { ProjectCreateResponse } from '../../../projects/models/project.model';
+import { ProjectScheduleItem } from '../../../projects/models/project.model';
 import { ScheduleRow, TimelineMonth } from '../../models/schedule.model';
 
 @Component({
@@ -21,7 +21,7 @@ export class ScheduleListComponent implements OnInit {
   search  = signal('');
   status  = signal('');
 
-  private allProjects = signal<ProjectCreateResponse[]>([]);
+  private allProjects = signal<ProjectScheduleItem[]>([]);
 
   readonly statusOptions = ['draft', 'activo', 'completado', 'cancelado'];
 
@@ -66,12 +66,12 @@ export class ScheduleListComponent implements OnInit {
       const offsetPercent = Math.max(0, ((start.getTime() - rangeStart.getTime()) / totalMs) * 100);
       const widthPercent  = Math.max(2, ((end.getTime() - start.getTime()) / totalMs) * 100);
       return {
-        id: p.id,
+        id: p.contract_id,
         name: p.project_name || p.project_number || '—',
         status: p.status,
         start_date: p.start_date!,
         end_date: p.end_date!,
-        percent_done: p.percent_done,
+        percent_done: p.overall_progress,
         offsetPercent,
         widthPercent,
       };
@@ -85,9 +85,9 @@ export class ScheduleListComponent implements OnInit {
   fetchProjects(): void {
     this.loading.set(true);
     this.error.set(null);
-    this.projectService.getProjects(100, 0, {}).subscribe({
+    this.projectService.getSchedule().subscribe({
       next: (res) => {
-        this.allProjects.set(res.data ?? []);
+        this.allProjects.set(res ?? []);
         this.loading.set(false);
       },
       error: () => {
@@ -97,7 +97,7 @@ export class ScheduleListComponent implements OnInit {
     });
   }
 
-  private dateRange(projects: ProjectCreateResponse[]): { rangeStart: Date; rangeEnd: Date } {
+  private dateRange(projects: ProjectScheduleItem[]): { rangeStart: Date; rangeEnd: Date } {
     const starts = projects.map(p => new Date(p.start_date!).getTime());
     const ends   = projects.map(p => new Date(p.end_date!).getTime());
     return { rangeStart: new Date(Math.min(...starts)), rangeEnd: new Date(Math.max(...ends)) };
@@ -111,7 +111,13 @@ export class ScheduleListComponent implements OnInit {
     this.router.navigate(['/projects', id]);
   }
 
-  private sk(s: string) { return (s ?? '').toLowerCase().trim(); }
+  private sk(s: string) {
+    const v = (s ?? '').toLowerCase().trim();
+    const en: Record<string, string> = {
+      active: 'activo', completed: 'completado', cancelled: 'cancelado', canceled: 'cancelado', registro: 'draft',
+    };
+    return en[v] ?? v;
+  }
 
   statusLabel(status: string): string {
     const map: Record<string, string> = {

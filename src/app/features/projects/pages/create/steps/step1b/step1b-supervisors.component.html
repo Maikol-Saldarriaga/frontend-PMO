@@ -36,7 +36,7 @@
               @if (selectedPrincipal()) {
                 <div class="w-8 h-8 rounded-full overflow-hidden bg-accent-100 flex items-center justify-center flex-shrink-0">
                   @if (selectedPrincipal()!.image_url) {
-                    <img [src]="selectedPrincipal()!.image_url!" [alt]="selectedPrincipal()!.full_name" class="w-full h-full object-cover"/>
+                    <img [src]="selectedPrincipal()!.image_url!" [alt]="selectedPrincipal()!.full_name" class="w-full h-full object-cover" (error)="onSupervisorAvatarError(selectedPrincipal()!)"/>
                   } @else {
                     <span class="text-xs font-black text-accent">{{ selectedPrincipal()!.full_name[0] }}</span>
                   }
@@ -63,7 +63,7 @@
                       class="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent-50 transition-colors text-left"
                       [class.bg-accent-50]="selectedPrincipal()?.id === u.id">
                       <div class="w-9 h-9 rounded-full overflow-hidden bg-accent-100 flex items-center justify-center flex-shrink-0">
-                        @if (u.image_url) { <img [src]="u.image_url" [alt]="u.full_name" class="w-full h-full object-cover"/> }
+                        @if (u.image_url) { <img [src]="u.image_url" [alt]="u.full_name" class="w-full h-full object-cover" (error)="onSupervisorAvatarError(u)"/> }
                         @else { <span class="text-sm font-black text-accent">{{ u.full_name[0] }}</span> }
                       </div>
                       <div class="flex-1 min-w-0">

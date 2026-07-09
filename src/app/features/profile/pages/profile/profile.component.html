@@ -25,7 +25,7 @@
       <!-- Avatar -->
       <div class="profile-avatar-col">
         <div class="profile-avatar">
-          <img *ngIf="avatarPreview()" [src]="avatarPreview()!" alt="avatar" class="profile-avatar__img"/>
+          <img *ngIf="avatarPreview()" [src]="avatarPreview()!" alt="avatar" class="profile-avatar__img" (error)="onAvatarError()"/>
           <span *ngIf="!avatarPreview()" class="profile-avatar__initials">{{ initials }}</span>
         </div>
         <label class="profile-upload-btn" for="avatar-input">

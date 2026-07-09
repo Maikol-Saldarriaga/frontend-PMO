@@ -7,6 +7,7 @@ import {
   ProjectSnapshotItem, Snapshot, SnapshotRequest, ScopeSnapshotsResponse,
   ScopeComponent, ScopeActivity,
 } from '../../../../models/project.model';
+import { environment } from '../../../../../../../environments/environment';
 
 interface FlatActivity {
   id:            string;
@@ -129,8 +130,12 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
     this.timeSvc.getNow().subscribe(now => this.nowDate.set(now));
   }
 
-  /** Igual que en Entregables: si ya pasó el end_date y ya tiene actual_pct registrado, el backend rechaza la edición de fechas. */
+  /**
+   * Igual que en Entregables: si ya pasó el end_date y ya tiene actual_pct registrado, el backend rechaza la edición de fechas.
+   * `environment.enforceDeliveryDateLocks` permite desactivar esta restricción temporalmente (ej. pruebas).
+   */
   isSnapshotLocked(snap: Snapshot): boolean {
+    if (!environment.enforceDeliveryDateLocks) return false;
     if (snap.actual_pct === null || snap.actual_pct === undefined) return false;
     const end = toDateOnly(snap.end_date);
     if (!end) return false;
@@ -326,7 +331,12 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
     return 'bg-red-400';
   }
 
-  /** counts_by_activity ya viene correctamente indexado por activity_id real; se respalda con componente+acto si llegara a faltar. */
+  /**
+   * counts_by_activity ya viene correctamente indexado por activity_id real; se respalda buscando por id_activity
+   * si llegara a faltar. OJO: nunca usar component_name+act como respaldo — el número de "acto" no es único entre
+   * actividades de un mismo componente, así que un solo registro terminaba contando como registro para TODAS las
+   * actividades de ese componente que compartieran el mismo número de acto.
+   */
   hasSnap(componentName: string, actId: string, act: number): boolean {
     return this.snapCount(componentName, actId, act) > 0;
   }
@@ -334,6 +344,6 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
   snapCount(componentName: string, actId: string, act: number): number {
     const direct = this.countsByActivity()[actId];
     if (direct !== undefined) return direct;
-    return this.allSnapshots().filter(s => s.component_name === componentName && s.act === act).length;
+    return this.allSnapshots().filter(s => s.id_activity === actId).length;
   }
 }

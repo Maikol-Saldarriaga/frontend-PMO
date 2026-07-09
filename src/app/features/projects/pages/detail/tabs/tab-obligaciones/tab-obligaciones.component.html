@@ -1,0 +1,350 @@
+<div class="px-6 py-6 space-y-5">
+  @if (loading()) {
+    <div class="flex items-center justify-center h-48">
+      <div class="flex flex-col items-center gap-3">
+        <div class="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+        <p class="text-sm text-gray-400">Cargando matriz de cumplimiento...</p>
+      </div>
+    </div>
+  } @else if (error()) {
+    <div class="m-6 p-4 rounded-xl bg-red-50 border border-red-100 text-sm text-red-600">{{ error() }}</div>
+  } @else {
+
+    <!-- Header -->
+    <div class="flex items-center justify-between gap-4 flex-wrap">
+      <div>
+        <h2 class="text-base font-bold text-gray-900">Matriz de Cumplimiento</h2>
+        <p class="text-xs text-gray-400 mt-0.5">{{ rows().length }} obligación(es) · {{ totalEvidences() }} evidencia(s) de cumplimiento</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <button (click)="toggleImportPanel()"
+          class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-neutral-50 text-primary-700 border border-neutral-200 text-sm font-semibold shadow-sm transition-all active:scale-95">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m0-16L6 10m6-6l6 6M4 20h16"/>
+          </svg>
+          Importar / Reemplazar
+        </button>
+        <button (click)="openCreate()"
+          class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-accent hover:bg-accent-700 text-white text-sm font-semibold shadow-sm transition-all active:scale-95">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+          </svg>
+          Agregar obligación
+        </button>
+      </div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm min-w-[640px] border-collapse">
+          <thead>
+            <tr class="bg-neutral-50 border-b border-gray-100 text-[10px] font-bold text-neutral-500 uppercase tracking-wide">
+              <th class="text-left px-5 py-2.5">Obligaciones</th>
+              <th class="text-left px-5 py-2.5">Evidencias registradas</th>
+              <th class="text-left px-5 py-2.5">Sin evidencia</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="px-5 py-3.5"><p class="text-lg font-black text-gray-900">{{ rows().length }}</p></td>
+              <td class="px-5 py-3.5"><p class="text-lg font-black text-gray-900">{{ totalEvidences() }}</p></td>
+              <td class="px-5 py-3.5">
+                <p class="text-lg font-black" [class.text-emerald-600]="obligationsWithoutEvidence() === 0" [class.text-amber-600]="obligationsWithoutEvidence() > 0">
+                  {{ obligationsWithoutEvidence() }}
+                </p>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Importar / Reemplazar -->
+    @if (showImport()) {
+      <div class="rounded-2xl border border-dashed border-accent-300 bg-accent-50/40 p-5 space-y-3">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <h3 class="text-sm font-bold text-primary-700">Importar filas a la matriz</h3>
+          <div class="flex items-center gap-1 bg-white rounded-xl p-1 border border-neutral-200">
+            <button type="button" (click)="setImportMode('add')"
+              class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+              [class.bg-accent]="importMode() === 'add'" [class.text-white]="importMode() === 'add'"
+              [class.text-neutral-500]="importMode() !== 'add'">Agregar (aditivo)</button>
+            <button type="button" (click)="setImportMode('replace')"
+              class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+              [class.bg-danger]="importMode() === 'replace'" [class.text-white]="importMode() === 'replace'"
+              [class.text-neutral-500]="importMode() !== 'replace'">Reemplazar todo</button>
+          </div>
+        </div>
+
+        <p class="text-xs text-neutral-500">
+          Una fila por línea, columnas separadas por tabulación o <code class="px-1 bg-white rounded border border-neutral-200">|</code>:
+          <br/><code class="text-[11px] px-1.5 py-0.5 bg-white rounded border border-neutral-200">cláusula | referencia | texto de la obligación | método de cumplimiento | url de ubicación | nota</code>
+          <br/>Si la ubicación viene vacía se rellena automáticamente con "Pendiente de registro" — no se rechaza la fila.
+        </p>
+
+        <textarea [ngModel]="importText()" (ngModelChange)="importText.set($event)" rows="6"
+          placeholder="Cláusula Quinta | 5.1 | El contratista debe entregar informes mensuales | Revisión documental | https://... | Verificado por supervisión"
+          class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-xs font-mono text-primary-700 placeholder-neutral-300 bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"></textarea>
+
+        @if (importError()) { <p class="text-xs text-danger">{{ importError() }}</p> }
+        @if (importSuccess()) { <p class="text-xs text-success">{{ importSuccess() }}</p> }
+
+        <div class="flex items-center gap-3">
+          <button type="button" (click)="runImport()" [disabled]="importSaving() || !importPreviewCount()"
+            class="px-4 py-2 bg-accent hover:bg-accent-700 text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-50">
+            @if (importSaving()) { Procesando... } @else { {{ importMode() === 'replace' ? 'Reemplazar' : 'Agregar' }} {{ importPreviewCount() }} fila(s) }
+          </button>
+          <button type="button" (click)="toggleImportPanel()" class="px-4 py-2 text-xs text-neutral-500 hover:text-neutral-700 transition-colors">Cerrar</button>
+        </div>
+      </div>
+    }
+
+    <!-- Tabla de obligaciones (solo lectura, edición vía panel lateral) -->
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm min-w-[860px] border-collapse">
+          <thead>
+            <tr class="bg-neutral-50 border-b border-gray-100 text-[10px] font-bold text-neutral-500 uppercase tracking-wide">
+              <th class="text-left px-5 py-2.5 w-8">#</th>
+              <th class="text-left px-3 py-2.5 w-32">Cláusula</th>
+              <th class="text-left px-3 py-2.5 w-28">Referencia</th>
+              <th class="text-left px-3 py-2.5">Obligación</th>
+              <th class="text-center px-3 py-2.5 w-28">Evidencias</th>
+              <th class="px-3 py-2.5 w-24 text-right">Acciones</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            @for (row of rows(); track trackByRow($index, row); let i = $index) {
+              <tr class="align-top hover:bg-neutral-50/60 transition-colors">
+                <td class="px-5 py-3">
+                  <div class="w-6 h-6 rounded-md bg-accent/10 flex items-center justify-center text-[10px] font-bold text-accent">{{ i + 1 }}</div>
+                </td>
+                <td class="px-3 py-3 text-xs font-semibold text-primary-700">{{ row.contract_clause }}</td>
+                <td class="px-3 py-3 text-xs text-neutral-500">{{ row.clause_reference || '—' }}</td>
+                <td class="px-3 py-3 text-xs text-neutral-700">{{ row.obligation_text }}</td>
+                <td class="px-3 py-3 text-center">
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold"
+                    [class.bg-emerald-50]="row.evidences.length > 0" [class.text-emerald-700]="row.evidences.length > 0"
+                    [class.bg-amber-50]="row.evidences.length === 0" [class.text-amber-700]="row.evidences.length === 0">
+                    {{ row.evidences.length }}
+                  </span>
+                </td>
+                <td class="px-3 py-3">
+                  <div class="flex items-center justify-end gap-1">
+                    <button type="button" (click)="openEdit(row)" title="Editar"
+                      class="w-7 h-7 flex items-center justify-center rounded-lg text-neutral-400 hover:text-accent hover:bg-accent-50 transition-colors">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                      </svg>
+                    </button>
+                    <button type="button" (click)="deleteObligation(row)" [disabled]="deletingObligationId() === row.id" title="Eliminar"
+                      class="w-7 h-7 flex items-center justify-center rounded-lg text-neutral-400 hover:text-danger hover:bg-danger/10 transition-colors disabled:opacity-40">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                      </svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      @if (!rows().length) {
+        <div class="flex flex-col items-center justify-center py-12 gap-2">
+          <p class="text-sm font-medium text-gray-500">Aún no hay obligaciones registradas.</p>
+          <p class="text-xs text-gray-400">Usa "Agregar obligación" o importa la matriz completa arriba.</p>
+        </div>
+      }
+    </div>
+
+  }
+</div>
+
+<!-- ══ PANEL LATERAL DE OBLIGACIÓN ═══════════════════════════════════════════ -->
+@if (panelOpen()) {
+  <div class="fixed inset-0 z-40 bg-black/30" (click)="closePanel()"></div>
+
+  <div class="fixed top-0 right-0 z-50 h-full w-full max-w-lg bg-white shadow-2xl overflow-y-auto">
+    <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
+      <h3 class="text-sm font-bold text-gray-900">{{ editingId() ? 'Editar obligación' : 'Nueva obligación' }}</h3>
+      <button (click)="closePanel()" class="text-gray-400 hover:text-gray-600 transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <div class="p-5 space-y-5">
+
+      <!-- Datos de la obligación -->
+      <div class="space-y-3">
+        <div>
+          <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Cláusula *</label>
+          <input type="text" [ngModel]="headerForm.contract_clause" (ngModelChange)="updateHeaderField('contract_clause', $event)"
+            placeholder="Ej: Cláusula Quinta"
+            class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300"/>
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Referencia</label>
+          <input type="text" [ngModel]="headerForm.clause_reference" (ngModelChange)="updateHeaderField('clause_reference', $event)"
+            placeholder="Ej: 5.1"
+            class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300"/>
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Texto de la obligación *</label>
+          <textarea [ngModel]="headerForm.obligation_text" (ngModelChange)="updateHeaderField('obligation_text', $event)" rows="3"
+            class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300 resize-none"></textarea>
+        </div>
+      </div>
+
+      <hr class="border-gray-100"/>
+
+      <!-- Evidencias ya registradas -->
+      @if (editingId() && existingEvidences().length) {
+        <div>
+          <h4 class="text-sm font-bold text-gray-800 mb-3">Evidencias registradas</h4>
+          <div class="space-y-2">
+            @for (ev of existingEvidences(); track trackByEvidence($index, ev)) {
+              <div class="p-3 rounded-xl border border-neutral-200 bg-neutral-50/50">
+                @if (ev.editing) {
+                  <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 shrink-0 rounded-lg border border-neutral-200 bg-white overflow-hidden flex items-center justify-center">
+                      @if (evidenceKind(ev) === 'image') {
+                        <img [src]="ev.compliance_location_url" class="w-full h-full object-cover"/>
+                      } @else {
+                        <svg class="w-5 h-5 text-neutral-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                      }
+                    </div>
+                    <div class="flex-1 min-w-0 space-y-2">
+                      <input type="text" [ngModel]="ev.draft.compliance_method" (ngModelChange)="updateEvidenceDraft(ev.id, 'compliance_method', $event)"
+                        placeholder="Método"
+                        class="w-full px-2 py-1.5 rounded-lg border border-neutral-200 text-xs bg-white outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent"/>
+                      <p class="text-[11px] text-neutral-400 truncate" [title]="ev.compliance_location_url">{{ ev.compliance_location_url }}</p>
+                      <input type="text" [ngModel]="ev.draft.verification_note" (ngModelChange)="updateEvidenceDraft(ev.id, 'verification_note', $event)"
+                        placeholder="Nota"
+                        class="w-full px-2 py-1.5 rounded-lg border border-neutral-200 text-xs bg-white outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent"/>
+                      @if (ev.error) { <p class="text-[10px] font-semibold text-danger">{{ ev.error }}</p> }
+                      <div class="flex items-center justify-end gap-2">
+                        <button type="button" (click)="cancelEditEvidence(ev.id)" class="text-[11px] text-neutral-400 hover:text-neutral-600">Cancelar</button>
+                        <button type="button" (click)="saveEvidence(ev.id)" [disabled]="ev.saving" class="text-[11px] font-semibold text-accent hover:text-accent-700 disabled:opacity-40">Guardar</button>
+                      </div>
+                    </div>
+                  </div>
+                } @else {
+                  <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 shrink-0 rounded-lg border border-neutral-200 bg-white overflow-hidden flex items-center justify-center">
+                      @if (evidenceKind(ev) === 'image') {
+                        <img [src]="ev.compliance_location_url" class="w-full h-full object-cover"/>
+                      } @else {
+                        <svg class="w-5 h-5 text-neutral-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                      }
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <p class="text-xs font-semibold text-neutral-600">{{ ev.compliance_method || 'Sin método' }}</p>
+                      <a [href]="ev.compliance_location_url" target="_blank" rel="noopener" class="text-xs text-accent hover:text-accent-700 underline underline-offset-2 truncate block">{{ ev.compliance_location_url }}</a>
+                      @if (ev.verification_note) { <p class="text-[11px] text-neutral-400 mt-0.5">{{ ev.verification_note }}</p> }
+                    </div>
+                    <div class="flex items-center gap-1 shrink-0">
+                      <button type="button" (click)="editEvidence(ev.id)" title="Editar" class="w-6 h-6 flex items-center justify-center rounded-lg text-neutral-400 hover:text-accent hover:bg-accent-50">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                      </button>
+                      <button type="button" (click)="deleteEvidence(ev)" title="Eliminar" class="w-6 h-6 flex items-center justify-center rounded-lg text-neutral-400 hover:text-danger hover:bg-danger/10">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                      </button>
+                    </div>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        </div>
+        <hr class="border-gray-100"/>
+      }
+
+      <!-- Agregar evidencias nuevas -->
+      <div>
+        <div class="flex items-center justify-between mb-3">
+          <h4 class="text-sm font-bold text-gray-800">Agregar evidencias</h4>
+          <div class="flex items-center gap-2">
+            <label class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-neutral-300 text-xs text-neutral-500 hover:text-accent hover:border-accent-300 cursor-pointer transition-colors">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+              Subir archivo(s)
+              <input type="file" multiple accept="image/*,.pdf" class="hidden" (change)="onFilesSelected($event)"/>
+            </label>
+            <button type="button" (click)="addStagedLink()"
+              class="px-3 py-1.5 rounded-lg border border-dashed border-neutral-300 text-xs text-neutral-500 hover:text-accent hover:border-accent-300 transition-colors">
+              + Enlace
+            </button>
+          </div>
+        </div>
+
+        @if (!stagedEvidences().length) {
+          <p class="text-xs text-neutral-400">Sin evidencias nuevas por subir. Usa "Subir archivo(s)" o "+ Enlace" arriba.</p>
+        }
+
+        <div class="space-y-3">
+          @for (se of stagedEvidences(); track $index; let i = $index) {
+            <div class="flex items-start gap-3 p-3 rounded-xl border border-dashed border-sky-200 bg-sky-50/50">
+              @if (se.mode === 'file') {
+                <div class="relative w-14 h-14 shrink-0 rounded-lg border border-dashed border-sky-200 bg-sky-50 overflow-hidden flex items-center justify-center" [title]="se.file?.name">
+                  @if (se.kind === 'image' && se.preview) {
+                    <img [src]="se.preview" class="w-full h-full object-cover"/>
+                  } @else if (se.kind === 'pdf' && se.preview) {
+                    <embed [src]="se.preview" type="application/pdf" class="w-full h-full pointer-events-none scale-[3] origin-top-left"/>
+                  } @else {
+                    <svg class="w-6 h-6 text-sky-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                  }
+                </div>
+              } @else {
+                <div class="w-14 h-14 shrink-0 rounded-lg border border-dashed border-sky-200 bg-sky-50 flex items-center justify-center">
+                  <svg class="w-6 h-6 text-sky-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 010 5.656l-4 4a4 4 0 01-5.656-5.656l1.5-1.5m5.656-5.656l1.5-1.5a4 4 0 115.656 5.656l-4 4a4 4 0 01-5.656 0"/>
+                  </svg>
+                </div>
+              }
+
+              <div class="flex-1 min-w-0 space-y-1.5">
+                <input type="text" [ngModel]="se.compliance_method" (ngModelChange)="updateStagedField(i, 'compliance_method', $event)"
+                  placeholder="Método (opcional)"
+                  class="w-full px-2 py-1.5 rounded-lg border border-neutral-200 text-xs bg-white outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400"/>
+                @if (se.mode === 'link') {
+                  <input type="text" [ngModel]="se.compliance_location_url" (ngModelChange)="updateStagedField(i, 'compliance_location_url', $event)"
+                    placeholder="URL / ubicación *"
+                    class="w-full px-2 py-1.5 rounded-lg border border-neutral-200 text-xs bg-white outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400"/>
+                }
+                <input type="text" [ngModel]="se.verification_note" (ngModelChange)="updateStagedField(i, 'verification_note', $event)"
+                  placeholder="Nota (opcional)"
+                  class="w-full px-2 py-1.5 rounded-lg border border-neutral-200 text-xs bg-white outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400"/>
+              </div>
+
+              <button type="button" (click)="removeStagedEvidence(i)" title="Quitar"
+                class="shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-black/10 text-neutral-500 hover:bg-black/20">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+          }
+        </div>
+      </div>
+
+      @if (saveError()) {
+        <div class="p-3 rounded-xl bg-red-50 border border-red-100 text-sm text-red-600">{{ saveError() }}</div>
+      }
+
+      <div class="flex items-center justify-end gap-3 pt-2">
+        <button type="button" (click)="closePanel()" class="px-4 py-2 text-sm text-neutral-500 hover:text-neutral-700 transition-colors">Cancelar</button>
+        <button type="button" (click)="save()" [disabled]="saving() || !canSave()"
+          class="flex items-center gap-2 px-5 py-2.5 bg-sky-500 hover:bg-sky-600 disabled:opacity-50 text-white text-sm font-semibold rounded-xl shadow-sm transition-colors">
+          @if (saving()) { <div class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> }
+          Guardar
+        </button>
+      </div>
+    </div>
+  </div>
+}

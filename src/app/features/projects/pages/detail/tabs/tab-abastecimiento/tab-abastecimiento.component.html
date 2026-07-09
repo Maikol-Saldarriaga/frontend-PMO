@@ -1,0 +1,363 @@
+<div class="px-6 py-6 space-y-5">
+  @if (error()) {
+    <div class="m-6 p-4 rounded-xl bg-red-50 border border-red-100 text-sm text-red-600">{{ error() }}</div>
+  }
+
+  <!-- Header -->
+  <div class="flex items-center justify-between gap-4 flex-wrap">
+    <div>
+      <h2 class="text-base font-bold text-gray-900">Plan de Abastecimiento</h2>
+      <p class="text-xs text-gray-400 mt-0.5">{{ items().length }} requerimiento(s){{ activeFilterCount() ? ' · ' + activeFilterCount() + ' filtro(s) activo(s)' : '' }}</p>
+    </div>
+    <div class="flex items-center gap-3">
+      <button (click)="toggleImportPanel()"
+        class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-neutral-50 text-primary-700 border border-neutral-200 text-sm font-semibold shadow-sm transition-all active:scale-95">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m0-16L6 10m6-6l6 6M4 20h16"/>
+        </svg>
+        Importar filas
+      </button>
+      <button (click)="openCreate()"
+        class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-accent hover:bg-accent-700 text-white text-sm font-semibold shadow-sm transition-all active:scale-95">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+        </svg>
+        Agregar requerimiento
+      </button>
+    </div>
+  </div>
+
+  <!-- Resumen -->
+  @if (summary(); as s) {
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm min-w-[640px] border-collapse">
+          <thead>
+            <tr class="bg-neutral-50 border-b border-gray-100 text-[10px] font-bold text-neutral-500 uppercase tracking-wide">
+              <th class="text-left px-5 py-2.5">Presupuesto Inicial</th>
+              <th class="text-left px-5 py-2.5">Presupuesto Ejecutado</th>
+              <th class="text-left px-5 py-2.5">% Ejecutado</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="px-5 py-3.5"><p class="text-lg font-black text-gray-900">{{ formatCurrency(s.total_initial_budget) }}</p></td>
+              <td class="px-5 py-3.5"><p class="text-lg font-black text-gray-900">{{ formatCurrency(s.total_executed_budget) }}</p></td>
+              <td class="px-5 py-3.5">
+                <p class="text-lg font-black" [class.text-emerald-600]="s.pct_executed >= 80" [class.text-amber-600]="s.pct_executed < 80">
+                  {{ s.pct_executed | number:'1.0-1' }}%
+                </p>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+
+  <!-- Filtros -->
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-center gap-3 flex-wrap">
+    <select [ngModel]="filters().year" (ngModelChange)="updateFilter('year', $event)"
+      class="rounded-xl border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs text-gray-600 focus:outline-none focus:ring-2 focus:ring-sky-300">
+      <option [ngValue]="null">Todos los años</option>
+      @for (y of yearOptions; track y) { <option [ngValue]="y">{{ y }}</option> }
+    </select>
+
+    <select [ngModel]="filters().month" (ngModelChange)="updateFilter('month', $event)"
+      class="rounded-xl border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs text-gray-600 focus:outline-none focus:ring-2 focus:ring-sky-300">
+      <option [ngValue]="null">Todos los meses</option>
+      @for (m of months; track $index) { <option [ngValue]="$index + 1">{{ m }}</option> }
+    </select>
+
+    <input type="text" [ngModel]="filters().category" (ngModelChange)="updateFilter('category', $event)"
+      placeholder="Categoría..."
+      class="rounded-xl border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs text-gray-600 focus:outline-none focus:ring-2 focus:ring-sky-300 w-40"/>
+
+    <select [ngModel]="filters().status" (ngModelChange)="updateFilter('status', $event)"
+      class="rounded-xl border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs text-gray-600 focus:outline-none focus:ring-2 focus:ring-sky-300">
+      <option value="">Todos los estados</option>
+      @for (o of statusOptions; track o.value) { <option [value]="o.value">{{ o.label }}</option> }
+    </select>
+
+    @if (activeFilterCount()) {
+      <button (click)="clearFilters()" class="text-xs text-neutral-400 hover:text-neutral-600 transition-colors">Limpiar filtros</button>
+    }
+  </div>
+
+  <!-- Import panel -->
+  @if (showImport()) {
+    <div class="rounded-2xl border border-dashed border-accent-300 bg-accent-50/40 p-5 space-y-3">
+      <h3 class="text-sm font-bold text-primary-700">Importar filas (creación masiva)</h3>
+      <p class="text-xs text-neutral-500">
+        Una fila por línea, columnas separadas por tabulación, en este orden:
+        <br/><code class="text-[11px] px-1.5 py-0.5 bg-white rounded border border-neutral-200">consecutivo · estado · proyecto · categoría · detalle · solicitado_por · recibe · presupuesto_inicial · presupuesto_ejecutado · año · mes</code>
+        <br/>Estado válido: pendiente, en_ejecucion, finalizado, cancelado (si no coincide, queda "pendiente"). Esto agrega filas nuevas, no reemplaza las existentes.
+      </p>
+      <textarea [ngModel]="importText()" (ngModelChange)="importText.set($event)" rows="6"
+        placeholder="1	pendiente	Proyecto Norte	Materiales	Compra de cemento	Juan Pérez	Almacén Central	5000000	0	2026	7"
+        class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-xs font-mono text-primary-700 placeholder-neutral-300 bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"></textarea>
+
+      @if (importError()) { <p class="text-xs text-danger">{{ importError() }}</p> }
+      @if (importSuccess()) { <p class="text-xs text-success">{{ importSuccess() }}</p> }
+
+      <div class="flex items-center gap-3">
+        <button type="button" (click)="runImport()" [disabled]="importSaving() || !importPreviewCount()"
+          class="px-4 py-2 bg-accent hover:bg-accent-700 text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-50">
+          @if (importSaving()) { Importando... } @else { Importar {{ importPreviewCount() }} fila(s) }
+        </button>
+        <button type="button" (click)="toggleImportPanel()" class="px-4 py-2 text-xs text-neutral-500 hover:text-neutral-700 transition-colors">Cerrar</button>
+      </div>
+    </div>
+  }
+
+  <!-- Tabla -->
+  <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm min-w-[1000px] border-collapse">
+        <thead>
+          <tr class="bg-neutral-50 border-b border-gray-100 text-[10px] font-bold text-neutral-500 uppercase tracking-wide">
+            <th class="text-left px-4 py-2.5 w-14">#</th>
+            <th class="text-left px-3 py-2.5">Proyecto / Categoría</th>
+            <th class="text-left px-3 py-2.5">Detalle</th>
+            <th class="text-left px-3 py-2.5">Estado</th>
+            <th class="text-right px-3 py-2.5 whitespace-nowrap">Presup. inicial</th>
+            <th class="text-right px-3 py-2.5 whitespace-nowrap">Presup. ejecutado</th>
+            <th class="text-left px-3 py-2.5 whitespace-nowrap">Período</th>
+            <th class="px-3 py-2.5 w-20 text-right">Acciones</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          @if (loading()) {
+            <tr><td colspan="8" class="px-5 py-10 text-center">
+              <div class="w-6 h-6 mx-auto border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+            </td></tr>
+          } @else {
+            @for (item of items(); track trackById($index, item)) {
+              <tr class="hover:bg-neutral-50/60 transition-colors">
+                <td class="px-4 py-3 text-xs font-semibold text-neutral-500">{{ item.consecutive_number }}</td>
+                <td class="px-3 py-3">
+                  <p class="text-xs font-semibold text-primary-700">{{ item.project_name || '—' }}</p>
+                  <p class="text-[11px] text-neutral-400">{{ item.requirement_category || '—' }}</p>
+                </td>
+                <td class="px-3 py-3 text-xs text-neutral-600 max-w-[240px] truncate" [title]="item.requirement_detail || ''">{{ item.requirement_detail || '—' }}</td>
+                <td class="px-3 py-3">
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold"
+                    [class.bg-emerald-50]="item.status === 'finalizado'" [class.text-emerald-700]="item.status === 'finalizado'"
+                    [class.bg-sky-50]="item.status === 'en_ejecucion'" [class.text-sky-700]="item.status === 'en_ejecucion'"
+                    [class.bg-amber-50]="item.status === 'pendiente'" [class.text-amber-700]="item.status === 'pendiente'"
+                    [class.bg-red-50]="item.status === 'cancelado'" [class.text-red-700]="item.status === 'cancelado'">
+                    {{ statusLabel(item.status) }}
+                  </span>
+                </td>
+                <td class="px-3 py-3 text-right whitespace-nowrap text-xs font-semibold text-primary-700">{{ formatCurrency(item.initial_budget) }}</td>
+                <td class="px-3 py-3 text-right whitespace-nowrap text-xs font-semibold text-accent">{{ formatCurrency(item.executed_budget) }}</td>
+                <td class="px-3 py-3 whitespace-nowrap text-xs text-neutral-500">{{ monthName(item.period_month) }} {{ item.period_year }}</td>
+                <td class="px-3 py-3">
+                  <div class="flex items-center justify-end gap-1">
+                    <button type="button" (click)="openEdit(item)" title="Editar"
+                      class="w-7 h-7 flex items-center justify-center rounded-lg text-neutral-400 hover:text-accent hover:bg-accent-50 transition-colors">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                    </button>
+                    <button type="button" (click)="deleteItem(item)" [disabled]="deletingId() === item.id" title="Eliminar"
+                      class="w-7 h-7 flex items-center justify-center rounded-lg text-neutral-400 hover:text-danger hover:bg-danger/10 transition-colors disabled:opacity-40">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+
+    @if (!loading() && !items().length) {
+      <div class="flex flex-col items-center justify-center py-12 gap-2">
+        <p class="text-sm font-medium text-gray-500">No hay requerimientos registrados.</p>
+        <p class="text-xs text-gray-400">Usa "Agregar requerimiento" o importa filas arriba.</p>
+      </div>
+    }
+  </div>
+
+</div>
+
+<!-- ══ PANEL LATERAL DE CREACIÓN / EDICIÓN ═══════════════════════════════════ -->
+@if (panelOpen()) {
+  <div class="fixed inset-0 z-40 bg-black/30" (click)="closePanel()"></div>
+
+  <div class="fixed top-0 right-0 z-50 h-full w-full max-w-lg bg-white shadow-2xl overflow-y-auto">
+    <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
+      <h3 class="text-sm font-bold text-gray-900">{{ form().id ? 'Editar requerimiento' : 'Nuevo requerimiento' }}</h3>
+      <button (click)="closePanel()" class="text-gray-400 hover:text-gray-600 transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <div class="p-5 space-y-4">
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Consecutivo</label>
+          <input type="text" inputmode="numeric" appMoneyMask [ngModel]="form().consecutive_number" (ngModelChange)="updateFormField('consecutive_number', $event)"
+            class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300"/>
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Estado</label>
+          <select [ngModel]="form().status" (ngModelChange)="updateFormField('status', $event)"
+            class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300">
+            @for (o of statusOptions; track o.value) { <option [value]="o.value">{{ o.label }}</option> }
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Proyecto</label>
+        <input type="text" [ngModel]="form().project_name" (ngModelChange)="updateFormField('project_name', $event)"
+          class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300"/>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Categoría</label>
+          <input type="text" [ngModel]="form().requirement_category" (ngModelChange)="updateFormField('requirement_category', $event)"
+            class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300"/>
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Proveedor</label>
+          <input type="text" [ngModel]="form().provider" (ngModelChange)="updateFormField('provider', $event)"
+            class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300"/>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Detalle del requerimiento</label>
+        <textarea [ngModel]="form().requirement_detail" (ngModelChange)="updateFormField('requirement_detail', $event)" rows="2"
+          class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300 resize-none"></textarea>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Solicitado por</label>
+          <input type="text" [ngModel]="form().requested_by" (ngModelChange)="updateFormField('requested_by', $event)"
+            class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300"/>
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Recibe</label>
+          <input type="text" [ngModel]="form().receiving_party" (ngModelChange)="updateFormField('receiving_party', $event)"
+            class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300"/>
+        </div>
+      </div>
+
+      <hr class="border-gray-100"/>
+      <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Fechas</p>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-[10px] font-semibold text-gray-500 mb-1">Fecha estimada solicitud</label>
+          <input type="date" [ngModel]="form().estimated_request_date" (ngModelChange)="updateFormField('estimated_request_date', $event)"
+            class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300"/>
+        </div>
+        <div>
+          <label class="block text-[10px] font-semibold text-gray-500 mb-1">Fecha real solicitud</label>
+          <input type="date" [ngModel]="form().actual_request_date" (ngModelChange)="updateFormField('actual_request_date', $event)"
+            class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300"/>
+        </div>
+        <div>
+          <label class="block text-[10px] font-semibold text-gray-500 mb-1">Inicio requerimiento</label>
+          <input type="date" [ngModel]="form().requirement_start_date" (ngModelChange)="updateFormField('requirement_start_date', $event)"
+            class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300"/>
+        </div>
+        <div>
+          <label class="block text-[10px] font-semibold text-gray-500 mb-1">Fin requerimiento</label>
+          <input type="date" [ngModel]="form().requirement_end_date" (ngModelChange)="updateFormField('requirement_end_date', $event)"
+            class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300"/>
+        </div>
+      </div>
+
+      <hr class="border-gray-100"/>
+      <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Presupuesto y período</p>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-[10px] font-semibold text-gray-500 mb-1">Presupuesto inicial</label>
+          <input type="text" inputmode="decimal" appMoneyMask [ngModel]="form().initial_budget" (ngModelChange)="updateFormField('initial_budget', $event)"
+            class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300"/>
+        </div>
+        <div>
+          <label class="block text-[10px] font-semibold text-gray-500 mb-1">Presupuesto ejecutado</label>
+          <input type="text" inputmode="decimal" appMoneyMask [ngModel]="form().executed_budget" (ngModelChange)="updateFormField('executed_budget', $event)"
+            class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300"/>
+        </div>
+        <div>
+          <label class="block text-[10px] font-semibold text-gray-500 mb-1">Año del período *</label>
+          <select [ngModel]="form().period_year" (ngModelChange)="updateFormField('period_year', $event)"
+            class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300">
+            @for (y of yearOptions; track y) { <option [ngValue]="y">{{ y }}</option> }
+          </select>
+        </div>
+        <div>
+          <label class="block text-[10px] font-semibold text-gray-500 mb-1">Mes del período *</label>
+          <select [ngModel]="form().period_month" (ngModelChange)="updateFormField('period_month', $event)"
+            class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300">
+            @for (m of months; track $index) { <option [ngValue]="$index + 1">{{ m }}</option> }
+          </select>
+        </div>
+      </div>
+
+      <hr class="border-gray-100"/>
+      <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Legalización y pago</p>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-[10px] font-semibold text-gray-500 mb-1">Fecha legalización</label>
+          <input type="date" [ngModel]="form().legalization_date" (ngModelChange)="updateFormField('legalization_date', $event)"
+            class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300"/>
+        </div>
+        <div>
+          <label class="block text-[10px] font-semibold text-gray-500 mb-1">Estado legalización</label>
+          <input type="text" [ngModel]="form().legalization_status" (ngModelChange)="updateFormField('legalization_status', $event)"
+            class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300"/>
+        </div>
+        <div>
+          <label class="block text-[10px] font-semibold text-gray-500 mb-1">Fecha de pago</label>
+          <input type="date" [ngModel]="form().payment_date" (ngModelChange)="updateFormField('payment_date', $event)"
+            class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300"/>
+        </div>
+        <div>
+          <label class="block text-[10px] font-semibold text-gray-500 mb-1"># Factura</label>
+          <input type="text" [ngModel]="form().invoice_number" (ngModelChange)="updateFormField('invoice_number', $event)"
+            class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300"/>
+        </div>
+        <div>
+          <label class="block text-[10px] font-semibold text-gray-500 mb-1">NIT</label>
+          <input type="text" [ngModel]="form().nit" (ngModelChange)="updateFormField('nit', $event)"
+            class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300"/>
+        </div>
+        <div>
+          <label class="block text-[10px] font-semibold text-gray-500 mb-1">Estado acta recibida</label>
+          <input type="text" [ngModel]="form().acta_received_status" (ngModelChange)="updateFormField('acta_received_status', $event)"
+            class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300"/>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-[10px] font-semibold text-gray-500 mb-1">Observación</label>
+        <textarea [ngModel]="form().observation" (ngModelChange)="updateFormField('observation', $event)" rows="2"
+          class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300 resize-none"></textarea>
+      </div>
+
+      @if (saveError()) {
+        <div class="p-3 rounded-xl bg-red-50 border border-red-100 text-sm text-red-600">{{ saveError() }}</div>
+      }
+
+      <div class="flex items-center justify-end gap-3 pt-2">
+        <button type="button" (click)="closePanel()" class="px-4 py-2 text-sm text-neutral-500 hover:text-neutral-700 transition-colors">Cancelar</button>
+        <button type="button" (click)="save()" [disabled]="saving()"
+          class="flex items-center gap-2 px-5 py-2.5 bg-sky-500 hover:bg-sky-600 disabled:opacity-50 text-white text-sm font-semibold rounded-xl shadow-sm transition-colors">
+          @if (saving()) { <div class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> }
+          Guardar
+        </button>
+      </div>
+    </div>
+  </div>
+}

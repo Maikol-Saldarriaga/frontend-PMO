@@ -129,7 +129,7 @@
                       class="absolute top-1/2 -translate-y-1/2 text-[10px] font-semibold text-primary-600 whitespace-nowrap"
                       [style.left.%]="row.offsetPercent + row.widthPercent"
                       style="margin-left: 8px"
-                    >{{ row.percent_done }}%</span>
+                    >{{ row.percent_done | number:'1.0-1' }}%</span>
                   </div>
 
                 </div>

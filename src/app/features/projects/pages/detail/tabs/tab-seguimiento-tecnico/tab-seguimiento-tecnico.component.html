@@ -54,7 +54,7 @@
       <p class="text-2xl font-bold leading-none"
         [class.text-emerald-600]="avgCompliance() >= 80"
         [class.text-amber-600]="avgCompliance() >= 50 && avgCompliance() < 80"
-        [class.text-red-500]="avgCompliance() < 50">{{ avgCompliance() }}%</p>
+        [class.text-red-500]="avgCompliance() < 50">{{ avgCompliance() | number:'1.0-1' }}%</p>
       <p class="text-xs text-gray-400 mt-0.5">Cumplimiento promedio</p>
     </div>
   </div>
@@ -156,12 +156,12 @@
           <div class="shrink-0 flex items-center gap-2">
             <!-- Peso -->
             <div class="text-center px-3 py-2 rounded-xl bg-violet-50 border border-violet-100">
-              <p class="text-lg font-bold text-violet-600 leading-none">{{ selectedActivity()!.percentage }}%</p>
+              <p class="text-lg font-bold text-violet-600 leading-none">{{ selectedActivity()!.percentage | number:'1.0-1' }}%</p>
               <p class="text-[10px] text-violet-400 mt-0.5">Peso</p>
             </div>
             <!-- Avance -->
             <div class="text-center px-3 py-2 rounded-xl bg-sky-50 border border-sky-100">
-              <p class="text-lg font-bold text-sky-600 leading-none">{{ selectedActivity()!.progress }}%</p>
+              <p class="text-lg font-bold text-sky-600 leading-none">{{ selectedActivity()!.progress | number:'1.0-1' }}%</p>
               <p class="text-[10px] text-sky-400 mt-0.5">Avance</p>
             </div>
             <!-- Botón registrar -->
@@ -192,7 +192,7 @@
                 [style.width.%]="totalPlanned() > 100 ? 100 : totalPlanned()"></div>
             </div>
             <span class="text-xs font-bold w-14 shrink-0 text-right"
-              [class.text-sky-600]="totalPlanned() <= 100" [class.text-red-600]="totalPlanned() > 100">{{ totalPlanned() }}%</span>
+              [class.text-sky-600]="totalPlanned() <= 100" [class.text-red-600]="totalPlanned() > 100">{{ totalPlanned() | number:'1.0-1' }}%</span>
           </div>
           <!-- Ejecutado acumulado -->
           <div class="flex items-center gap-3">
@@ -204,7 +204,7 @@
                 [style.width.%]="totalActual() > 100 ? 100 : totalActual()"></div>
             </div>
             <span class="text-xs font-bold w-14 shrink-0 text-right"
-              [class.text-emerald-600]="totalActual() <= 100" [class.text-red-600]="totalActual() > 100">{{ totalActual() }}%</span>
+              [class.text-emerald-600]="totalActual() <= 100" [class.text-red-600]="totalActual() > 100">{{ totalActual() | number:'1.0-1' }}%</span>
           </div>
         </div>
       }
@@ -313,17 +313,19 @@
                       </div>
                       @if (variacion(snap) > 0) {
                         <span class="shrink-0 text-[10px] font-bold text-purple-600 bg-purple-50 border border-purple-200 px-1.5 py-0.5 rounded-full">
-                          +{{ variacion(snap) }}% adelantado
+                          +{{ variacion(snap) | number:'1.0-1' }}% adelantado
                         </span>
                       }
                     </div>
                     <div class="flex items-center justify-between mt-1">
-                      <span class="text-[10px] text-gray-400">Planeado <strong class="text-sky-600">{{ snap.planned_pct }}%</strong></span>
+                      <span class="text-[10px] text-gray-400">Planeado <strong class="text-sky-600">{{ snap.planned_pct | number:'1.0-1' }}%</strong></span>
                       <span class="text-[10px] text-gray-400">Real <strong
                         [class.text-gray-400]="estado(snap) === 'pendiente'"
                         [class.text-purple-600]="estado(snap) === 'adelantado'"
                         [class.text-emerald-600]="estado(snap) === 'en-tiempo'"
-                        [class.text-red-500]="estado(snap) === 'retrasado'">{{ snap.actual_pct ?? '—' }}{{ snap.actual_pct !== null ? '%' : '' }}</strong></span>
+                        [class.text-red-500]="estado(snap) === 'retrasado'">
+                        @if (snap.actual_pct !== null) { {{ snap.actual_pct | number:'1.0-1' }}% } @else { — }
+                      </strong></span>
                     </div>
                   </div>
 
@@ -336,7 +338,7 @@
                         [class.text-emerald-600]="variacion(snap) > 0"
                         [class.text-gray-500]="variacion(snap) === 0"
                         [class.text-red-500]="variacion(snap) < 0">
-                        {{ variacion(snap) > 0 ? '+' : '' }}{{ variacion(snap) }}%
+                        {{ variacion(snap) > 0 ? '+' : '' }}{{ variacion(snap) | number:'1.0-1' }}%
                       </p>
                     }
                     <p class="text-[10px] text-gray-400">variación</p>
@@ -380,7 +382,7 @@
                     @if (estado(snap) === 'pendiente') {
                       <p class="text-sm font-bold text-gray-300">—</p>
                     } @else {
-                      <p class="text-sm font-bold text-gray-700">{{ cumplimiento(snap) }}%</p>
+                      <p class="text-sm font-bold text-gray-700">{{ cumplimiento(snap) | number:'1.0-1' }}%</p>
                     }
                     <p class="text-[10px] text-gray-400">cumplim.</p>
                   </div>

@@ -124,8 +124,12 @@
 
                 <!-- % planeado / real -->
                 <div class="hidden sm:flex items-center gap-4 shrink-0 text-sm">
-                  <span class="text-gray-400">Plan <strong class="text-base text-sky-600">{{ item.planned_pct }}%</strong></span>
-                  <span class="text-gray-400">Real <strong class="text-base text-gray-700">{{ (estadoSnap(item) === 'vencido' ? 0 : item.actual_pct) ?? '—' }}{{ item.actual_pct !== null || estadoSnap(item) === 'vencido' ? '%' : '' }}</strong></span>
+                  <span class="text-gray-400">Plan <strong class="text-base text-sky-600">{{ item.planned_pct | number:'1.0-1' }}%</strong></span>
+                  <span class="text-gray-400">Real <strong class="text-base text-gray-700">
+                    @if (estadoSnap(item) === 'vencido') { 0% }
+                    @else if (item.actual_pct !== null) { {{ item.actual_pct | number:'1.0-1' }}% }
+                    @else { — }
+                  </strong></span>
                 </div>
 
                 <!-- Badge de estado -->
@@ -207,7 +211,7 @@
                 class="w-full rounded-xl border border-gray-200 bg-gray-50 pl-3 pr-8 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-sky-300 disabled:opacity-60 disabled:cursor-not-allowed"/>
               <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">%</span>
             </div>
-            <p class="text-sm text-gray-500 mt-1.5">Planeado: <strong class="text-base text-sky-600">{{ selectedDelivery()!.planned_pct }}%</strong></p>
+            <p class="text-sm text-gray-500 mt-1.5">Planeado: <strong class="text-base text-sky-600">{{ selectedDelivery()!.planned_pct | number:'1.0-1' }}%</strong></p>
           </div>
 
           <div>

@@ -286,7 +286,7 @@
                       @if (resolveImageUrl(project.responsible.image_url); as imgSrc) {
                         <img [src]="imgSrc" [alt]="project.responsible.name"
                              class="w-6 h-6 rounded-full object-cover ring-1 ring-neutral-200 flex-shrink-0"
-                             (error)="$any($event.target).style.display='none'; $any($event.target).nextElementSibling.style.display='flex'"/>
+                             (error)="onResponsibleAvatarError(project); $any($event.target).style.display='none'; $any($event.target).nextElementSibling.style.display='flex'"/>
                         <span class="w-6 h-6 rounded-full bg-neutral-200 text-neutral-500 text-[9px] font-bold items-center justify-center flex-shrink-0 hidden">
                           {{ getResponsibleInitials(project.responsible.name) }}
                         </span>

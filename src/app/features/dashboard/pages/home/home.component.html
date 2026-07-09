@@ -32,6 +32,13 @@
 
   <div *ngIf="fodcError()" class="dashboard-error">{{ fodcError() }}</div>
 
+  <div *ngIf="!generalReady()" class="dashboard-loading">
+    <div class="dashboard-loading__spinner"></div>
+    <p>Cargando información...</p>
+  </div>
+
+  <ng-container *ngIf="generalReady()">
+
   <!-- Fila de donas -->
   <section class="charts-row">
 
@@ -85,6 +92,8 @@
     </div>
   </section>
 
+  </ng-container>
+
 </ng-container>
 
 <!-- ── Tab: Presupuesto ─────────────────────────── -->
@@ -99,6 +108,13 @@
   </div>
 
   <div *ngIf="fodcError() || budgetMonthlyError()" class="dashboard-error">{{ fodcError() || budgetMonthlyError() }}</div>
+
+  <div *ngIf="!budgetReady()" class="dashboard-loading">
+    <div class="dashboard-loading__spinner"></div>
+    <p>Cargando información...</p>
+  </div>
+
+  <ng-container *ngIf="budgetReady()">
 
   <!-- Gauge: planeado vs ejecutado -->
   <section class="charts-row">
@@ -157,6 +173,8 @@
     </div>
   </section>
 
+  </ng-container>
+
 </ng-container>
 
 <!-- ── Tab: Alianzas ────────────────────────────── -->
@@ -171,6 +189,13 @@
   </div>
 
   <div *ngIf="alliesListError() || allyCategoriesError()" class="dashboard-error">{{ alliesListError() || allyCategoriesError() }}</div>
+
+  <div *ngIf="!partnershipsReady()" class="dashboard-loading">
+    <div class="dashboard-loading__spinner"></div>
+    <p>Cargando información...</p>
+  </div>
+
+  <ng-container *ngIf="partnershipsReady()">
 
   <!-- Donut: por gestionar / en gestión / suscrito + tabla de categorías -->
   <section class="ally-row">
@@ -244,5 +269,7 @@
         [grid]="allyComboChart().grid"></apx-chart>
     </div>
   </section>
+
+  </ng-container>
 
 </ng-container>

@@ -10,6 +10,7 @@ import {
   CreateSupervisorUserResponse, CreateAffiliateResponse,
   SupervisorDocumentType,
 } from '../../../../models/supervisor.model';
+import { UserService } from '../../../../../../../core/users/services/user.service';
 
 export interface Step1bSavedData {
   counterpart_supervisor?: string | null;
@@ -41,6 +42,8 @@ export class Step1bSupervisorsComponent implements OnInit {
 
   private fb            = inject(FormBuilder);
   private supervisorSvc = inject(SupervisorService);
+  private userService   = inject(UserService);
+  private avatarRetried = new Set<string>();
 
   readonly docTypes = ['CC', 'CE', 'TI', 'PP', 'RC', 'NIT', 'PEP'];
 
@@ -127,6 +130,16 @@ export class Step1bSupervisorsComponent implements OnInit {
     });
   }
 
+  /** La URL firmada del avatar expira (MinIO); se pide una fresca una sola vez por usuario para evitar loops. */
+  onSupervisorAvatarError(user: SupervisorUser): void {
+    if (!user.id || this.avatarRetried.has(user.id)) return;
+    this.avatarRetried.add(user.id);
+    this.userService.refreshAvatarUrlById(user.id).subscribe({
+      next: url => { if (url) user.image_url = url; },
+      error: () => {},
+    });
+  }
+
   selectPrincipal(user: SupervisorUser): void {
     this.selectedPrincipal.set(user);
     this.form.get('counterpart_supervisor')?.setValue(user.id);
@@ -150,8 +163,8 @@ export class Step1bSupervisorsComponent implements OnInit {
   }
 
   @HostListener('document:click', ['$event.target'])
-  onDocClick(target: HTMLElement): void {
-    if (!target.closest('[data-supervisor-dropdown]')) {
+  onDocClick(target: EventTarget | null): void {
+    if (!(target instanceof HTMLElement) || !target.closest('[data-supervisor-dropdown]')) {
       this.principalDropdownOpen.set(false);
       this.customerDropdownOpen.set(false);
     }

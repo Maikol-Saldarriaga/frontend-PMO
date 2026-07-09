@@ -148,7 +148,7 @@
                     @if (capOverflow(sec)) {
                       <p class="text-[10px] text-red-600 font-semibold mt-1">Supera en {{ formatCurrency(compItemsTotal(sec) - sec.budgetCap) }}</p>
                     } @else {
-                      <p class="text-[10px] text-gray-400 mt-1">{{ capPct(sec) }}% · Disp: {{ formatCurrency(capRemaining(sec)) }}</p>
+                      <p class="text-[10px] text-gray-400 mt-1">{{ capPct(sec) | number:'1.0-1' }}% · Disp: {{ formatCurrency(capRemaining(sec)) }}</p>
                     }
                   } @else {
                     <p class="text-[10px] text-gray-400">Sin tope asignado</p>

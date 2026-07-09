@@ -209,14 +209,14 @@
             </div>
             <span class="text-xs font-bold flex-shrink-0"
               [ngClass]="componentPercentageTotal(ci) > 100 ? 'text-red-500' : componentPercentageTotal(ci) === 100 ? 'text-emerald-600' : 'text-amber-500'">
-              {{ componentPercentageTotal(ci) }}%
+              {{ componentPercentageTotal(ci) | number:'1.0-1' }}%
             </span>
             @if (componentPercentageTotal(ci) < 100) {
-              <span class="text-xs text-neutral-400 flex-shrink-0">faltan {{ 100 - componentPercentageTotal(ci) }}%</span>
+              <span class="text-xs text-neutral-400 flex-shrink-0">faltan {{ 100 - componentPercentageTotal(ci) | number:'1.0-1' }}%</span>
             } @else if (componentPercentageTotal(ci) === 100) {
               <span class="text-xs text-emerald-600 font-semibold flex-shrink-0">✓ Completo</span>
             } @else {
-              <span class="text-xs text-red-500 font-semibold flex-shrink-0">excede {{ componentPercentageTotal(ci) - 100 }}%</span>
+              <span class="text-xs text-red-500 font-semibold flex-shrink-0">excede {{ componentPercentageTotal(ci) - 100 | number:'1.0-1' }}%</span>
             }
           </div>
         </div>
@@ -323,7 +323,7 @@
               </div>
               @if (comp.percentage !== null && comp.percentage! > 0) {
                 <span class="flex-shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-600 border border-amber-200">
-                  {{ comp.percentage }}%
+                  {{ comp.percentage | number:'1.0-1' }}%
                 </span>
               }
             </div>
@@ -350,7 +350,7 @@
             <span class="text-[10px] font-bold text-neutral-400 uppercase tracking-wide">Equiv. componentes</span>
             <span class="text-xs font-bold"
               [ngClass]="totalComponentPercentage > 100 ? 'text-red-500' : totalComponentPercentage === 100 ? 'text-emerald-600' : 'text-amber-500'">
-              {{ totalComponentPercentage }}%
+              {{ totalComponentPercentage | number:'1.0-1' }}%
             </span>
           </div>
           <div class="h-1.5 rounded-full bg-neutral-200 overflow-hidden">

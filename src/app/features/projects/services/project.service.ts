@@ -58,6 +58,7 @@ import {
   Indicator,
   IndicatorRequest,
   ProjectDocumentsResponse,
+  ProjectScheduleItem,
 } from '../models/project.model';
 
 export interface ProjectFilters {
@@ -80,6 +81,10 @@ export class ProjectService {
     if (filters.date_from) params.set('date_from', filters.date_from);
     if (filters.date_to)   params.set('date_to',   filters.date_to);
     return this.http.get<ProjectsPageResponse>(`${ENDPOINTS.projects.list}?${params.toString()}`);
+  }
+
+  getSchedule(): Observable<ProjectScheduleItem[]> {
+    return this.http.get<ProjectScheduleItem[]>(ENDPOINTS.projects.schedule);
   }
 
   getProject(id: string): Observable<ProjectCreateResponse> {

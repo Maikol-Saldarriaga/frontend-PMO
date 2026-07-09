@@ -42,7 +42,7 @@
         </div>
         <div>
           <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">% del total</p>
-          <p class="text-base font-black text-gray-900">{{ pctTotal }}%</p>
+          <p class="text-base font-black text-gray-900">{{ pctTotal | number:'1.0-1' }}%</p>
           <p class="text-[10px] text-gray-400 mt-0.5">{{ periods.length - pendientesCount }} de {{ periods.length }} periodos</p>
         </div>
         <div>
@@ -73,7 +73,7 @@
                     [class.bg-gray-200]="p.estado !== 'facturado' && p.estado !== 'parcial'"
                     [style.width.%]="p.pct"></div>
                 </div>
-                <span class="text-[10px] text-gray-400 w-9 text-right flex-shrink-0">{{ p.pct }}%</span>
+                <span class="text-[10px] text-gray-400 w-9 text-right flex-shrink-0">{{ p.pct | number:'1.0-1' }}%</span>
               </div>
               <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold whitespace-nowrap flex-shrink-0"
                 [ngClass]="{

@@ -6,6 +6,7 @@ import { Subject, debounceTime, distinctUntilChanged, takeUntil } from 'rxjs';
 import { ProjectService, ProjectFilters } from '../../services/project.service';
 import { ProjectCreateResponse, ProjectsSummary } from '../../models/project.model';
 import { API_BASE_URL } from '../../../../../core/config/api.config';
+import { UserService } from '../../../../../core/users/services/user.service';
 
 @Component({
   selector: 'app-projects-list',
@@ -16,8 +17,10 @@ import { API_BASE_URL } from '../../../../../core/config/api.config';
 export class ProjectsListComponent implements OnInit, OnDestroy {
   private router         = inject(Router);
   private projectService = inject(ProjectService);
+  private userService    = inject(UserService);
   private destroy$       = new Subject<void>();
   private nameSearch$    = new Subject<string>();
+  private avatarRetried  = new Set<string>();
 
   projects   = signal<ProjectCreateResponse[]>([]);
   summary    = signal<ProjectsSummary | null>(null);
@@ -116,11 +119,17 @@ export class ProjectsListComponent implements OnInit, OnDestroy {
     const map: Record<string, string> = {
       draft: 'Borrador', activo: 'Activo', completado: 'Completado', cancelado: 'Cancelado',
     };
-    return map[status?.toLowerCase()] ?? status;
+    return map[this.sk(status)] ?? status;
   }
 
   // ── Card color helpers ───────────────────────────────────────────────────────
-  private sk(s: string) { return (s ?? '').toLowerCase().trim(); }
+  private sk(s: string) {
+    const v = (s ?? '').toLowerCase().trim();
+    const en: Record<string, string> = {
+      active: 'activo', completed: 'completado', cancelled: 'cancelado', canceled: 'cancelado', registro: 'draft',
+    };
+    return en[v] ?? v;
+  }
 
   getCardClasses(status: string): string {
     const s = this.sk(status);
@@ -173,6 +182,17 @@ export class ProjectsListComponent implements OnInit, OnDestroy {
     if (!url) return null;
     const apiHost = new URL(API_BASE_URL).hostname;
     return url.replace(/localhost/, apiHost);
+  }
+
+  /** La URL firmada del avatar del responsable expira (MinIO); se pide una fresca una sola vez por proyecto para evitar loops. */
+  onResponsibleAvatarError(project: ProjectCreateResponse): void {
+    const userId = project.responsible?.id;
+    if (!userId || this.avatarRetried.has(userId)) return;
+    this.avatarRetried.add(userId);
+    this.userService.refreshAvatarUrlById(userId).subscribe({
+      next: url => { if (url && project.responsible) project.responsible.image_url = url; },
+      error: () => {},
+    });
   }
   truncate(text: string | null | undefined, max = 90): string {
     if (!text) return '—';

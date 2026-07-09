@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {
   NgApexchartsModule,
@@ -96,7 +96,7 @@ const CATEGORY_COLORS: Record<AllyCategoryKey, string> = {
   templateUrl: './home.component.html',
   styleUrl: './home.component.scss'
 })
-export class HomeComponent implements OnInit, AfterViewInit {
+export class HomeComponent implements OnInit {
   private authStore    = inject(AuthStore);
   private dashboardSvc = inject(DashboardService);
 
@@ -109,7 +109,6 @@ export class HomeComponent implements OnInit, AfterViewInit {
 
   setTab(tab: 'general' | 'budget' | 'partnerships'): void {
     this.activeTab.set(tab);
-    this.resyncChartsSize();
   }
 
   ngOnInit(): void {
@@ -119,20 +118,13 @@ export class HomeComponent implements OnInit, AfterViewInit {
     this.loadAllyCategories('all');
   }
 
-  ngAfterViewInit(): void {
-    this.resyncChartsSize();
-  }
-
-  /**
-   * ApexCharts mide el ancho del contenedor al crearse. Si el grid/flex de Angular
-   * todavía no terminó de acomodar las tarjetas (o el chart estaba oculto detrás
-   * de un *ngIf de tab), esa medida queda obsoleta y el tooltip calcula mal el
-   * punto de datos (aparece "activo" pero con los campos vacíos). Forzar un
-   * resize tras pintar el tab corrige el ancho cacheado.
-   */
-  private resyncChartsSize(): void {
-    setTimeout(() => window.dispatchEvent(new Event('resize')), 0);
-  }
+  // Los apx-chart de cada tab solo se montan en el HTML (*ngIf) cuando sus
+  // datos ya llegaron. Así ApexCharts mide el contenedor ya con el layout
+  // final y los datos reales, y la animación de entrada corre una sola vez
+  // sin el salto/parpadeo que causaba forzar resizes manuales a mitad de carga.
+  generalReady = computed(() => !this.fodcLoading());
+  budgetReady  = computed(() => !this.fodcLoading() && !this.budgetMonthlyLoading());
+  partnershipsReady = computed(() => !this.alliesListLoading() && !this.allyCategoriesLoading());
 
   formatCop(value: number): string {
     if (value >= 1_000_000_000) return `$${(value / 1_000_000_000).toFixed(1)} mil M`;
