@@ -7,6 +7,8 @@ import { ProjectService, ProjectFilters } from '../../services/project.service';
 import { ProjectCreateResponse, ProjectsSummary } from '../../models/project.model';
 import { API_BASE_URL } from '../../../../../core/config/api.config';
 import { UserService } from '../../../../../core/users/services/user.service';
+import { AuthStore } from '../../../../../core/auth/store/auth.store';
+import { PROJECT_CREATOR_ROLES } from '../../../../../core/auth/models/role.model';
 
 @Component({
   selector: 'app-projects-list',
@@ -18,6 +20,7 @@ export class ProjectsListComponent implements OnInit, OnDestroy {
   private router         = inject(Router);
   private projectService = inject(ProjectService);
   private userService    = inject(UserService);
+  private authStore      = inject(AuthStore);
   private destroy$       = new Subject<void>();
   private nameSearch$    = new Subject<string>();
   private avatarRetried  = new Set<string>();
@@ -35,6 +38,11 @@ export class ProjectsListComponent implements OnInit, OnDestroy {
 
   readonly typeOptions   = ['contrato', 'convenio'];
   readonly statusOptions = ['draft', 'activo', 'completado', 'cancelado'];
+
+  canCreate = computed(() => {
+    const role = this.authStore.user()?.role;
+    return !!role && PROJECT_CREATOR_ROLES.includes(role);
+  });
 
   activeFilterCount = computed(() => {
     const f = this.filters();
@@ -100,6 +108,20 @@ export class ProjectsListComponent implements OnInit, OnDestroy {
   setStatus(value: string):   void { this.filters.update(f => ({ ...f, status: value }));    this.fetchProjects(); }
   setDateFrom(value: string): void { this.filters.update(f => ({ ...f, date_from: value })); this.fetchProjects(); }
   setDateTo(value: string):   void { this.filters.update(f => ({ ...f, date_to: value }));   this.fetchProjects(); }
+
+  /** activo/completado usan real_progress ponderado; borrador sigue con percent_done de pasos. */
+  usesRealProgress(project: ProjectCreateResponse): boolean {
+    const s = (project.status ?? '').toLowerCase();
+    return (s === 'activo' || s === 'active' || s === 'completado' || s === 'completed') && project.real_progress != null;
+  }
+
+  progressValue(project: ProjectCreateResponse): number {
+    return this.usesRealProgress(project) ? Math.round(project.real_progress!) : project.percent_done;
+  }
+
+  hasExtension(project: ProjectCreateResponse): boolean {
+    return project.extended_end_date != null;
+  }
 
   openProject(project: ProjectCreateResponse): void {
     if (project.percent_done >= 100) {

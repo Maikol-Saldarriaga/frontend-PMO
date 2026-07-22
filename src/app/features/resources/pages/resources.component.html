@@ -1,0 +1,66 @@
+<div class="resources-page">
+
+  <!-- Encabezado -->
+  <div class="resources-header">
+    <div>
+      <h1 class="resources-header__title">Recursos</h1>
+      <p class="resources-header__sub">Configuración FODC — dinero total de la fundación</p>
+    </div>
+  </div>
+
+  <hr class="pmo-divider mb-6"/>
+
+  <div class="pmo-card">
+
+    <div *ngIf="fodcLoading()" class="resources-loading">
+      <svg class="resources-loading__spinner" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="60" stroke-dashoffset="20"/>
+      </svg>
+      <span>Cargando configuración FODC…</span>
+    </div>
+
+    <form *ngIf="!fodcLoading()" [formGroup]="fodcForm" (ngSubmit)="onFodcSubmit()" class="resources-fields">
+
+      <p *ngIf="fodcNotSet()" class="resources-hint mb-2">
+        Fondo total aún no configurado. Se creará al guardar.
+      </p>
+
+      <div class="resources-row">
+        <div class="resources-field resources-field--full">
+          <label class="pmo-label">Presupuesto total fundación <span class="required-star">*</span></label>
+          <input type="text" inputmode="decimal" [value]="fodcDisplayValue()" (input)="onNumericValueInput($event)" class="pmo-input mt-1" placeholder="15.000.000,50"/>
+        </div>
+      </div>
+
+      <div class="resources-row">
+        <div class="resources-field resources-field--full">
+          <label class="pmo-label">Descripción</label>
+          <input type="text" formControlName="description" class="pmo-input mt-1" placeholder="Fondo total disponible de la fundación"/>
+        </div>
+      </div>
+
+      <p *ngIf="fodcUpdatedAt()" class="resources-hint">Última actualización: {{ fodcUpdatedAt() }}</p>
+
+      <div *ngIf="fodcSaveOk()" class="resources-alert resources-alert--success">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+        </svg>
+        Configuración FODC actualizada correctamente.
+      </div>
+      <div *ngIf="fodcSaveError()" class="resources-alert resources-alert--error">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+        {{ fodcSaveError() }}
+      </div>
+
+      <div class="resources-actions">
+        <button type="submit" class="pmo-btn-primary" [disabled]="fodcForm.invalid || fodcSaving()">
+          <span *ngIf="fodcSaving()">Guardando…</span>
+          <span *ngIf="!fodcSaving()">Guardar</span>
+        </button>
+      </div>
+
+    </form>
+  </div>
+</div>

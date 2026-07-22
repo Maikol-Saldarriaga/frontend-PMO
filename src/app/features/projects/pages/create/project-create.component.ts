@@ -69,6 +69,10 @@ export class ProjectCreateComponent implements OnInit, OnDestroy {
   private navTimer:    ReturnType<typeof setTimeout> | null = null;
   private destroy$     = new Subject<void>();
   private draftChange$ = new Subject<void>();
+  private pendingServerLoad: { id: string; step: number | null } | null = null;
+
+  private flushDraft = (): void => this.saveDraft();
+  private onVisibilityChange = (): void => { if (document.visibilityState === 'hidden') this.saveDraft(); };
 
   progressWidth = computed(() => `${this.percentDone()}%`);
 
@@ -81,13 +85,24 @@ export class ProjectCreateComponent implements OnInit, OnDestroy {
     this.draftChange$.pipe(debounceTime(600), takeUntil(this.destroy$))
       .subscribe(() => this.saveDraft());
 
+    window.addEventListener('beforeunload', this.flushDraft);
+    window.addEventListener('pagehide', this.flushDraft);
+    document.addEventListener('visibilitychange', this.onVisibilityChange);
+
     const idParam   = this.route.snapshot.paramMap.get('id')
                    ?? this.route.snapshot.queryParamMap.get('id');
     const stepParam = this.route.snapshot.queryParamMap.get('step');
 
     if (idParam) {
       this.projectId.set(idParam);
-      this.loadFromServer(idParam, stepParam ? +stepParam : null);
+      const step = stepParam ? +stepParam : null;
+      const localDraft = this.readStoredDraft(DRAFT_KEY(idParam));
+      if (localDraft) {
+        this.pendingServerLoad = { id: idParam, step };
+        this.showDraftPrompt.set(true);
+      } else {
+        this.loadFromServer(idParam, step);
+      }
     } else if (this.readStoredDraft(NEW_DRAFT)) {
       this.showDraftPrompt.set(true);
     }
@@ -95,19 +110,36 @@ export class ProjectCreateComponent implements OnInit, OnDestroy {
 
   resumeDraft(): void {
     this.showDraftPrompt.set(false);
-    this.loadDraft(NEW_DRAFT, null);
+    if (this.pendingServerLoad) {
+      this.loadDraft(DRAFT_KEY(this.pendingServerLoad.id), this.pendingServerLoad.step);
+      this.pendingServerLoad = null;
+    } else {
+      this.loadDraft(NEW_DRAFT, null);
+    }
   }
 
   discardDraft(): void {
+    if (this.pendingServerLoad) {
+      const { id, step } = this.pendingServerLoad;
+      localStorage.removeItem(DRAFT_KEY(id));
+      this.pendingServerLoad = null;
+      this.showDraftPrompt.set(false);
+      this.loadFromServer(id, step);
+      return;
+    }
     localStorage.removeItem(NEW_DRAFT);
     this.showDraftPrompt.set(false);
   }
 
   ngOnDestroy(): void {
+    this.saveDraft();
     this.destroy$.next();
     this.destroy$.complete();
     if (this.toastTimer) clearTimeout(this.toastTimer);
     if (this.navTimer)   clearTimeout(this.navTimer);
+    window.removeEventListener('beforeunload', this.flushDraft);
+    window.removeEventListener('pagehide', this.flushDraft);
+    document.removeEventListener('visibilitychange', this.onVisibilityChange);
   }
 
   private applyProgress(res: ContractProgressResponse): void {
@@ -302,8 +334,11 @@ export class ProjectCreateComponent implements OnInit, OnDestroy {
       totalSteps:     this.totalSteps(),
       percentDone:    this.percentDone(),
       stepData:       this.stepData(),
+      updatedAt:      Date.now(),
     };
-    localStorage.setItem(this.draftKey, JSON.stringify(draft));
+    try {
+      localStorage.setItem(this.draftKey, JSON.stringify(draft));
+    } catch { /* localStorage lleno o bloqueado: borrador se pierde, nada más que hacer aquí */ }
   }
 
   private stepIndex(stepNumber: number): number {

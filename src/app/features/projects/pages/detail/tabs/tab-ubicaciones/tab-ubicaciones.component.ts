@@ -1,7 +1,7 @@
 import { Component, Input, OnInit, signal, WritableSignal, inject, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormArray, FormGroup, Validators } from '@angular/forms';
-import { SocrataGeoService, LocationResult, SocrataDept, SocrataMunicipio } from '../../../../../../core/services/socrata-geo.service';
+import { DivipolaGeoService, LocationResult, DivipolaDept, DivipolaMunicipio } from '../../../../../../core/services/divipola-geo.service';
 import { ContractService } from '../../../../services/contract.service';
 import { ContractLocation, ContractLocationItem } from '../../../../models/contract.model';
 
@@ -24,21 +24,26 @@ const emptySearch = (): RowSearch => ({
   term: '', results: [], loading: false, open: false, selected: null, rect: null,
 });
 
-/** Estado del alta manual (departamento → municipio → vereda) para ubicaciones que no aparecen en la búsqueda de la API. */
+/** Estado del alta manual (departamento → municipio → crear vereda) para ubicaciones que no aparecen en la búsqueda. */
 interface ManualState {
-  active:           boolean;
-  deptCod:          string;
-  deptName:         string;
-  mpioCod:          string;
-  mpioName:         string;
-  veredaName:       string;
-  municipios:       SocrataMunicipio[];
+  active:            boolean;
+  deptCod:           string;
+  deptName:          string;
+  mpioCod:           string;
+  mpioName:          string;
+  newVeredaName:     string;
+  newVeredaLat:      string;
+  newVeredaLng:      string;
+  municipios:        DivipolaMunicipio[];
   loadingMunicipios: boolean;
+  creatingVereda:    boolean;
+  createError:       string | null;
 }
 
 const emptyManual = (): ManualState => ({
-  active: false, deptCod: '', deptName: '', mpioCod: '', mpioName: '', veredaName: '',
-  municipios: [], loadingMunicipios: false,
+  active: false, deptCod: '', deptName: '', mpioCod: '', mpioName: '',
+  newVeredaName: '', newVeredaLat: '', newVeredaLng: '',
+  municipios: [], loadingMunicipios: false, creatingVereda: false, createError: null,
 });
 
 @Component({
@@ -51,7 +56,7 @@ export class TabUbicacionesComponent implements OnInit {
   @Input() projectId!: string;
 
   private fb  = inject(FormBuilder);
-  private geo = inject(SocrataGeoService);
+  private geo = inject(DivipolaGeoService);
   private contractSvc = inject(ContractService);
 
   loading     = signal(true);
@@ -62,7 +67,7 @@ export class TabUbicacionesComponent implements OnInit {
 
   searches: WritableSignal<RowSearch[]> = signal([]);
   manuals:  WritableSignal<ManualState[]> = signal([]);
-  allDepts: WritableSignal<SocrataDept[]> = signal([]);
+  allDepts: WritableSignal<DivipolaDept[]> = signal([]);
   private timers: Record<number, ReturnType<typeof setTimeout>> = {};
   private inputRefs: Record<number, HTMLInputElement> = {};
 
@@ -108,6 +113,7 @@ export class TabUbicacionesComponent implements OnInit {
         municipality: loc.municipality ?? '',
         department:  loc.department ?? '',
         cod:         '',
+        cod_mpio:    '',
       };
     }
     this.searches.update(arr => [...arr, s]);
@@ -185,7 +191,7 @@ export class TabUbicacionesComponent implements OnInit {
     this.manuals.update(arr => arr.map((m, idx) => idx === i ? { ...m, ...patch } : m));
   }
 
-  /** Solo se ofrece cuando la búsqueda en la API no encontró coincidencias: permite construir la ubicación eligiendo departamento → municipio → vereda. */
+  /** Solo se ofrece cuando la búsqueda no encontró coincidencias: permite construir la ubicación eligiendo departamento → municipio y, si aplica, crear la vereda. */
   startManualEntry(i: number): void {
     this.patchSearch(i, { open: false });
     this.patchManual(i, { ...emptyManual(), active: true });
@@ -202,7 +208,7 @@ export class TabUbicacionesComponent implements OnInit {
     const dept = this.allDepts().find(d => d.cod_dpto === codDpto);
     this.patchManual(i, {
       deptCod: codDpto, deptName: dept?.nom_dpto ?? '',
-      mpioCod: '', mpioName: '', veredaName: '',
+      mpioCod: '', mpioName: '', newVeredaName: '', newVeredaLat: '', newVeredaLng: '',
       municipios: [], loadingMunicipios: true,
     });
     this.locationsArray.at(i).get('department')?.setValue(dept?.nom_dpto ?? '');
@@ -217,27 +223,50 @@ export class TabUbicacionesComponent implements OnInit {
 
   onManualMpioChange(i: number, codMpio: string): void {
     const mpio = this.getManual(i).municipios.find(m => m.cod_mpio === codMpio);
-    this.patchManual(i, { mpioCod: codMpio, mpioName: mpio?.nom_mpio ?? '', veredaName: '' });
+    this.patchManual(i, { mpioCod: codMpio, mpioName: mpio?.nom_mpio ?? '', newVeredaName: '' });
     this.locationsArray.at(i).get('municipality')?.setValue(mpio?.nom_mpio ?? '');
     this.locationsArray.at(i).get('sidewalk')?.setValue('');
   }
 
-  /** La vereda no existe en la API en este flujo, por eso se escribe a mano en vez de elegirla de un listado. */
   onManualVeredaTextChange(i: number, value: string): void {
-    this.patchManual(i, { veredaName: value });
-    this.locationsArray.at(i).get('sidewalk')?.setValue(value || '');
+    this.patchManual(i, { newVeredaName: value });
   }
 
-  /** El municipio/vereda ya quedaron guardados en el formulario por onManualMpioChange/onManualVeredaTextChange; aquí solo se confirma y se muestra como "seleccionado". */
+  patchManualLat(i: number, value: string): void { this.patchManual(i, { newVeredaLat: value }); }
+  patchManualLng(i: number, value: string): void { this.patchManual(i, { newVeredaLng: value }); }
+
+  /** La vereda no está en la búsqueda: se crea de verdad en el backend (POST /divipola/veredas) antes de confirmarla. */
   confirmManualEntry(i: number): void {
     const m = this.getManual(i);
     if (!m.mpioCod) return;
-    const name = m.veredaName || m.mpioName;
-    this.patchSearch(i, {
-      selected: { type: m.veredaName ? 'vereda' : 'municipio', name, municipality: m.mpioName, department: m.deptName, cod: m.mpioCod },
-      term: name, open: false, results: [],
+    if (!m.newVeredaName.trim()) {
+      this.patchSearch(i, {
+        selected: { type: 'municipio', name: m.mpioName, municipality: m.mpioName, department: m.deptName, cod: m.mpioCod, cod_mpio: m.mpioCod },
+        term: m.mpioName, open: false, results: [],
+      });
+      this.patchManual(i, emptyManual());
+      return;
+    }
+    this.patchManual(i, { creatingVereda: true, createError: null });
+    const payload = {
+      cod_mpio: m.mpioCod,
+      nom_vere: m.newVeredaName.trim().toUpperCase(),
+      ...(m.newVeredaLat ? { latitud: Number(m.newVeredaLat) } : {}),
+      ...(m.newVeredaLng ? { longitud: Number(m.newVeredaLng) } : {}),
+    };
+    this.geo.createVereda(payload).subscribe({
+      next: vereda => {
+        this.patchSearch(i, {
+          selected: { type: 'vereda', name: vereda.nom_vere, municipality: m.mpioName, department: m.deptName, cod: vereda.cod_vere, cod_mpio: m.mpioCod },
+          term: vereda.nom_vere, open: false, results: [],
+        });
+        this.patchManual(i, emptyManual());
+      },
+      error: err => this.patchManual(i, {
+        creatingVereda: false,
+        createError: err?.error?.message ?? 'No se pudo crear la vereda.',
+      }),
     });
-    this.patchManual(i, emptyManual());
   }
 
   isInvalid(group: FormGroup, field: string): boolean {

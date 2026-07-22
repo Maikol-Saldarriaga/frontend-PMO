@@ -6,6 +6,7 @@ import { AuthStore } from '../../../../../core/auth/store/auth.store';
 import { UserService } from '../../../../../core/users/services/user.service';
 import { UserDetail } from '../../../../../core/users/models/user.model';
 import { API_BASE_URL } from '../../../../../core/config/api.config';
+import { ROLE_LABELS, UserRole } from '../../../../../core/auth/models/role.model';
 
 @Component({
   selector: 'app-profile',
@@ -20,7 +21,8 @@ export class ProfileComponent implements OnInit {
   private userService = inject(UserService);
 
   documentTypes = ['CC', 'CE', 'TI', 'PASAPORTE', 'NIT'];
-  roles         = ['ADMIN', 'PROJECT_MANAGER', 'DEVELOPER', 'ANALYST', 'VIEWER'];
+  roles: UserRole[] = ['ADMIN', 'COORDINADOR', 'DILIGENCIADOR', 'LAWYER', 'FINANCE', 'USER'];
+  roleLabels = ROLE_LABELS;
 
   loadingProfile = signal(true);
   saving         = signal(false);

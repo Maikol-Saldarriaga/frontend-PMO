@@ -1,7 +1,7 @@
 import { Component, Input, Output, EventEmitter, OnInit, signal, WritableSignal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormArray, FormGroup, Validators } from '@angular/forms';
-import { SocrataGeoService, LocationResult } from '../../../../../../core/services/socrata-geo.service';
+import { DivipolaGeoService, LocationResult, DivipolaDept, DivipolaMunicipio } from '../../../../../../core/services/divipola-geo.service';
 import { ContractLocation, ContractLocationItem } from '../../../../models/contract.model';
 
 interface RowSearch {
@@ -14,6 +14,28 @@ interface RowSearch {
 
 const emptySearch = (): RowSearch => ({
   term: '', results: [], loading: false, open: false, selected: null,
+});
+
+/** Estado del alta manual (departamento → municipio → crear vereda) para ubicaciones que no aparecen en la búsqueda. */
+interface ManualState {
+  active:            boolean;
+  deptCod:           string;
+  deptName:          string;
+  mpioCod:           string;
+  mpioName:          string;
+  newVeredaName:     string;
+  newVeredaLat:      string;
+  newVeredaLng:      string;
+  municipios:        DivipolaMunicipio[];
+  loadingMunicipios: boolean;
+  creatingVereda:    boolean;
+  createError:       string | null;
+}
+
+const emptyManual = (): ManualState => ({
+  active: false, deptCod: '', deptName: '', mpioCod: '', mpioName: '',
+  newVeredaName: '', newVeredaLat: '', newVeredaLng: '',
+  municipios: [], loadingMunicipios: false, creatingVereda: false, createError: null,
 });
 
 @Component({
@@ -31,9 +53,11 @@ export class Step2LocationComponent implements OnInit {
   @Output() validationError = new EventEmitter<string[]>();
 
   private fb  = inject(FormBuilder);
-  private geo = inject(SocrataGeoService);
+  private geo = inject(DivipolaGeoService);
 
   searches: WritableSignal<RowSearch[]> = signal([]);
+  manuals:  WritableSignal<ManualState[]> = signal([]);
+  allDepts: WritableSignal<DivipolaDept[]> = signal([]);
   private timers: Record<number, ReturnType<typeof setTimeout>> = {};
 
   form = this.fb.group({ locations: this.fb.array<FormGroup>([]) });
@@ -62,7 +86,6 @@ export class Step2LocationComponent implements OnInit {
     this.locationsArray.push(this.newRow(loc));
     const s = emptySearch();
     if (loc?.municipality) {
-      // Reconstruct a display label for saved data
       const label = loc.sidewalk ? loc.sidewalk : loc.municipality;
       s.term = label ?? '';
       s.selected = {
@@ -71,14 +94,17 @@ export class Step2LocationComponent implements OnInit {
         municipality: loc.municipality ?? '',
         department:  loc.department ?? '',
         cod:         '',
+        cod_mpio:    '',
       };
     }
     this.searches.update(arr => [...arr, s]);
+    this.manuals.update(arr => [...arr, emptyManual()]);
   }
 
   removeRow(i: number): void {
     this.locationsArray.removeAt(i);
     this.searches.update(arr => arr.filter((_, idx) => idx !== i));
+    this.manuals.update(arr => arr.filter((_, idx) => idx !== i));
     this.dataChange.emit(this.buildPayload());
   }
 
@@ -113,6 +139,7 @@ export class Step2LocationComponent implements OnInit {
     row.get('department')?.setValue('');
     row.get('sidewalk')?.setValue('');
     this.patchSearch(i, emptySearch());
+    this.patchManual(i, emptyManual());
   }
 
   closeDropdown(i: number): void { setTimeout(() => this.patchSearch(i, { open: false }), 200); }
@@ -122,6 +149,90 @@ export class Step2LocationComponent implements OnInit {
   }
 
   getSearch(i: number): RowSearch { return this.searches()[i] ?? emptySearch(); }
+
+  getManual(i: number): ManualState { return this.manuals()[i] ?? emptyManual(); }
+
+  private patchManual(i: number, patch: Partial<ManualState>): void {
+    this.manuals.update(arr => arr.map((m, idx) => idx === i ? { ...m, ...patch } : m));
+  }
+
+  /** Solo se ofrece cuando la búsqueda no encontró coincidencias: permite construir la ubicación eligiendo departamento → municipio y, si aplica, crear la vereda. */
+  startManualEntry(i: number): void {
+    this.patchSearch(i, { open: false });
+    this.patchManual(i, { ...emptyManual(), active: true });
+    if (!this.allDepts().length) {
+      this.geo.getDepartamentos().subscribe(depts => this.allDepts.set(depts));
+    }
+  }
+
+  cancelManualEntry(i: number): void {
+    this.patchManual(i, emptyManual());
+  }
+
+  onManualDeptChange(i: number, codDpto: string): void {
+    const dept = this.allDepts().find(d => d.cod_dpto === codDpto);
+    this.patchManual(i, {
+      deptCod: codDpto, deptName: dept?.nom_dpto ?? '',
+      mpioCod: '', mpioName: '', newVeredaName: '', newVeredaLat: '', newVeredaLng: '',
+      municipios: [], loadingMunicipios: true,
+    });
+    this.locationsArray.at(i).get('department')?.setValue(dept?.nom_dpto ?? '');
+    this.locationsArray.at(i).get('municipality')?.setValue('');
+    this.locationsArray.at(i).get('sidewalk')?.setValue('');
+    if (!codDpto) { this.patchManual(i, { loadingMunicipios: false }); return; }
+    this.geo.getMunicipios(codDpto).subscribe({
+      next: municipios => this.patchManual(i, { municipios, loadingMunicipios: false }),
+      error: () => this.patchManual(i, { municipios: [], loadingMunicipios: false }),
+    });
+  }
+
+  onManualMpioChange(i: number, codMpio: string): void {
+    const mpio = this.getManual(i).municipios.find(m => m.cod_mpio === codMpio);
+    this.patchManual(i, { mpioCod: codMpio, mpioName: mpio?.nom_mpio ?? '', newVeredaName: '' });
+    this.locationsArray.at(i).get('municipality')?.setValue(mpio?.nom_mpio ?? '');
+    this.locationsArray.at(i).get('sidewalk')?.setValue('');
+  }
+
+  onManualVeredaTextChange(i: number, value: string): void {
+    this.patchManual(i, { newVeredaName: value });
+  }
+
+  patchManualLat(i: number, value: string): void { this.patchManual(i, { newVeredaLat: value }); }
+  patchManualLng(i: number, value: string): void { this.patchManual(i, { newVeredaLng: value }); }
+
+  /** La vereda no está en la búsqueda: se crea de verdad en el backend (POST /divipola/veredas) antes de confirmarla. */
+  confirmManualEntry(i: number): void {
+    const m = this.getManual(i);
+    if (!m.mpioCod) return;
+    if (!m.newVeredaName.trim()) {
+      this.patchSearch(i, {
+        selected: { type: 'municipio', name: m.mpioName, municipality: m.mpioName, department: m.deptName, cod: m.mpioCod, cod_mpio: m.mpioCod },
+        term: m.mpioName, open: false, results: [],
+      });
+      this.patchManual(i, emptyManual());
+      return;
+    }
+    this.patchManual(i, { creatingVereda: true, createError: null });
+    const payload = {
+      cod_mpio: m.mpioCod,
+      nom_vere: m.newVeredaName.trim().toUpperCase(),
+      ...(m.newVeredaLat ? { latitud: Number(m.newVeredaLat) } : {}),
+      ...(m.newVeredaLng ? { longitud: Number(m.newVeredaLng) } : {}),
+    };
+    this.geo.createVereda(payload).subscribe({
+      next: vereda => {
+        this.patchSearch(i, {
+          selected: { type: 'vereda', name: vereda.nom_vere, municipality: m.mpioName, department: m.deptName, cod: vereda.cod_vere, cod_mpio: m.mpioCod },
+          term: vereda.nom_vere, open: false, results: [],
+        });
+        this.patchManual(i, emptyManual());
+      },
+      error: err => this.patchManual(i, {
+        creatingVereda: false,
+        createError: err?.error?.message ?? 'No se pudo crear la vereda.',
+      }),
+    });
+  }
 
   isInvalid(group: FormGroup, field: string): boolean {
     const ctrl = group.get(field);

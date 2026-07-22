@@ -65,7 +65,7 @@
             <label class="pmo-label">Rol <span class="required-star">*</span></label>
             <select formControlName="role"
               [class]="'pmo-input mt-1' + (profileForm.get('role')?.invalid && profileForm.get('role')?.touched ? ' input--error' : '')">
-              <option *ngFor="let r of roles" [value]="r">{{ r }}</option>
+              <option *ngFor="let r of roles" [value]="r">{{ roleLabels[r] }}</option>
             </select>
           </div>
           <div class="profile-field">

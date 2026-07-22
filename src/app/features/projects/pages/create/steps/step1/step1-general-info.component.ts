@@ -99,7 +99,11 @@ export class Step1GeneralInfoComponent implements OnInit, OnChanges {
     this.form.valueChanges.subscribe(() => this.dataChange.emit(this.buildPayload()));
   }
 
-  ngOnChanges(_changes: SimpleChanges): void {}
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['savedData'] && !changes['savedData'].firstChange && this.savedData) {
+      this.patchForm(this.savedData);
+    }
+  }
 
   private patchForm(data: ProjectStep1Request): void {
     this.form.patchValue({

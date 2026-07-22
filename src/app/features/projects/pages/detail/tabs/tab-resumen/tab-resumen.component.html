@@ -14,12 +14,12 @@
           </svg>
         </div>
       </div>
-      <!-- Avance real ponderado (principal) -->
-      <p class="text-3xl font-black text-gray-900 leading-none">{{ realProgress | number:'1.0-1' }}<span class="text-base text-gray-400 font-semibold">%</span></p>
+      <!-- Avance del proyecto: valor oficial del backend (overall_progress) -->
+      <p class="text-3xl font-black text-gray-900 leading-none">{{ details.overall_progress | number:'1.0-1' }}<span class="text-base text-gray-400 font-semibold">%</span></p>
       <div class="mt-2 h-1.5 rounded-full bg-gray-100 overflow-hidden">
-        <div class="h-full rounded-full bg-gradient-to-r from-sky-400 to-sky-600 transition-all duration-700" [style.width.%]="realProgress"></div>
+        <div class="h-full rounded-full bg-gradient-to-r from-sky-400 to-sky-600 transition-all duration-700" [style.width.%]="details.overall_progress"></div>
       </div>
-      <p class="text-[11px] text-gray-400 mt-1">Ponderado real · {{ details.overall_progress | number:'1.0-1' }}% binario</p>
+      <p class="text-[11px] text-gray-400 mt-1">Ponderado real (actividades) · {{ realProgress | number:'1.0-1' }}%</p>
     </div>
 
     <!-- 2. Presupuesto -->

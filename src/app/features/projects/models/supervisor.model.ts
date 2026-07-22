@@ -18,8 +18,11 @@ export interface SupervisorListResponse {
   affiliates: AffiliateUser[];
 }
 
+import { UserRole } from '../../../../core/auth/models/role.model';
+
 export type SupervisorDocumentType = 'CC' | 'CE' | 'TI' | 'PP' | 'RC' | 'NIT' | 'PEP';
-export type SupervisorRole = 'SUPERVISOR' | 'ADMIN' | 'LAWYER' | 'FINANCE' | 'USER';
+/** Alias del catálogo global de roles, usado al crear usuarios supervisores/coordinadores. */
+export type SupervisorRole = UserRole;
 
 export interface CreateSupervisorUserRequest {
   first_name:                string;

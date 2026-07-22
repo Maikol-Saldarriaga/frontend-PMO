@@ -10,7 +10,7 @@ import { MoneyMaskDirective } from '../../../../../../shared/directives/money-ma
 import { AuthStore } from '../../../../../../../core/auth/store/auth.store';
 import { BudgetPeriodStatusComponent } from '../../../../components/budget-period-status/budget-period-status.component';
 
-const INVOICE_ROLES = ['ADMIN', 'SUPERVISOR', 'FINANCE'];
+const INVOICE_ROLES = ['ADMIN', 'COORDINADOR', 'FINANCE'];
 
 export interface InvoiceItemRow {
   budget_item_id:        string;

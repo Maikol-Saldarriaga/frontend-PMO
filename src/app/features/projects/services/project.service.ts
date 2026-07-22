@@ -1,5 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { ApiHttpClient } from '../../../../core/api/http-client';
 import { ENDPOINTS } from '../../../../core/api/endpoints';
 import {
@@ -59,6 +60,14 @@ import {
   IndicatorRequest,
   ProjectDocumentsResponse,
   ProjectScheduleItem,
+  ProjectAccess,
+  TeamMember,
+  TeamMemberRequest,
+  SectionPermission,
+  ProjectSection,
+  UserListItem,
+  ProjectExtension,
+  ProjectExtensionRequest,
 } from '../models/project.model';
 
 export interface ProjectFilters {
@@ -344,6 +353,47 @@ export class ProjectService {
 
   getDocuments(id: string): Observable<ProjectDocumentsResponse> {
     return this.http.get<ProjectDocumentsResponse>(ENDPOINTS.projects.documents(id));
+  }
+
+  getMyAccess(id: string): Observable<ProjectAccess> {
+    return this.http.get<ProjectAccess>(ENDPOINTS.projects.myAccess(id));
+  }
+
+  getTeam(id: string): Observable<TeamMember[]> {
+    return this.http.get<TeamMember[]>(ENDPOINTS.projects.team(id));
+  }
+
+  addTeamMember(id: string, data: TeamMemberRequest): Observable<TeamMember> {
+    return this.http.post<TeamMember>(ENDPOINTS.projects.team(id), data);
+  }
+
+  updateTeamPermissions(id: string, uid: string, permissions: Record<ProjectSection, SectionPermission>): Observable<TeamMember> {
+    return this.http.put<TeamMember>(ENDPOINTS.projects.teamMemberPermissions(id, uid), { permissions });
+  }
+
+  removeTeamMember(id: string, uid: string): Observable<void> {
+    return this.http.delete<void>(ENDPOINTS.projects.teamMember(id, uid));
+  }
+
+  getUsers(): Observable<UserListItem[]> {
+    return this.http.get<any>(ENDPOINTS.users.list).pipe(
+      map(res => {
+        const list = Array.isArray(res) ? res : (res?.data ?? res?.users ?? []);
+        return list.map((u: any) => ({
+          id:    u.id,
+          email: u.email,
+          name:  u.name ?? [u.first_name, u.middle_name, u.first_surname, u.second_surname].filter(Boolean).join(' '),
+        }));
+      }),
+    );
+  }
+
+  createExtension(id: string, data: ProjectExtensionRequest): Observable<ProjectExtension> {
+    return this.http.post<ProjectExtension>(ENDPOINTS.projects.extensions(id), data);
+  }
+
+  updateExtension(id: string, eid: string, data: ProjectExtensionRequest): Observable<ProjectExtension> {
+    return this.http.put<ProjectExtension>(ENDPOINTS.projects.extensionById(id, eid), data);
   }
 
 }

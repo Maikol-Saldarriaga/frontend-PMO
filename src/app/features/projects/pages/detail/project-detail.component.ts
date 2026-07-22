@@ -3,7 +3,9 @@ import { CommonModule } from '@angular/common';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Router, ActivatedRoute } from '@angular/router';
 import { ProjectService } from '../../services/project.service';
-import { ProjectDetails } from '../../models/project.model';
+import { ProjectDetails, ProjectAccess, ProjectSection, ProjectExtensionRequest } from '../../models/project.model';
+import { AuthStore } from '../../../../../core/auth/store/auth.store';
+import { TabEquipoComponent } from './tabs/tab-equipo/tab-equipo.component';
 import { TabResumenComponent }    from './tabs/tab-resumen/tab-resumen.component';
 import { TabAlcanceComponent }    from './tabs/tab-alcance/tab-alcance.component';
 import { TabCronogramaComponent } from './tabs/tab-cronograma/tab-cronograma.component';
@@ -19,6 +21,7 @@ import { TabIndicadoresComponent } from './tabs/tab-indicadores/tab-indicadores.
 import { TabDocumentosComponent } from './tabs/tab-documentos/tab-documentos.component';
 import { TabObligacionesComponent } from './tabs/tab-obligaciones/tab-obligaciones.component';
 import { TabAbastecimientoComponent } from './tabs/tab-abastecimiento/tab-abastecimiento.component';
+import { FormsModule } from '@angular/forms';
 
 @Component({
   selector: 'app-project-detail',
@@ -40,6 +43,8 @@ import { TabAbastecimientoComponent } from './tabs/tab-abastecimiento/tab-abaste
     TabDocumentosComponent,
     TabObligacionesComponent,
     TabAbastecimientoComponent,
+    TabEquipoComponent,
+    FormsModule,
   ],
   templateUrl: './project-detail.component.html',
 })
@@ -48,6 +53,7 @@ export class ProjectDetailComponent implements OnInit {
   private route     = inject(ActivatedRoute);
   private service   = inject(ProjectService);
   private sanitizer = inject(DomSanitizer);
+  private auth      = inject(AuthStore);
 
   safeIcon(svgPath: string): SafeHtml {
     return this.sanitizer.bypassSecurityTrustHtml(svgPath);
@@ -58,6 +64,20 @@ export class ProjectDetailComponent implements OnInit {
   loading    = signal(true);
   error      = signal<string | null>(null);
   activeTab  = signal<string>('resumen');
+  access     = signal<ProjectAccess | null>(null);
+
+  isAdmin = computed(() => this.auth.user()?.role === 'ADMIN');
+
+  visibleTabs = computed(() => {
+    const acc = this.access();
+    if (!acc) return this.TABS;
+    if (acc.full_access) return this.TABS;
+    return this.TABS.filter(tab => {
+      const section = this.TAB_SECTION[tab.id];
+      if (section === null) return acc.is_owner || acc.is_coordinator;
+      return acc.permissions[section] !== 'none';
+    });
+  });
 
   readonly TABS = [
     {
@@ -124,7 +144,20 @@ export class ProjectDetailComponent implements OnInit {
       id: 'historial', label: 'Historial', color: 'pink',
       icon: `<path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>`,
     },
+    {
+      id: 'equipo', label: 'Equipo de apoyo', color: 'purple',
+      icon: `<path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>`,
+    },
   ];
+
+  /** Mapea cada tab a la ProjectSection del backend. null = sin match claro (gating por owner/coordinador). */
+  private readonly TAB_SECTION: Record<string, ProjectSection | null> = {
+    resumen: null, alcance: 'technical_components', ubicaciones: 'locations', condiciones: null,
+    cronograma: null, presupuesto: 'budget', facturacion: 'finance', beneficiarios: 'beneficiaries',
+    seguimiento: 'checkpoints', riesgos: 'risks', entregables: 'checkpoints', documentos: 'documents',
+    indicadores: null, obligaciones: 'compliance_matrix', abastecimiento: 'supply_plan', historial: null,
+    equipo: null,
+  };
 
   private sk(s: string | undefined) {
     const v = (s ?? '').toLowerCase().trim();
@@ -160,6 +193,10 @@ export class ProjectDetailComponent implements OnInit {
     if (tab) this.activeTab.set(tab);
 
     this.refreshDetails();
+    this.service.getMyAccess(this.projectId).subscribe({
+      next:  a => this.access.set(a),
+      error: () => {},
+    });
   }
 
   private refreshDetails(): void {
@@ -187,5 +224,47 @@ export class ProjectDetailComponent implements OnInit {
     if (v >= 1_000_000)     return `$${(v / 1_000_000).toFixed(1)}M`;
     if (v >= 1_000)         return `$${(v / 1_000).toFixed(0)}K`;
     return `$${v}`;
+  }
+
+  // ── Extensión de proyecto (solo ADMIN, endpoint dedicado /projects/:id/extensions) ──
+
+  showExtensionForm = signal(false);
+  extensionSaving   = signal(false);
+  extensionError    = signal<string | null>(null);
+  extensionForm: ProjectExtensionRequest = { number: '', date: '', duration: 0, observation: '' };
+
+  openExtensionForm(): void {
+    this.extensionForm = { number: '', date: '', duration: 0, observation: '' };
+    this.extensionError.set(null);
+    this.showExtensionForm.set(true);
+  }
+
+  cancelExtensionForm(): void {
+    this.showExtensionForm.set(false);
+    this.extensionError.set(null);
+  }
+
+  saveExtension(): void {
+    if (this.extensionSaving()) return;
+    if (!this.extensionForm.number.trim() || !this.extensionForm.date || !this.extensionForm.observation.trim()) {
+      this.extensionError.set('Completa número, fecha y observación (obligatoria).');
+      return;
+    }
+    this.extensionSaving.set(true);
+    this.extensionError.set(null);
+    this.service.createExtension(this.projectId, this.extensionForm).subscribe({
+      next: () => {
+        this.extensionSaving.set(false);
+        this.showExtensionForm.set(false);
+        this.refreshDetails();
+      },
+      error: err => {
+        this.extensionSaving.set(false);
+        const msg = err?.status === 403
+          ? 'Solo un administrador puede extender fechas ya vencidas.'
+          : (err?.error?.error ?? err?.error?.message ?? 'Error al registrar la extensión.');
+        this.extensionError.set(msg);
+      },
+    });
   }
 }

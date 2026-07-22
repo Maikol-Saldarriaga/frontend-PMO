@@ -60,6 +60,12 @@ export interface ProjectCreateResponse {
   percent_done:    number;
   responsible:     ProjectResponsible | null;
   created_at:      string;
+  /** Avance real ponderado 0-100. null si el proyecto aún no tiene componentes cargados (borrador típico). */
+  real_progress?:      number | null;
+  /** Fecha final vigente si el proyecto tuvo alguna extensión; null si nunca se extendió. */
+  extended_end_date?:  string | null;
+  /** Fecha final anterior a la extensión vigente. Solo viene poblado si extended_end_date no es null. */
+  previous_end_date?:  string | null;
 }
 
 export interface ProjectsSummary {
@@ -674,13 +680,16 @@ export interface ActivityFormData {
 // ── Snapshots de Seguimiento Técnico ─────────────────────────────────────────
 
 export interface Snapshot {
-  id?:          string;
-  id_activity?: string;
-  start_date:   string;
-  end_date:     string;
-  planned_pct:  number;
-  actual_pct:   number | null;
-  notes?:       string | null;
+  id?:                   string;
+  id_activity?:          string;
+  start_date:            string;
+  end_date:              string;
+  planned_pct:           number;
+  actual_pct:            number | null;
+  notes?:                string | null;
+  extension_observation?: string | null;
+  extended_by?:           string | null;
+  extended_at?:           string | null;
 }
 
 export interface SnapshotRequest {
@@ -688,6 +697,8 @@ export interface SnapshotRequest {
   start_date:   string;
   end_date:     string;
   planned_pct:  number;
+  /** Obligatorio solo si end_date es posterior al end_date actual del checkpoint (extensión real). */
+  observation?: string;
 }
 
 export interface ProjectSnapshotItem {
@@ -1042,6 +1053,64 @@ export const EMPTY_BUDGET_FORM = (): BudgetFormData => ({
   quantity: null, total_value: 0, counterpart_contribution: null,
   ally_contribution: null, monthly_distributions: [],
 });
+
+// ── Acceso / roles por proyecto (GET /projects/:id/my-access) ──────────────
+
+import { UserRole } from '../../../../core/auth/models/role.model';
+
+export type ProjectSection =
+  | 'budget' | 'technical_components' | 'activities' | 'affiliates' | 'locations'
+  | 'beneficiaries' | 'actors' | 'risks' | 'changes' | 'checkpoints' | 'documents'
+  | 'supply_plan' | 'compliance_matrix' | 'finance' | 'signature' | 'extensions';
+
+export type SectionPermission = 'none' | 'read' | 'write';
+
+export interface ProjectAccess {
+  role:                    UserRole;
+  full_access:             boolean;
+  is_owner:                boolean;
+  is_coordinator:          boolean;
+  is_diligenciador_draft:  boolean;
+  permissions:             Record<ProjectSection, SectionPermission>;
+}
+
+// ── Equipo de apoyo (team members con permisos por sección) ────────────────
+
+export interface TeamMember {
+  user_id:     string;
+  name:        string;
+  email:       string;
+  permissions: Record<ProjectSection, SectionPermission>;
+}
+
+export interface TeamMemberRequest {
+  user_id:     string;
+  permissions: Record<ProjectSection, SectionPermission>;
+}
+
+export interface UserListItem {
+  id:    string;
+  name:  string;
+  email: string;
+}
+
+// ── Extensiones de proyecto (nivel proyecto, solo ADMIN si ya venció) ───────
+
+export interface ProjectExtension {
+  id:          string;
+  number:      string;
+  date:        string;
+  duration:    number;
+  observation: string;
+  created_at?: string;
+}
+
+export interface ProjectExtensionRequest {
+  number:      string;
+  date:        string;
+  duration:    number;
+  observation: string;
+}
 
 // ── Facturación (invoices contra un budget_item) ────────────────────────────
 

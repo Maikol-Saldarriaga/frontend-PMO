@@ -17,6 +17,10 @@ export interface ColombiaCity {
 
 const API = 'https://api-colombia.com/api/v1';
 
+/**
+ * @deprecated API pública externa, reemplazada por DivipolaGeoService (backend propio /divipola/*).
+ * No borrar: queda como respaldo. No usar en código nuevo. Ya sin referencias activas.
+ */
 @Injectable({ providedIn: 'root' })
 export class ColombiaApiService {
   private http = inject(HttpClient);

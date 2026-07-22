@@ -19,6 +19,10 @@ export interface LocationResult {
 // ArcGIS REST — Prosperidad Social (cubre los 33 departamentos de Colombia)
 const BASE = 'https://gis.prosperidadsocial.gov.co/arcgis/rest/services/Migracion/Veredas/FeatureServer/0/query';
 
+/**
+ * @deprecated Reemplazado por DivipolaGeoService (backend propio /divipola/*). No borrar:
+ * queda como respaldo si el nuevo endpoint falla. No usar en código nuevo.
+ */
 @Injectable({ providedIn: 'root' })
 export class SocrataGeoService {
   private http = inject(HttpClient);

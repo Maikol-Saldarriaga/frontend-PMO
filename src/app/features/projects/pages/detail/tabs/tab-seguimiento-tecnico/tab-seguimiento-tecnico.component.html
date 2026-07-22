@@ -250,6 +250,14 @@
             </div>
           </div>
 
+          @if (requiresObservation()) {
+            <div class="mb-3">
+              <label class="block text-xs font-semibold text-gray-500 mb-1">Observación (obligatoria al extender la fecha) <span class="text-red-400">*</span></label>
+              <textarea [(ngModel)]="form.observation" rows="2"
+                class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-sky-300"></textarea>
+            </div>
+          }
+
           <p class="text-[11px] text-gray-400 mb-4">El % real y las observaciones se registran desde la pestaña <strong>Entregables</strong>.</p>
 
           @if (saveError()) {
@@ -412,6 +420,19 @@
                       <path stroke-linecap="round" stroke-linejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/>
                     </svg>
                     <p class="text-xs text-amber-700">{{ snap.notes }}</p>
+                  </div>
+                }
+
+                <!-- Auditoría de extensión de fecha -->
+                @if (snap.extension_observation) {
+                  <div class="mt-2 ml-20 px-3 py-2 rounded-lg bg-violet-50 border border-violet-100 flex items-start gap-1.5">
+                    <svg class="w-3.5 h-3.5 text-violet-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <p class="text-xs text-violet-700">
+                      Extensión: {{ snap.extension_observation }}
+                      @if (snap.extended_at) { <span class="text-violet-400">({{ snap.extended_at | date:'dd/MM/yyyy' }})</span> }
+                    </p>
                   </div>
                 }
               </div>

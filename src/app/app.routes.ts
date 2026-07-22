@@ -13,7 +13,7 @@ import { DocumentsListComponent } from './features/documents/pages/list/document
 import { ScheduleListComponent } from './features/schedule/pages/list/schedule-list.component';
 import { ResourcesComponent } from './features/resources/pages/resources.component';
 import { ReportsComponent } from './features/reports/pages/reports.component';
-import { authGuard, rootRedirectGuard } from '../core/auth/guards/auth.guard';
+import { authGuard, rootRedirectGuard, canCreateProjectGuard } from '../core/auth/guards/auth.guard';
 
 export const routes: Routes = [
   { path: '', pathMatch: 'full', canActivate: [rootRedirectGuard], children: [] },
@@ -28,7 +28,7 @@ export const routes: Routes = [
       { path: 'profile',               component: ProfileComponent },
       { path: 'settings',              component: ProfileComponent },
       { path: 'projects',              component: ProjectsListComponent },
-      { path: 'projects/create',       component: ProjectCreateComponent },
+      { path: 'projects/create',       component: ProjectCreateComponent, canActivate: [canCreateProjectGuard] },
       { path: 'projects/:id',          component: ProjectDetailComponent },
       { path: 'projects/:id/edit',     component: ProjectCreateComponent },
       { path: 'projects/:id/summary',  component: ProjectSummaryComponent },

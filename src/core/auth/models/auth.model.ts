@@ -1,3 +1,5 @@
+import { UserRole } from './role.model';
+
 export interface LoginRequest {
   email:    string;
   password: string;
@@ -9,7 +11,7 @@ export interface LoginResponse {
   user_id:       string;
   name:          string;
   email:         string;
-  role:          string;
+  role:          UserRole;
   image_url:     string | null;
 }
 
@@ -22,6 +24,6 @@ export interface UserProfile {
   id:        string;
   name:      string;
   email:     string;
-  role:      string;
+  role:      UserRole;
   image_url: string | null;
 }

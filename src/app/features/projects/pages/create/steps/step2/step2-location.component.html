@@ -69,6 +69,55 @@
                     </svg>
                   </button>
                 </div>
+              } @else if (getManual(i).active) {
+                <!-- Alta manual: departamento → municipio → crear vereda -->
+                <div class="space-y-1.5 p-2.5 rounded-xl border border-dashed border-accent-300 bg-accent-50/40">
+                  <select [value]="getManual(i).deptCod"
+                    (change)="onManualDeptChange(i, $any($event.target).value)"
+                    class="w-full px-2 py-1.5 rounded-lg border border-neutral-200 text-xs text-primary-700 bg-white outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors">
+                    <option value="">Departamento...</option>
+                    @for (d of allDepts(); track d.cod_dpto) {
+                      <option [value]="d.cod_dpto" [selected]="getManual(i).deptCod === d.cod_dpto">{{ d.nom_dpto }}</option>
+                    }
+                  </select>
+                  <select [value]="getManual(i).mpioCod"
+                    (change)="onManualMpioChange(i, $any($event.target).value)"
+                    [attr.disabled]="!getManual(i).deptCod ? '' : null"
+                    class="w-full px-2 py-1.5 rounded-lg border border-neutral-200 text-xs text-primary-700 bg-white outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                    <option value="">{{ getManual(i).loadingMunicipios ? 'Cargando...' : 'Municipio...' }}</option>
+                    @for (m of getManual(i).municipios; track m.cod_mpio) {
+                      <option [value]="m.cod_mpio" [selected]="getManual(i).mpioCod === m.cod_mpio">{{ m.nom_mpio }}</option>
+                    }
+                  </select>
+                  <input type="text" [value]="getManual(i).newVeredaName"
+                    (input)="onManualVeredaTextChange(i, $any($event.target).value)"
+                    [disabled]="!getManual(i).mpioCod"
+                    placeholder="Vereda (opcional, se creará en la base de datos)"
+                    class="w-full px-2 py-1.5 rounded-lg border border-neutral-200 text-xs text-primary-700 placeholder-neutral-400 bg-white outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"/>
+                  @if (getManual(i).newVeredaName) {
+                    <div class="flex gap-1.5">
+                      <input type="text" [value]="getManual(i).newVeredaLat"
+                        (input)="patchManualLat(i, $any($event.target).value)"
+                        placeholder="Latitud (opcional)"
+                        class="w-1/2 px-2 py-1.5 rounded-lg border border-neutral-200 text-xs text-primary-700 placeholder-neutral-400 bg-white outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+                      <input type="text" [value]="getManual(i).newVeredaLng"
+                        (input)="patchManualLng(i, $any($event.target).value)"
+                        placeholder="Longitud (opcional)"
+                        class="w-1/2 px-2 py-1.5 rounded-lg border border-neutral-200 text-xs text-primary-700 placeholder-neutral-400 bg-white outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+                    </div>
+                  }
+                  @if (getManual(i).createError) {
+                    <p class="text-[11px] text-danger">{{ getManual(i).createError }}</p>
+                  }
+                  <div class="flex items-center gap-2 pt-0.5">
+                    <button type="button" (click)="confirmManualEntry(i)" [disabled]="!getManual(i).mpioCod || getManual(i).creatingVereda"
+                      class="text-[11px] font-semibold text-accent hover:text-accent-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                      {{ getManual(i).creatingVereda ? 'Creando vereda...' : 'Usar esta ubicación' }}
+                    </button>
+                    <button type="button" (click)="cancelManualEntry(i)"
+                      class="text-[11px] text-neutral-400 hover:text-neutral-600 transition-colors">Cancelar</button>
+                  </div>
+                </div>
               } @else {
                 <!-- Estado: buscando -->
                 <div class="relative">
@@ -118,7 +167,11 @@
                     } @else if (getSearch(i).results.length === 0) {
                       <div class="px-4 py-4 text-center">
                         @if (getSearch(i).term.length >= 2) {
-                          <p class="text-xs text-neutral-400">Sin resultados para <strong>"{{ getSearch(i).term }}"</strong></p>
+                          <p class="text-xs text-neutral-400 mb-2">Sin resultados para <strong>"{{ getSearch(i).term }}"</strong></p>
+                          <button type="button" (mousedown)="startManualEntry(i)"
+                            class="text-[11px] font-semibold text-accent hover:text-accent-700 transition-colors">
+                            Esta ubicación no la tenemos registrada — agregar manualmente
+                          </button>
                         } @else {
                           <p class="text-xs text-neutral-400">Escribe al menos 2 caracteres para buscar</p>
                         }

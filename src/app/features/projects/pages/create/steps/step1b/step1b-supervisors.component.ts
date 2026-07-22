@@ -2,15 +2,27 @@ import {
   Component, Input, Output, EventEmitter, OnInit, signal, inject, HostListener,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
+import { ReactiveFormsModule, FormsModule, FormBuilder, Validators } from '@angular/forms';
 import { ContractStep1bRequest } from '../../../../models/contract.model';
 import { SupervisorService } from '../../../../services/supervisor.service';
 import {
   SupervisorUser, AffiliateUser,
-  CreateSupervisorUserResponse, CreateAffiliateResponse,
+  CreateSupervisorUserResponse,
   SupervisorDocumentType,
 } from '../../../../models/supervisor.model';
 import { UserService } from '../../../../../../../core/users/services/user.service';
+import { ProjectService } from '../../../../services/project.service';
+import { TeamMember, UserListItem, ProjectSection, SectionPermission } from '../../../../models/project.model';
+import { SECTION_LABELS } from '../../../detail/tabs/tab-equipo/tab-equipo.component';
+import { AuthStore } from '../../../../../../../core/auth/store/auth.store';
+
+const ALL_SECTIONS = Object.keys(SECTION_LABELS) as ProjectSection[];
+
+function emptyPermissions(): Record<ProjectSection, SectionPermission> {
+  const p = {} as Record<ProjectSection, SectionPermission>;
+  ALL_SECTIONS.forEach(s => p[s] = 'none');
+  return p;
+}
 
 export interface Step1bSavedData {
   counterpart_supervisor?: string | null;
@@ -20,7 +32,7 @@ export interface Step1bSavedData {
 @Component({
   selector: 'app-step1b-supervisors',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule],
   templateUrl: './step1b-supervisors.component.html',
 })
 export class Step1bSupervisorsComponent implements OnInit {
@@ -43,7 +55,28 @@ export class Step1bSupervisorsComponent implements OnInit {
   private fb            = inject(FormBuilder);
   private supervisorSvc = inject(SupervisorService);
   private userService   = inject(UserService);
+  private projectSvc    = inject(ProjectService);
+  private authStore     = inject(AuthStore);
   private avatarRetried = new Set<string>();
+
+  readonly sections      = ALL_SECTIONS;
+  readonly sectionLabels = SECTION_LABELS;
+
+  teamMembers    = signal<TeamMember[]>([]);
+  allUsers       = signal<UserListItem[]>([]);
+  loadingTeam    = signal(false);
+
+  showTeamForm    = signal(false);
+  editingTeamUser = signal<string | null>(null);
+  selectedTeamUserId = '';
+  teamFormPermissions: Record<ProjectSection, SectionPermission> = emptyPermissions();
+  savingTeam      = signal(false);
+  teamError       = signal<string | null>(null);
+
+  availableTeamUsers(): UserListItem[] {
+    const memberIds = new Set(this.teamMembers().map(m => m.user_id));
+    return this.allUsers().filter(u => !memberIds.has(u.id));
+  }
 
   readonly docTypes = ['CC', 'CE', 'TI', 'PP', 'RC', 'NIT', 'PEP'];
 
@@ -86,10 +119,12 @@ export class Step1bSupervisorsComponent implements OnInit {
     second_surname:        ['', Validators.required],
     type_identification:   ['CC', Validators.required],
     identification_number: ['', Validators.required],
+    birthdate:             ['', Validators.required],
     entity:                [''],
     job_title:             [''],
-    phone:                 [''],
-    email:                 [''],
+    phone:                 ['', Validators.required],
+    email:                 ['', [Validators.required, Validators.email]],
+    password:              ['', [Validators.required, Validators.minLength(6)]],
     department:            [''],
     municipality:          [''],
   });
@@ -102,6 +137,7 @@ export class Step1bSupervisorsComponent implements OnInit {
   ngOnInit(): void {
     this.form.valueChanges.subscribe(() => this.dataChange.emit(this.buildPayload()));
     this.loadSupervisors();
+    if (this.projectId) this.loadTeam();
   }
 
   private buildPayload(): ContractStep1bRequest {
@@ -122,7 +158,12 @@ export class Step1bSupervisorsComponent implements OnInit {
         this.affiliates.set(res.affiliates);
         const pid = this.form.get('counterpart_supervisor')?.value;
         const cid = this.form.get('ally_supervisor')?.value;
-        if (pid) this.selectedPrincipal.set(res.users.find(u => u.id === pid) ?? null);
+        if (pid) {
+          this.selectedPrincipal.set(res.users.find(u => u.id === pid) ?? null);
+        } else if (this.authStore.user()?.role === 'COORDINADOR') {
+          const me = res.users.find(u => u.id === this.authStore.user()!.id);
+          if (me) this.selectPrincipal(me);
+        }
         if (cid) this.selectedCustomer.set(res.affiliates.find(a => a.id === cid) ?? null);
         this.loadingSupervisors.set(false);
       },
@@ -218,7 +259,7 @@ export class Step1bSupervisorsComponent implements OnInit {
       email:                    v.email!,
       phone:                    v.phone!,
       password:                 v.password!,
-      role:                     'SUPERVISOR',
+      role:                     'COORDINADOR',
       middle_name:              v.middle_name  || undefined,
       address:                  v.address      || undefined,
       image_url:                this.principalImageFile,
@@ -245,31 +286,29 @@ export class Step1bSupervisorsComponent implements OnInit {
 
   createCustomer(): void {
     this.customerForm.markAllAsTouched();
-    if (this.customerForm.invalid || !this.projectId) return;
+    if (this.customerForm.invalid) return;
     this.savingCustomer.set(true);
     this.customerError.set(null);
     const v = this.customerForm.getRawValue();
-    this.supervisorSvc.createAffiliate(this.projectId, {
-      is_beneficiary:        false,
-      first_name:            v.first_name!,
-      first_surname:         v.first_surname!,
-      second_surname:        v.second_surname!,
-      type_identification:   v.type_identification!,
-      identification_number: v.identification_number!,
-      middle_name:           v.middle_name   || null,
-      entity:                v.entity        || null,
-      job_title:             v.job_title     || null,
-      phone:                 v.phone         || null,
-      email:                 v.email         || null,
-      department:            v.department    || null,
-      municipality:          v.municipality  || null,
+    this.supervisorSvc.createUser({
+      first_name:               v.first_name!,
+      first_surname:            v.first_surname!,
+      second_surname:           v.second_surname!,
+      document_type:            v.type_identification! as SupervisorDocumentType,
+      identity_document_number: v.identification_number!,
+      birthdate:                v.birthdate!,
+      email:                    v.email!,
+      phone:                    v.phone!,
+      password:                 v.password!,
+      role:                     'SUPERVISOR_ALIADO',
+      middle_name:              v.middle_name || undefined,
     }).subscribe({
-      next: (res: CreateAffiliateResponse) => {
+      next: (res: CreateSupervisorUserResponse) => {
         const aff: AffiliateUser = {
           id:                    res.id,
           full_name:             `${res.first_name} ${res.first_surname}`,
-          type_identification:   res.type_identification,
-          identification_number: res.identification_number,
+          type_identification:   res.document_type,
+          identification_number: res.identity_document_number,
         };
         this.affiliates.update(list => [...list, aff]);
         this.selectCustomer(aff);
@@ -277,7 +316,7 @@ export class Step1bSupervisorsComponent implements OnInit {
         this.savingCustomer.set(false);
       },
       error: (err: { error?: { message?: string } }) => {
-        this.customerError.set(err?.error?.message ?? 'Error al crear el supervisor.');
+        this.customerError.set(err?.error?.message ?? 'Error al crear el supervisor aliado.');
         this.savingCustomer.set(false);
       },
     });
@@ -300,5 +339,103 @@ export class Step1bSupervisorsComponent implements OnInit {
 
   onSubmit(): void {
     this.submitted.emit(this.buildPayload());
+  }
+
+  // ── Equipo de apoyo (añadido también aquí para asignarlo desde el formulario base) ──
+
+  loadTeam(): void {
+    if (!this.projectId) return;
+    this.loadingTeam.set(true);
+    let done = 0;
+    const check = () => { if (++done === 2) this.loadingTeam.set(false); };
+
+    this.projectSvc.getTeam(this.projectId).subscribe({
+      next:  m => { this.teamMembers.set(m ?? []); check(); },
+      error: () => check(),
+    });
+    this.projectSvc.getUsers().subscribe({
+      next:  u => { this.allUsers.set(u ?? []); check(); },
+      error: () => check(),
+    });
+  }
+
+  openAddTeamForm(): void {
+    this.editingTeamUser.set(null);
+    this.selectedTeamUserId = '';
+    this.teamFormPermissions = emptyPermissions();
+    this.teamError.set(null);
+    this.showTeamForm.set(true);
+  }
+
+  openEditTeamForm(member: TeamMember): void {
+    this.editingTeamUser.set(member.user_id);
+    this.selectedTeamUserId = member.user_id;
+    this.teamFormPermissions = { ...member.permissions };
+    this.teamError.set(null);
+    this.showTeamForm.set(true);
+  }
+
+  cancelTeamForm(): void {
+    this.showTeamForm.set(false);
+    this.teamError.set(null);
+  }
+
+  setTeamPermission(section: ProjectSection, value: SectionPermission): void {
+    this.teamFormPermissions[section] = value;
+  }
+
+  isTeamRead(section: ProjectSection): boolean {
+    return this.teamFormPermissions[section] !== 'none';
+  }
+
+  isTeamWrite(section: ProjectSection): boolean {
+    return this.teamFormPermissions[section] === 'write';
+  }
+
+  onTeamReadChange(section: ProjectSection, checked: boolean): void {
+    this.setTeamPermission(section, checked ? (this.isTeamWrite(section) ? 'write' : 'read') : 'none');
+  }
+
+  onTeamWriteChange(section: ProjectSection, checked: boolean): void {
+    this.setTeamPermission(section, checked ? 'write' : (this.isTeamRead(section) ? 'read' : 'none'));
+  }
+
+  saveTeamMember(): void {
+    if (!this.projectId || this.savingTeam()) return;
+    if (!this.selectedTeamUserId) {
+      this.teamError.set('Selecciona un usuario.');
+      return;
+    }
+    this.savingTeam.set(true);
+    this.teamError.set(null);
+
+    const editing = this.editingTeamUser();
+    const request = editing
+      ? this.projectSvc.updateTeamPermissions(this.projectId, editing, this.teamFormPermissions)
+      : this.projectSvc.addTeamMember(this.projectId, { user_id: this.selectedTeamUserId, permissions: this.teamFormPermissions });
+
+    request.subscribe({
+      next: () => {
+        this.savingTeam.set(false);
+        this.showTeamForm.set(false);
+        this.loadTeam();
+      },
+      error: err => {
+        this.savingTeam.set(false);
+        const msg = err?.status === 403
+          ? 'No tienes permiso para administrar el equipo de este proyecto.'
+          : (err?.error?.error ?? err?.error?.message ?? 'Error al guardar el miembro del equipo.');
+        this.teamError.set(msg);
+      },
+    });
+  }
+
+  removeTeamMember(member: TeamMember): void {
+    if (!this.projectId) return;
+    if (!confirm(`¿Quitar a ${member.name} del equipo de apoyo?`)) return;
+    this.projectSvc.removeTeamMember(this.projectId, member.user_id).subscribe({
+      next: () => this.loadTeam(),
+      error: () => this.teamError.set('Error al quitar el miembro del equipo.'),
+    });
   }
 }

@@ -1,6 +1,7 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { AuthStore } from '../store/auth.store';
+import { PROJECT_CREATOR_ROLES } from '../models/role.model';
 
 export const authGuard: CanActivateFn = () => {
   const authStore = inject(AuthStore);
@@ -11,6 +12,19 @@ export const authGuard: CanActivateFn = () => {
   }
 
   return router.createUrlTree(['/login']);
+};
+
+// Solo ADMIN, COORDINADOR y DILIGENCIADOR pueden crear proyectos.
+export const canCreateProjectGuard: CanActivateFn = () => {
+  const authStore = inject(AuthStore);
+  const router    = inject(Router);
+
+  const role = authStore.user()?.role;
+  if (role && PROJECT_CREATOR_ROLES.includes(role)) {
+    return true;
+  }
+
+  return router.createUrlTree(['/dashboard']);
 };
 
 // Enruta '/' y cualquier ruta no encontrada según haya o no sesión persistida,

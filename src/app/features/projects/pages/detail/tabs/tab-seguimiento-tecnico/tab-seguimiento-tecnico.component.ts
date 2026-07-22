@@ -35,12 +35,14 @@ interface SnapshotForm {
   start_date:   string;
   end_date:     string;
   planned_pct:  number | null;
+  observation:  string;
 }
 
 const emptyForm = (): SnapshotForm => ({
   start_date:  '',
   end_date:    '',
   planned_pct: null,
+  observation: '',
 });
 
 @Component({
@@ -203,6 +205,7 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
       start_date:  toDateOnly(snap.start_date) ?? '',
       end_date:    toDateOnly(snap.end_date)   ?? '',
       planned_pct: snap.planned_pct,
+      observation: '',
     };
     this.editingSnap.set(snap);
     this.showForm.set(true);
@@ -210,6 +213,14 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
   }
 
   cancelForm(): void { this.showForm.set(false); this.editingSnap.set(null); this.saveError.set(null); }
+
+  /** Observación obligatoria solo si se alarga el end_date más allá del que ya tenía el checkpoint (extensión real). */
+  requiresObservation(): boolean {
+    const original = this.editingSnap();
+    if (!original) return false;
+    const originalEnd = toDateOnly(original.end_date);
+    return !!originalEnd && this.form.end_date > originalEnd;
+  }
 
   saveSnapshot(): void {
     const act = this.selectedActivity();
@@ -230,6 +241,10 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
     }
     if (maxDate && this.form.end_date > maxDate) {
       this.saveError.set(`La fecha fin no puede superar ${maxDate}.`);
+      return;
+    }
+    if (this.requiresObservation() && !this.form.observation.trim()) {
+      this.saveError.set('La observación es obligatoria al extender la fecha fin de este período.');
       return;
     }
 
@@ -253,6 +268,7 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
       start_date:  this.form.start_date,
       end_date:    this.form.end_date,
       planned_pct: this.form.planned_pct,
+      observation: this.requiresObservation() ? this.form.observation.trim() : undefined,
     };
 
     this.saving.set(true);
@@ -294,7 +310,10 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
         this.saving.set(false);
       },
       error: err => {
-        this.saveError.set(err?.error?.error ?? err?.error?.message ?? 'Error al guardar el período.');
+        const msg = err?.status === 403
+          ? 'Solo un administrador puede extender fechas ya vencidas.'
+          : (err?.error?.error ?? err?.error?.message ?? 'Error al guardar el período.');
+        this.saveError.set(msg);
         this.saving.set(false);
       },
     });

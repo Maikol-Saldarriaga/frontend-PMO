@@ -47,6 +47,12 @@ export const ENDPOINTS = {
     indicatorVerifications:    (id: string, iid: string) => `${API_URL}/projects/${id}/indicators/${iid}/verifications`,
     indicatorVerificationById: (id: string, iid: string, vid: string) => `${API_URL}/projects/${id}/indicators/${iid}/verifications/${vid}`,
     documents:         (id: string) => `${API_URL}/projects/${id}/documents`,
+    myAccess:          (id: string) => `${API_URL}/projects/${id}/my-access`,
+    team:              (id: string) => `${API_URL}/projects/${id}/team`,
+    teamMember:        (id: string, uid: string) => `${API_URL}/projects/${id}/team/${uid}`,
+    teamMemberPermissions: (id: string, uid: string) => `${API_URL}/projects/${id}/team/${uid}/permissions`,
+    extensions:        (id: string) => `${API_URL}/projects/${id}/extensions`,
+    extensionById:     (id: string, eid: string) => `${API_URL}/projects/${id}/extensions/${eid}`,
   },
   contracts: {
     list:           `${API_URL}/contracts`,
@@ -88,6 +94,7 @@ export const ENDPOINTS = {
     detail: (id: string) => `${API_URL}/tasks/${id}`,
   },
   users: {
+    list:         `${API_URL}/users`,
     get:          (id: string) => `${API_URL}/users/${id}`,
     update:       (id: string) => `${API_URL}/users/${id}`,
     myAvatarUrl:  `${API_URL}/users/me/avatar-url`,
@@ -100,6 +107,17 @@ export const ENDPOINTS = {
     list:            `${API_URL}/projects/supervisors`,
     createUser:      `${API_URL}/users`,
     createAffiliate: (projectId: string) => `${API_URL}/projects/${projectId}/affiliates`,
+  },
+  divipola: {
+    departamentos:       `${API_URL}/divipola/departamentos`,
+    municipios:          (codDpto: string) => `${API_URL}/divipola/departamentos/${codDpto}/municipios`,
+    veredas:             (codMpio: string) => `${API_URL}/divipola/municipios/${codMpio}/veredas`,
+    createVereda:        `${API_URL}/divipola/veredas`,
+    search:              `${API_URL}/divipola/search`,
+  },
+  fodcConfig: {
+    list:        `${API_URL}/fodc-config`,
+    totalMoney:  `${API_URL}/fodc-config/total_money`,
   },
   dashboard: {
     fodcProjects:     `${API_URL}/dashboard/fodc-projects`,

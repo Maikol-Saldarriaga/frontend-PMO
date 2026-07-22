@@ -22,7 +22,7 @@
   <!-- Navegación -->
   <nav class="sidebar__nav">
     <a
-      *ngFor="let item of navItems"
+      *ngFor="let item of navItems()"
       [routerLink]="item.route"
       routerLinkActive="active"
       [routerLinkActiveOptions]="{ exact: item.route === '/dashboard' }"
@@ -46,7 +46,7 @@
 
     <!-- Tooltips Flowbite para modo colapsado -->
     <ng-container *ngIf="collapsed">
-      <div *ngFor="let item of navItems"
+      <div *ngFor="let item of navItems()"
            [id]="'tooltip-' + item.icon"
            role="tooltip"
            class="absolute z-50 invisible inline-block px-3 py-1.5 text-xs font-medium text-primary-900 bg-accent rounded-lg shadow-sm opacity-0 tooltip">

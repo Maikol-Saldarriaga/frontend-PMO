@@ -6,13 +6,15 @@
       <h1 class="text-2xl font-extrabold text-primary-700">Proyectos</h1>
       <p class="text-sm text-neutral-400 mt-0.5">Gestiona y registra todos los proyectos de la organización</p>
     </div>
-    <button (click)="createProject()"
-      class="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-accent to-accent-700 hover:from-accent-600 hover:to-accent-800 text-white text-sm font-semibold rounded-xl shadow-md hover:shadow-lg transition-all self-start sm:self-auto">
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
-      </svg>
-      Nuevo Proyecto
-    </button>
+    @if (canCreate()) {
+      <button (click)="createProject()"
+        class="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-accent to-accent-700 hover:from-accent-600 hover:to-accent-800 text-white text-sm font-semibold rounded-xl shadow-md hover:shadow-lg transition-all self-start sm:self-auto">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+        </svg>
+        Nuevo Proyecto
+      </button>
+    }
   </div>
 
   <!-- ② SEARCH + FILTER BAR (siempre visible) -->
@@ -238,13 +240,15 @@
         } @else {
           <h3 class="text-base font-semibold text-primary-700">Sin proyectos registrados</h3>
           <p class="text-sm text-neutral-400 mt-1.5 max-w-xs mx-auto">Crea el primer proyecto de la organización para comenzar el seguimiento.</p>
-          <button (click)="createProject()"
-            class="mt-4 inline-flex items-center gap-2 px-5 py-2.5 bg-accent hover:bg-accent-600 text-white text-sm font-semibold rounded-xl shadow-sm transition-colors">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
-            </svg>
-            Crear primer proyecto
-          </button>
+          @if (canCreate()) {
+            <button (click)="createProject()"
+              class="mt-4 inline-flex items-center gap-2 px-5 py-2.5 bg-accent hover:bg-accent-600 text-white text-sm font-semibold rounded-xl shadow-sm transition-colors">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+              </svg>
+              Crear primer proyecto
+            </button>
+          }
         }
       </div>
     }
@@ -328,16 +332,39 @@
 
               <div class="hidden lg:block w-px self-stretch bg-neutral-100 flex-shrink-0 my-3"></div>
 
-              <!-- SECTION C: Phases -->
+              <!-- SECTION B2: Finalización -->
+              <div class="hidden lg:flex flex-col items-start justify-center px-6 py-4 flex-shrink-0">
+                @if (hasExtension(project)) {
+                  <p class="text-[10px] text-neutral-400 leading-none mb-0.5">Fecha extendida del proyecto</p>
+                  <p class="text-xs font-medium text-primary-700">{{ project.extended_end_date | date:'d MMM yyyy' }}</p>
+                  <p class="text-[10px] text-neutral-300 mt-0.5">Fecha anterior final: {{ project.previous_end_date | date:'d MMM yyyy' }}</p>
+                } @else {
+                  <p class="text-[10px] text-neutral-400 leading-none mb-0.5">Fecha final del proyecto</p>
+                  <p class="text-xs font-medium text-primary-700">{{ project.end_date | date:'d MMM yyyy' }}</p>
+                }
+              </div>
+
+              <div class="hidden lg:block w-px self-stretch bg-neutral-100 flex-shrink-0 my-3"></div>
+
+              <!-- SECTION C: Phases (solo borrador) / Avance real (activo/completado) -->
               <div class="hidden md:flex flex-col items-center justify-center px-6 py-4 flex-shrink-0 w-28">
-                <p class="text-[10px] text-neutral-400 mb-1">Fases</p>
-                <div class="flex items-baseline gap-0.5">
-                  <span class="text-xl font-bold leading-none" [class]="getPercentTextColor(project.status)">{{ project.completed_steps }}</span>
-                  <span class="text-sm text-neutral-300 font-normal">/{{ project.total_steps }}</span>
-                </div>
-                <p class="text-[10px] text-neutral-400 mt-1">
-                  @if (project.percent_done >= 100) { completadas } @else { en curso }
-                </p>
+                @if (usesRealProgress(project)) {
+                  <p class="text-[10px] text-neutral-400 mb-1">Avance real</p>
+                  <div class="flex items-baseline gap-0.5">
+                    <span class="text-xl font-bold leading-none" [class]="getPercentTextColor(project.status)">{{ progressValue(project) }}</span>
+                    <span class="text-sm text-neutral-300 font-normal">%</span>
+                  </div>
+                  <p class="text-[10px] text-neutral-400 mt-1">ponderado</p>
+                } @else {
+                  <p class="text-[10px] text-neutral-400 mb-1">Fases</p>
+                  <div class="flex items-baseline gap-0.5">
+                    <span class="text-xl font-bold leading-none" [class]="getPercentTextColor(project.status)">{{ project.completed_steps }}</span>
+                    <span class="text-sm text-neutral-300 font-normal">/{{ project.total_steps }}</span>
+                  </div>
+                  <p class="text-[10px] text-neutral-400 mt-1">
+                    @if (project.percent_done >= 100) { completadas } @else { en curso }
+                  </p>
+                }
               </div>
 
               <div class="hidden md:block w-px self-stretch bg-neutral-100 flex-shrink-0 my-3"></div>
@@ -349,23 +376,23 @@
                     <circle cx="18" cy="18" r="14" fill="none" [attr.stroke]="getTrackColor(project.status)" stroke-width="3"/>
                     <circle cx="18" cy="18" r="14" fill="none" [attr.stroke]="getProgressStroke(project.status)"
                       stroke-width="3" stroke-linecap="round" stroke-dasharray="88"
-                      [attr.stroke-dashoffset]="88 - (88 * project.percent_done / 100)"
+                      [attr.stroke-dashoffset]="88 - (88 * progressValue(project) / 100)"
                       style="transition: stroke-dashoffset 0.7s ease"/>
                   </svg>
                   <div class="absolute inset-0 flex flex-col items-center justify-center">
-                    @if (project.percent_done >= 100) {
+                    @if (progressValue(project) >= 100) {
                       <svg class="w-4 h-4 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
                       </svg>
                     } @else {
-                      <span class="text-[11px] font-bold leading-none" [class]="getPercentTextColor(project.status)">{{ project.percent_done }}</span>
+                      <span class="text-[11px] font-bold leading-none" [class]="getPercentTextColor(project.status)">{{ progressValue(project) }}</span>
                       <span class="text-neutral-400 leading-none" style="font-size:8px">%</span>
                     }
                   </div>
                 </div>
                 <span class="text-[10px] mt-1.5 font-medium"
-                      [class]="project.percent_done >= 100 ? 'text-success/70 group-hover:text-success' : getPercentTextColor(project.status)">
-                  {{ project.percent_done >= 100 ? 'Ver' : 'Continuar' }}
+                      [class]="progressValue(project) >= 100 ? 'text-success/70 group-hover:text-success' : getPercentTextColor(project.status)">
+                  {{ progressValue(project) >= 100 ? 'Ver' : 'Continuar' }}
                 </span>
               </div>
 

@@ -6,6 +6,7 @@ import { ENDPOINTS } from '../../api/endpoints';
 import { AuthStore } from '../../auth/store/auth.store';
 import { UserDetail, UpdateUserRequest, UpdateUserResponse } from '../models/user.model';
 import { API_BASE_URL } from '../../config/api.config';
+import { UserRole } from '../../auth/models/role.model';
 
 @Injectable({ providedIn: 'root' })
 export class UserService {
@@ -42,7 +43,7 @@ export class UserService {
       tap(res => {
         this.authStore.updateUser({
           name:      `${res.first_name} ${res.first_surname}`,
-          role:      res.role,
+          role:      res.role as UserRole,
           image_url: this.resolveImageUrl(res.image_url),
         });
       })
@@ -66,7 +67,7 @@ export class UserService {
       tap(res => {
         this.authStore.updateUser({
           name:      res.name,
-          role:      res.role,
+          role:      res.role as UserRole,
           image_url: this.resolveImageUrl(res.image_url),
         });
       })
