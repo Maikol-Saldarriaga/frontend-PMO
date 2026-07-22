@@ -1,8 +1,14 @@
-import { Component, Input, Output, EventEmitter, OnInit, signal, WritableSignal, inject } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, signal, WritableSignal, inject, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormArray, FormGroup, Validators } from '@angular/forms';
 import { DivipolaGeoService, LocationResult, DivipolaDept, DivipolaMunicipio } from '../../../../../../core/services/divipola-geo.service';
 import { ContractLocation, ContractLocationItem } from '../../../../models/contract.model';
+
+interface DropdownRect {
+  top:   number;
+  left:  number;
+  width: number;
+}
 
 interface RowSearch {
   term:     string;
@@ -10,10 +16,11 @@ interface RowSearch {
   loading:  boolean;
   open:     boolean;
   selected: LocationResult | null;
+  rect:     DropdownRect | null;
 }
 
 const emptySearch = (): RowSearch => ({
-  term: '', results: [], loading: false, open: false, selected: null,
+  term: '', results: [], loading: false, open: false, selected: null, rect: null,
 });
 
 /** Estado del alta manual (departamento → municipio → crear vereda) para ubicaciones que no aparecen en la búsqueda. */
@@ -59,6 +66,7 @@ export class Step2LocationComponent implements OnInit {
   manuals:  WritableSignal<ManualState[]> = signal([]);
   allDepts: WritableSignal<DivipolaDept[]> = signal([]);
   private timers: Record<number, ReturnType<typeof setTimeout>> = {};
+  private inputRefs: Record<number, HTMLInputElement> = {};
 
   form = this.fb.group({ locations: this.fb.array<FormGroup>([]) });
   get locationsArray(): FormArray { return this.form.get('locations') as FormArray; }
@@ -108,9 +116,26 @@ export class Step2LocationComponent implements OnInit {
     this.dataChange.emit(this.buildPayload());
   }
 
+  /** Posiciona el dropdown con `position: fixed` anclado al input, así queda por encima de todo (no lo recorta la tarjeta). */
+  private computeRect(el: HTMLElement): DropdownRect {
+    const r = el.getBoundingClientRect();
+    return { top: r.bottom + 6, left: r.left, width: Math.max(r.width, 280) };
+  }
+
+  @HostListener('window:scroll')
+  @HostListener('window:resize')
+  repositionOpenDropdown(): void {
+    const openIndex = this.searches().findIndex(s => s.open);
+    if (openIndex < 0) return;
+    const el = this.inputRefs[openIndex];
+    if (el) this.patchSearch(openIndex, { rect: this.computeRect(el) });
+  }
+
   onSearchInput(i: number, event: Event): void {
-    const term = (event.target as HTMLInputElement).value;
-    this.patchSearch(i, { term, open: true, selected: null });
+    const el = event.target as HTMLInputElement;
+    this.inputRefs[i] = el;
+    const term = el.value;
+    this.patchSearch(i, { term, open: true, selected: null, rect: this.computeRect(el) });
     this.locationsArray.at(i).get('municipality')?.setValue('', { emitEvent: false });
     this.locationsArray.at(i).get('department')?.setValue('', { emitEvent: false });
     this.locationsArray.at(i).get('sidewalk')?.setValue('', { emitEvent: false });
