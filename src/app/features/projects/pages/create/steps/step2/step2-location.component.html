@@ -153,9 +153,10 @@
                   <p class="mt-1 text-xs text-danger">Selecciona un municipio o vereda</p>
                 }
 
-                <!-- Dropdown resultados -->
-                @if (getSearch(i).open) {
-                  <div class="absolute z-50 left-0 right-0 mt-1 bg-white border border-neutral-200 rounded-xl shadow-xl overflow-hidden max-h-64 overflow-y-auto">
+                <!-- Dropdown: position fixed y anclado al input, así queda por encima de todo sin que la tarjeta lo recorte -->
+                @if (getSearch(i).open && getSearch(i).rect) {
+                  <div class="fixed z-50 bg-white border border-neutral-200 rounded-xl shadow-2xl overflow-hidden max-h-64 overflow-y-auto"
+                    [style.top.px]="getSearch(i).rect!.top" [style.left.px]="getSearch(i).rect!.left" [style.width.px]="getSearch(i).rect!.width">
                     @if (getSearch(i).loading) {
                       <div class="px-4 py-4 text-xs text-neutral-400 flex items-center gap-2">
                         <svg class="animate-spin w-3.5 h-3.5 text-accent flex-shrink-0" fill="none" viewBox="0 0 24 24">
