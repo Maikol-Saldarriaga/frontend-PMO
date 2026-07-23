@@ -5,7 +5,7 @@ import { ProjectService } from '../../../../services/project.service';
 import { IndicatorVerification } from '../../../../models/project.model';
 import { renameFileForUpload } from '../../../../../../../core/utils/file.utils';
 
-type VerificationTypeKey = 'documentos_tecnicos' | 'documentos_administrativos' | 'documentos_legales' | 'evidencias';
+type VerificationTypeKey = 'documentos_tecnicos' | 'documentos_administrativos' | 'documentos_legales' | 'evidencias' | 'otros_soportes';
 
 interface PendingUpload {
   verification_type: VerificationTypeKey | '';
@@ -37,6 +37,9 @@ interface IndicatorRow {
 }
 
 // Mismo catálogo que en Condiciones/Soportes — el backend reutiliza enums.SupportType.
+// "otros_soportes" es la salida de texto libre: el backend (ValidateSupportName) acepta
+// cualquier nombre no vacío para ese tipo en particular, a diferencia de los demás que están
+// restringidos a esta lista fija.
 const VERIFICATION_TYPES: Record<VerificationTypeKey, string[]> = {
   documentos_tecnicos: [
     'Plan de Obra', 'POA', 'Diagnóstico ICO', 'Informe Técnico',
@@ -47,6 +50,7 @@ const VERIFICATION_TYPES: Record<VerificationTypeKey, string[]> = {
     'Cámara de Comercio', 'RUT', 'Certificación bancaria', 'Certificados disciplinarios',
   ],
   evidencias: ['Fotografías', 'Videos', 'Listados de asistencia'],
+  otros_soportes: [],
 };
 
 const VERIFICATION_TYPE_LABELS: Record<VerificationTypeKey, string> = {
@@ -54,7 +58,10 @@ const VERIFICATION_TYPE_LABELS: Record<VerificationTypeKey, string> = {
   documentos_administrativos: 'Documentos Administrativos',
   documentos_legales:         'Documentos Legales',
   evidencias:                 'Evidencias',
+  otros_soportes:             'Otro',
 };
+
+const OTHER_VERIFICATION_TYPE: VerificationTypeKey = 'otros_soportes';
 
 const emptyUpload = (): PendingUpload => ({
   verification_type: '', name: '', files: [],
@@ -184,6 +191,10 @@ export class Step9IndicatorsComponent {
 
   verificationLabel(key: string): string {
     return VERIFICATION_TYPE_LABELS[key as VerificationTypeKey] ?? key;
+  }
+
+  isOtherType(key: string): boolean {
+    return key === OTHER_VERIFICATION_TYPE;
   }
 
   private buildPayload(): ContractStep9Request {

@@ -103,8 +103,8 @@
                       </svg>
                     </a>
                     <button type="button" (click)="deleteVerification(i, v)"
-                      class="p-1.5 rounded-lg text-neutral-400 hover:text-danger hover:bg-danger-50 transition-colors">
-                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      class="p-2 rounded-lg text-neutral-500 hover:text-danger hover:bg-danger-50 transition-colors">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                       </svg>
                     </button>
@@ -136,15 +136,21 @@
                 <!-- Nombre del documento -->
                 <div>
                   <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Nombre del documento</label>
-                  <select [value]="row.upload.name"
-                    [attr.disabled]="!row.upload.verification_type ? '' : null"
-                    (change)="updateUploadField(i,'name',$any($event.target).value)"
-                    class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors appearance-none disabled:opacity-50 disabled:cursor-not-allowed">
-                    <option value="">{{ row.upload.verification_type ? 'Selecciona un documento' : 'Primero elige el tipo' }}</option>
-                    @for (name of getVerificationNames(i); track name) {
-                      <option [value]="name" [selected]="row.upload.name === name">{{ name }}</option>
-                    }
-                  </select>
+                  @if (isOtherType(row.upload.verification_type)) {
+                    <input type="text" [value]="row.upload.name" placeholder="Escribe el nombre del medio de verificación"
+                      (input)="updateUploadField(i,'name',$any($event.target).value)"
+                      class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+                  } @else {
+                    <select [value]="row.upload.name"
+                      [attr.disabled]="!row.upload.verification_type ? '' : null"
+                      (change)="updateUploadField(i,'name',$any($event.target).value)"
+                      class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors appearance-none disabled:opacity-50 disabled:cursor-not-allowed">
+                      <option value="">{{ row.upload.verification_type ? 'Selecciona un documento' : 'Primero elige el tipo' }}</option>
+                      @for (name of getVerificationNames(i); track name) {
+                        <option [value]="name" [selected]="row.upload.name === name">{{ name }}</option>
+                      }
+                    </select>
+                  }
                 </div>
 
               </div>
@@ -184,8 +190,8 @@
                       </svg>
                       <span class="flex-1 text-xs text-primary-700 truncate">{{ previewFileName(i, fi) }}</span>
                       <span class="text-[10px] text-neutral-400 flex-shrink-0">{{ fileSize(file) }}</span>
-                      <button type="button" (click)="removeFile(i, fi)" class="text-neutral-400 hover:text-danger transition-colors">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <button type="button" (click)="removeFile(i, fi)" class="p-1 rounded-lg text-neutral-500 hover:text-danger hover:bg-danger-50 transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                         </svg>
                       </button>

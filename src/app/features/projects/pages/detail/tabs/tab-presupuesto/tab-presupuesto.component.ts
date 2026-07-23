@@ -4,31 +4,12 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ProjectService } from '../../../../services/project.service';
 import {
-  BudgetWizardResponse, BudgetEntry, BudgetItem, BudgetItemRequest, BUDGET_ITEM_UNIT_OPTIONS,
+  BudgetWizardResponse, BudgetEntry, BudgetItem, BUDGET_ITEM_UNIT_OPTIONS,
 } from '../../../../models/project.model';
-import { MoneyMaskDirective } from '../../../../../../shared/directives/money-mask.directive';
+import { BudgetItemPanelComponent, BudgetPanelContext } from './budget-item-panel/budget-item-panel.component';
 
 const PALETTE = ['#0EA5E9','#10B981','#F59E0B','#EF4444','#8B5CF6','#EC4899','#14B8A6','#F97316'];
-
-export interface ItemRow {
-  id:                        string;
-  concept:                   string;
-  description:               string;
-  unit_measurement:          string;
-  unit_value:                number | null;
-  quantity:                  number | null;
-  total_value:               number;
-  counterpart_contribution:  number | null;
-  ally_contribution:         number | null;
-  start_date:                string | null; // "yyyy-MM-dd" para el input date
-  expanded:                  boolean;
-  dirty:                     boolean;
-  saving:                    boolean;
-  existingId:                string | null;
-  rowError:                  string | null;
-  rowSuccess:                boolean;
-  savedTotalValue:           number; // último total_value persistido en el backend (0 si es un ítem nuevo)
-}
+const AMOUNT_EPSILON = 0.01;
 
 export interface EntrySection {
   budget_component_id: string;
@@ -36,7 +17,7 @@ export interface EntrySection {
   company_contribution: number | null;
   ally_contribution:    number | null;
   total_contribution:   number | null;
-  items:                ItemRow[];
+  items:                BudgetItem[];
   editingName:          boolean;
   nameDraft:            string;
   savingName:           boolean;
@@ -45,27 +26,20 @@ export interface EntrySection {
 export interface ComponentSection {
   component_id:     string;
   name:             string;
+  percentage:       number;
   is_complete:      boolean;
   entries:          EntrySection[];
   budgetCap:        number | null; // presupuesto general del componente técnico
+  editingBudget:    boolean;
+  budgetDraft:      number | null;
+  savingBudget:     boolean;
+  budgetError:      string | null;
 }
-
-let rowSeq = 0;
-const EMPTY_ITEM_ROW = (): ItemRow => ({
-  id: `new-${++rowSeq}`,
-  concept: '', description: '', unit_measurement: '',
-  unit_value: null, quantity: null, total_value: 0,
-  counterpart_contribution: null, ally_contribution: null,
-  start_date: null,
-  expanded: true, dirty: false, saving: false,
-  existingId: null, rowError: null, rowSuccess: false,
-  savedTotalValue: 0,
-});
 
 @Component({
   selector: 'app-tab-presupuesto',
   standalone: true,
-  imports: [CommonModule, FormsModule, MoneyMaskDirective],
+  imports: [CommonModule, FormsModule, BudgetItemPanelComponent],
   templateUrl: './tab-presupuesto.component.html',
 })
 export class TabPresupuestoComponent implements OnInit {
@@ -78,6 +52,9 @@ export class TabPresupuestoComponent implements OnInit {
   budgetWizard  = signal<BudgetWizardResponse | null>(null);
   budgetLoading = signal(true);
   saveMsg       = signal<string | null>(null);
+
+  /** Presupuesto general del proyecto (Step 1), tope absoluto de la suma de todos los rubros. */
+  projectTotalBudget = signal<number | null>(null);
 
   sections: ComponentSection[] = [];
 
@@ -100,6 +77,10 @@ export class TabPresupuestoComponent implements OnInit {
   budgetGrandTotal = computed(() => this.sections.reduce((s, sec) => s + this.compTotal(sec), 0));
 
   ngOnInit(): void {
+    this.svc.getProjectDetails(this.projectId).subscribe({
+      next: d => this.projectTotalBudget.set(d.value ?? null),
+      error: () => this.projectTotalBudget.set(null),
+    });
     this.load();
   }
 
@@ -109,6 +90,7 @@ export class TabPresupuestoComponent implements OnInit {
         this.budgetWizard.set(w);
         this.sections = this.mapWizard(w);
         this.budgetLoading.set(false);
+        this.syncPanelAfterReload();
       },
       error: () => this.budgetLoading.set(false),
     });
@@ -118,8 +100,13 @@ export class TabPresupuestoComponent implements OnInit {
     return (w.components ?? []).map(comp => ({
       component_id: comp.component_id,
       name:         comp.name,
+      percentage:   comp.percentage,
       is_complete:  comp.is_complete,
       budgetCap:    comp.budget ?? null,
+      editingBudget: false,
+      budgetDraft:   comp.budget ?? null,
+      savingBudget:  false,
+      budgetError:   null,
       entries: (comp.budget_entries ?? []).map((entry: BudgetEntry) => ({
         budget_component_id:  entry.budget_component_id,
         name:                  entry.name,
@@ -129,25 +116,7 @@ export class TabPresupuestoComponent implements OnInit {
         editingName:           false,
         nameDraft:             entry.name,
         savingName:            false,
-        items: (entry.items ?? []).map((item: BudgetItem) => ({
-          id:                        item.id,
-          concept:                   item.concept ?? '',
-          description:               item.description ?? '',
-          unit_measurement:          item.unit_measurement ?? '',
-          unit_value:                item.unit_value ?? null,
-          quantity:                  item.quantity ?? null,
-          total_value:               item.total_value ?? 0,
-          counterpart_contribution:  item.counterpart_contribution ?? null,
-          ally_contribution:         item.ally_contribution ?? null,
-          start_date:                item.start_date ? item.start_date.slice(0, 10) : null,
-          expanded:                  false,
-          dirty:                     false,
-          saving:                    false,
-          existingId:                item.id,
-          rowError:                  null,
-          rowSuccess:                false,
-          savedTotalValue:           item.total_value ?? 0,
-        } as ItemRow)),
+        items:                 entry.items ?? [],
       } as EntrySection)),
     }));
   }
@@ -199,10 +168,82 @@ export class TabPresupuestoComponent implements OnInit {
     return { label: 'Pendiente', classes: 'bg-amber-50 text-amber-700 border-amber-100' };
   }
 
+  /** Suma de los topes ya asignados a los demás componentes técnicos (para calcular cuánto queda disponible del presupuesto general). */
+  otherCapsTotal(s: ComponentSection): number {
+    return this.sections
+      .filter(x => x.component_id !== s.component_id)
+      .reduce((acc, x) => acc + (x.budgetCap ?? 0), 0);
+  }
+
+  /** Cuánto del presupuesto general del proyecto (Step 1) queda disponible para asignarle de tope a este componente. */
+  projectHeadroomFor(s: ComponentSection): number | null {
+    const total = this.projectTotalBudget();
+    if (total === null) return null;
+    return total - this.otherCapsTotal(s);
+  }
+
+  startEditBudget(s: ComponentSection): void {
+    s.editingBudget = true;
+    s.budgetDraft = s.budgetCap;
+    s.budgetError = null;
+  }
+
+  cancelEditBudget(s: ComponentSection): void {
+    s.editingBudget = false;
+    s.budgetDraft = s.budgetCap;
+    s.budgetError = null;
+  }
+
+  saveBudget(s: ComponentSection): void {
+    if (s.savingBudget) return;
+    const draft = s.budgetDraft;
+    s.budgetError = null;
+
+    if (draft !== null && draft < 0) {
+      s.budgetError = 'El presupuesto no puede ser negativo.';
+      return;
+    }
+
+    if (draft !== null) {
+      const consumed = this.compItemsTotal(s);
+      if (draft < consumed - AMOUNT_EPSILON) {
+        s.budgetError = `No puedes bajar el tope por debajo de lo ya distribuido (${this.formatCurrency(consumed)}). Reduce primero la distribución del rubro.`;
+        return;
+      }
+      const headroom = this.projectHeadroomFor(s);
+      if (headroom !== null && draft > headroom + AMOUNT_EPSILON) {
+        s.budgetError = `Ese tope superaría el presupuesto general del proyecto. Disponible para este componente: ${this.formatCurrency(Math.max(0, headroom))}.`;
+        return;
+      }
+    }
+
+    s.savingBudget = true;
+    this.svc.updateComponent(this.projectId, s.component_id, {
+      name: s.name,
+      percentage: s.percentage,
+      budget: draft,
+    }).subscribe({
+      next: (comp) => {
+        s.budgetCap = comp.budget ?? null;
+        s.budgetDraft = s.budgetCap;
+        s.savingBudget = false;
+        s.editingBudget = false;
+      },
+      error: err => {
+        s.savingBudget = false;
+        s.budgetError = err?.error?.error ?? err?.error?.message ?? 'Error al actualizar el presupuesto del componente.';
+      },
+    });
+  }
+
   color(i: number): string { return PALETTE[i % PALETTE.length]; }
 
   hasAnyEntries(): boolean {
     return this.sections.some(s => s.entries.length > 0);
+  }
+
+  periodicityLabel(value: string | null): string {
+    return this.unitOptions.find(o => o.value === value)?.label ?? (value || '—');
   }
 
   // ── Sub-componentes de presupuesto (budget_component) ──────────────────────
@@ -293,145 +334,75 @@ export class TabPresupuestoComponent implements OnInit {
     });
   }
 
-  // ── Ítems de presupuesto (budget_item) ──────────────────────────────────────
+  // ── Ítems de presupuesto (budget_item) — edición en el panel lateral ───────
 
-  addItemRow(entry: EntrySection): void {
-    entry.items.push(EMPTY_ITEM_ROW());
+  panelOpen    = signal(false);
+  panelContext = signal<BudgetPanelContext | null>(null);
+  private panelSection: ComponentSection | null = null;
+
+  openNewItem(sec: ComponentSection, entry: EntrySection): void {
+    this.panelSection = sec;
+    this.panelContext.set({
+      budgetComponentId:   entry.budget_component_id,
+      budgetComponentName: entry.name,
+      item:                null,
+      sectionBudgetCap:    sec.budgetCap,
+      otherItemsTotal:     this.compItemsTotal(sec),
+    });
+    this.panelOpen.set(true);
   }
 
-  markDirty(row: ItemRow): void { row.dirty = true; row.rowSuccess = false; row.rowError = null; }
-
-  recalcTotal(row: ItemRow): void {
-    row.total_value = (row.unit_value ?? 0) * (row.quantity ?? 0);
-    row.dirty = true; row.rowSuccess = false; row.rowError = null;
+  editItem(sec: ComponentSection, entry: EntrySection, item: BudgetItem): void {
+    this.panelSection = sec;
+    this.panelContext.set({
+      budgetComponentId:   entry.budget_component_id,
+      budgetComponentName: entry.name,
+      item,
+      sectionBudgetCap:    sec.budgetCap,
+      otherItemsTotal:     this.compItemsTotal(sec) - item.total_value,
+    });
+    this.panelOpen.set(true);
   }
 
-  toggleExpand(row: ItemRow): void { row.expanded = !row.expanded; }
-
-  aportesTotal(row: ItemRow): number {
-    return (row.counterpart_contribution ?? 0) + (row.ally_contribution ?? 0);
-  }
-  aportesOverflow(row: ItemRow): boolean {
-    return this.aportesTotal(row) > row.total_value;
+  closePanel(): void {
+    this.panelOpen.set(false);
+    this.panelContext.set(null);
+    this.panelSection = null;
   }
 
-  saveRow(sec: ComponentSection, entry: EntrySection, row: ItemRow): void {
-    if (!row.dirty || row.saving) return;
+  onPanelSaved(): void {
+    this.load();
+  }
 
-    const missing: string[] = [];
-    if (!row.concept?.trim())          missing.push('Concepto');
-    if (!row.unit_measurement?.trim()) missing.push('Unidad de medida');
-    if (!row.quantity)                 missing.push('Cantidad');
-    if (!row.unit_value)               missing.push('Valor unitario');
+  onPanelDeleted(): void {
+    this.closePanel();
+    this.load();
+  }
 
-    if (missing.length) {
-      row.rowError = `Requeridos: ${missing.join(', ')}`;
-      return;
-    }
-
-    const aportes = (row.counterpart_contribution ?? 0) + (row.ally_contribution ?? 0);
-    if (aportes > row.total_value) {
-      row.rowError = `Los aportes (${this.formatCurrency(aportes)}) no pueden superar el total del presupuesto (${this.formatCurrency(row.total_value)}).`;
-      return;
-    }
-
-    if (sec.budgetCap !== null) {
-      const projectedTotal = this.compItemsTotal(sec) - row.savedTotalValue + row.total_value;
-      if (projectedTotal > sec.budgetCap) {
-        row.rowError = `Este ítem haría que "${sec.name}" supere su presupuesto (${this.formatCurrency(sec.budgetCap)}). Quedarían ${this.formatCurrency(projectedTotal)} sumados entre todos sus componentes de presupuesto.`;
-        return;
-      }
-    }
-
-    row.rowError = null;
-    row.saving = true;
-
-    const payload: BudgetItemRequest = {
-      budget_component_id:      entry.budget_component_id,
-      concept:                  row.concept.trim(),
-      description:              row.description,
-      unit_measurement:         row.unit_measurement.trim(),
-      unit_value:               row.unit_value   ?? 0,
-      quantity:                 row.quantity     ?? 0,
-      total_value:              row.total_value,
-      counterpart_contribution: row.counterpart_contribution ?? 0,
-      ally_contribution:        row.ally_contribution        ?? 0,
-      start_date:               row.start_date ? `${row.start_date}T00:00:00Z` : undefined,
-    };
-
-    const isCreate = !row.existingId;
-    const request$ = row.existingId
-      ? this.svc.updateBudgetItem(this.projectId, row.existingId, payload)
-      : this.svc.createBudgetItem(this.projectId, payload);
-
-    request$.subscribe({
-      next: (res) => {
-        if (!row.existingId) row.existingId = res.id;
-        row.dirty           = false;
-        row.saving          = false;
-        row.rowSuccess      = true;
-        row.rowError        = null;
-        row.savedTotalValue = row.total_value;
-        row.expanded        = false;
-        this.refreshEntryTotals(entry);
-        this.refreshWizardMeta();
-
-        // Al crear un ítem por primera vez, se genera automáticamente su distribución mensual.
-        // Al editar uno existente no se regenera para no perder ajustes manuales ya hechos.
-        if (isCreate && row.existingId && row.start_date && row.unit_measurement && row.quantity && row.quantity > 0 && Number.isInteger(row.quantity)) {
-          this.svc.generateMonthly(this.projectId, row.existingId).subscribe({ next: () => {}, error: () => {} });
-        }
-      },
-      error: () => {
-        row.saving = false;
-        this.showMsg('Error al guardar. Verifica los datos.');
-      },
+  /** Tras recargar (ítem creado/editado/eliminado desde el panel), refresca el contexto del
+   * panel si sigue abierto, para que sus totales de tope reflejen los datos ya persistidos. */
+  private syncPanelAfterReload(): void {
+    if (!this.panelOpen() || !this.panelSection) return;
+    const sec = this.sections.find(s => s.component_id === this.panelSection!.component_id);
+    if (!sec) return;
+    this.panelSection = sec;
+    const ctx = this.panelContext();
+    if (!ctx) return;
+    const entry = sec.entries.find(e => e.budget_component_id === ctx.budgetComponentId);
+    const item = ctx.item ? entry?.items.find(i => i.id === ctx.item!.id) ?? null : null;
+    this.panelContext.set({
+      ...ctx,
+      item,
+      sectionBudgetCap: sec.budgetCap,
+      otherItemsTotal:  this.compItemsTotal(sec) - (item?.total_value ?? 0),
     });
   }
 
-  deleteRow(entry: EntrySection, row: ItemRow): void {
-    if (!row.existingId) {
-      entry.items = entry.items.filter(r => r.id !== row.id);
-      return;
-    }
-
-    if (!confirm(`¿Eliminar el ítem "${row.concept || 'sin concepto'}"? Esta acción no se puede revertir.`)) return;
-
-    this.svc.deleteBudgetItem(this.projectId, row.existingId).subscribe({
-      next: () => {
-        entry.items = entry.items.filter(r => r.id !== row.id);
-        this.refreshEntryTotals(entry);
-        this.refreshWizardMeta();
-      },
+  deleteItemQuick(sec: ComponentSection, entry: EntrySection, item: BudgetItem): void {
+    if (!confirm(`¿Eliminar el ítem "${item.concept || 'sin concepto'}"? Esta acción no se puede revertir.`)) return;
+    this.svc.deleteBudgetItem(this.projectId, item.id).subscribe({
+      next: () => this.load(),
       error: () => this.showMsg('Error al eliminar el ítem.'),
-    });
-  }
-
-  private refreshEntryTotals(entry: EntrySection): void {
-    this.svc.getBudgetComponents(this.projectId).subscribe({
-      next: (list) => {
-        const bc = list.find(c => c.id === entry.budget_component_id);
-        if (bc) {
-          entry.company_contribution = bc.company_contribution;
-          entry.ally_contribution    = bc.ally_contribution;
-          entry.total_contribution   = bc.total_contribution;
-        }
-      },
-    });
-  }
-
-  private refreshWizardMeta(): void {
-    this.svc.getBudgetWizard(this.projectId).subscribe({
-      next: (w) => {
-        this.budgetWizard.set(w);
-        w.components.forEach(comp => {
-          const sec = this.sections.find(s => s.component_id === comp.component_id);
-          if (sec) {
-            sec.is_complete = comp.is_complete;
-            sec.budgetCap   = comp.budget ?? null;
-          }
-        });
-      },
     });
   }
 
@@ -454,5 +425,5 @@ export class TabPresupuestoComponent implements OnInit {
 
   trackByComp(_: number, s: ComponentSection)  { return s.component_id; }
   trackByEntry(_: number, e: EntrySection)     { return e.budget_component_id; }
-  trackByRow (_: number, r: ItemRow)           { return r.id; }
+  trackByItem(_: number, i: BudgetItem)        { return i.id; }
 }

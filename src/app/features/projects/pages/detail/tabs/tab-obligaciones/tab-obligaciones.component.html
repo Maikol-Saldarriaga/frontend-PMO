@@ -133,14 +133,14 @@
                 <td class="px-3 py-3">
                   <div class="flex items-center justify-end gap-1">
                     <button type="button" (click)="openEdit(row)" title="Editar"
-                      class="w-7 h-7 flex items-center justify-center rounded-lg text-neutral-400 hover:text-accent hover:bg-accent-50 transition-colors">
-                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      class="w-8 h-8 flex items-center justify-center rounded-lg text-neutral-500 hover:text-accent hover:bg-accent-50 transition-colors">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
                       </svg>
                     </button>
                     <button type="button" (click)="deleteObligation(row)" [disabled]="deletingObligationId() === row.id" title="Eliminar"
-                      class="w-7 h-7 flex items-center justify-center rounded-lg text-neutral-400 hover:text-danger hover:bg-danger/10 transition-colors disabled:opacity-40">
-                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      class="w-8 h-8 flex items-center justify-center rounded-lg text-neutral-500 hover:text-danger hover:bg-danger/10 transition-colors disabled:opacity-40">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                       </svg>
                     </button>
@@ -250,10 +250,10 @@
                       @if (ev.verification_note) { <p class="text-[11px] text-neutral-400 mt-0.5">{{ ev.verification_note }}</p> }
                     </div>
                     <div class="flex items-center gap-1 shrink-0">
-                      <button type="button" (click)="editEvidence(ev.id)" title="Editar" class="w-6 h-6 flex items-center justify-center rounded-lg text-neutral-400 hover:text-accent hover:bg-accent-50">
+                      <button type="button" (click)="editEvidence(ev.id)" title="Editar" class="w-7 h-7 flex items-center justify-center rounded-lg text-neutral-500 hover:text-accent hover:bg-accent-50 transition-colors">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                       </button>
-                      <button type="button" (click)="deleteEvidence(ev)" title="Eliminar" class="w-6 h-6 flex items-center justify-center rounded-lg text-neutral-400 hover:text-danger hover:bg-danger/10">
+                      <button type="button" (click)="deleteEvidence(ev)" title="Eliminar" class="w-7 h-7 flex items-center justify-center rounded-lg text-neutral-500 hover:text-danger hover:bg-danger/10 transition-colors">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                       </button>
                     </div>
