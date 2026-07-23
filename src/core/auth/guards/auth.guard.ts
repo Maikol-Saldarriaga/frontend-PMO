@@ -27,6 +27,18 @@ export const canCreateProjectGuard: CanActivateFn = () => {
   return router.createUrlTree(['/dashboard']);
 };
 
+// Solo ADMIN — secciones de administración (ej. Alianzas).
+export const adminGuard: CanActivateFn = () => {
+  const authStore = inject(AuthStore);
+  const router    = inject(Router);
+
+  if (authStore.user()?.role === 'ADMIN') {
+    return true;
+  }
+
+  return router.createUrlTree(['/dashboard']);
+};
+
 // Enruta '/' y cualquier ruta no encontrada según haya o no sesión persistida,
 // en vez de mandar siempre a /login sin mirar el token guardado.
 export const rootRedirectGuard: CanActivateFn = () => {

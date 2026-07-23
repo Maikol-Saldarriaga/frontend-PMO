@@ -43,6 +43,10 @@ export class ContractService {
     return this.http.put<ContractServiceResponse>(ENDPOINTS.contracts.step1b(id), data);
   }
 
+  updateValue(id: string, value: number): Observable<void> {
+    return this.http.patch<void>(ENDPOINTS.contracts.updateValue(id), { value });
+  }
+
   updateStep2(id: string, data: ContractStep2Request): Observable<ContractProgressResponse> {
     return this.http.put<ContractProgressResponse>(ENDPOINTS.contracts.stepById(id, 2), data);
   }

@@ -14,7 +14,8 @@ import { DocumentsListComponent } from './features/documents/pages/list/document
 import { ScheduleListComponent } from './features/schedule/pages/list/schedule-list.component';
 import { ResourcesComponent } from './features/resources/pages/resources.component';
 import { ReportsComponent } from './features/reports/pages/reports.component';
-import { authGuard, rootRedirectGuard, canCreateProjectGuard } from '../core/auth/guards/auth.guard';
+import { AlliesListComponent } from './features/allies/pages/list/allies-list.component';
+import { authGuard, rootRedirectGuard, canCreateProjectGuard, adminGuard } from '../core/auth/guards/auth.guard';
 
 export const routes: Routes = [
   { path: '', pathMatch: 'full', canActivate: [rootRedirectGuard], children: [] },
@@ -38,6 +39,7 @@ export const routes: Routes = [
       { path: 'documents',             component: DocumentsListComponent },
       { path: 'schedule',              component: ScheduleListComponent },
       { path: 'resources',             component: ResourcesComponent },
+      { path: 'allies',                component: AlliesListComponent, canActivate: [adminGuard] },
       { path: 'reports',               component: ReportsComponent },
     ]
   },

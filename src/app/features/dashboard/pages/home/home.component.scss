@@ -189,6 +189,21 @@
   white-space: nowrap;
 }
 
+::ng-deep .donut-tooltip {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8125rem !important;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  color: #fff;
+  max-width: 200px;
+  white-space: normal;
+  word-break: break-word;
+
+  strong { font-size: 0.8125rem !important; }
+  span { font-size: 0.8125rem !important; color: #cbd5e1; }
+}
+
 // ── Comparativo: facturado vs planeado por proyecto ──
 .chart-card--list {
   align-items: stretch;

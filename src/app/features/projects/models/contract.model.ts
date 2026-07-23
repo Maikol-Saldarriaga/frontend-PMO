@@ -32,8 +32,11 @@ export interface ContractStep1Request {
   ext_number?:        string | null;
   ext_date?:          string | null;
   ext_duration?:      number | null;
+  ext_observation?:   string | null;
   // Solo si has_worker_order: true
   number_work_order?: string | null;
+  // Alianza (organización aliada) opcional del proyecto.
+  ally_id?:           string | null;
 }
 
 export interface ContractResponsible {
@@ -89,6 +92,8 @@ export interface ContractServiceResponse {
   antecedent:             string | null;
   ally_supervisor:        SupervisorRef | null;
   counterpart_supervisor: SupervisorRef | null;
+  ally_id:                string | null;
+  ally_name:              string | null;
 }
 
 export interface ContractStep1Response {
@@ -102,6 +107,8 @@ export interface ContractStep1Response {
 export interface ContractStep1bRequest {
   counterpart_supervisor?: string | null;
   ally_supervisor?:        string | null;
+  // Omitir el campo deja el aliado del proyecto sin cambios; enviar "" lo limpia.
+  ally_id?:                string | null;
 }
 
 // ── Step 2 — Ubicaciones ─────────────────────────────────────────────────────
@@ -377,7 +384,7 @@ export interface WizardSignature {
   approved_signature_url:  string | null;
 }
 
-// ── Estructura real del GET /contracts/:id/wizard ─────────────────────────────
+// ── Estructura real del GET /projects/:id/wizard ─────────────────────────────
 
 export interface ContractWizardStep1 {
   contract: ContractResponse;
@@ -387,6 +394,8 @@ export interface ContractWizardStep1 {
 export interface ContractWizardSupervisors {
   ally_supervisor:        SupervisorRef | null;
   counterpart_supervisor: SupervisorRef | null;
+  ally_id:                string | null;
+  ally_name:              string | null;
 }
 
 export interface ContractWizardStep4 {

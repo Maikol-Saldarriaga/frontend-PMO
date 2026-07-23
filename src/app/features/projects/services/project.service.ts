@@ -404,15 +404,19 @@ export class ProjectService {
     return this.http.delete<void>(ENDPOINTS.projects.teamMember(id, uid));
   }
 
+  // Un admin nunca puede ser miembro de apoyo (el backend también lo rechaza) —
+  // ya tiene acceso total, bajarlo a permisos por sección le quitaría autoridad.
   getUsers(): Observable<UserListItem[]> {
     return this.http.get<any>(ENDPOINTS.users.list).pipe(
       map(res => {
         const list = Array.isArray(res) ? res : (res?.data ?? res?.users ?? []);
-        return list.map((u: any) => ({
-          id:    u.id,
-          email: u.email,
-          name:  u.name ?? [u.first_name, u.middle_name, u.first_surname, u.second_surname].filter(Boolean).join(' '),
-        }));
+        return list
+          .filter((u: any) => u.role !== 'ADMIN')
+          .map((u: any) => ({
+            id:    u.id,
+            email: u.email,
+            name:  u.name ?? [u.first_name, u.middle_name, u.first_surname, u.second_surname].filter(Boolean).join(' '),
+          }));
       }),
     );
   }

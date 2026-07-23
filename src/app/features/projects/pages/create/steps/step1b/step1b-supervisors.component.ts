@@ -39,14 +39,19 @@ export class Step1bSupervisorsComponent implements OnInit {
   @Input() set savedData(val: Step1bSavedData | undefined) {
     if (!val) return;
     if (val.counterpart_supervisor) {
-      this.form.get('counterpart_supervisor')?.setValue(val.counterpart_supervisor);
+      this.form.get('counterpart_supervisor')?.setValue(val.counterpart_supervisor, { emitEvent: false });
     }
     if (val.ally_supervisor) {
-      this.form.get('ally_supervisor')?.setValue(val.ally_supervisor);
+      this.form.get('ally_supervisor')?.setValue(val.ally_supervisor, { emitEvent: false });
     }
   }
   @Input() projectId?: string | null;
   @Input() submitting = false;
+  // Alianza elegida en step 1 — filtra el dropdown de supervisor aliado.
+  // Sin alianza, ese control queda deshabilitado (el backend rechaza ally_supervisor
+  // si el proyecto no tiene ally_id asignado).
+  @Input() allyId: string | null = null;
+  @Input() allyName: string | null = null;
   @Output() submitted       = new EventEmitter<ContractStep1bRequest>();
   @Output() dataChange      = new EventEmitter<ContractStep1bRequest>();
   @Output() goBack          = new EventEmitter<void>();
@@ -70,12 +75,17 @@ export class Step1bSupervisorsComponent implements OnInit {
   editingTeamUser = signal<string | null>(null);
   selectedTeamUserId = '';
   teamFormPermissions: Record<ProjectSection, SectionPermission> = emptyPermissions();
+  teamPermMode = signal<'read' | 'write' | 'custom'>('read');
   savingTeam      = signal(false);
   teamError       = signal<string | null>(null);
 
+  // Excluye a quienes ya son miembros del equipo Y al coordinador principal /
+  // supervisor aliado recién elegidos arriba — ya tienen acceso por ese rol.
   availableTeamUsers(): UserListItem[] {
     const memberIds = new Set(this.teamMembers().map(m => m.user_id));
-    return this.allUsers().filter(u => !memberIds.has(u.id));
+    const principalId = this.form.get('counterpart_supervisor')?.value;
+    const allySupId = this.form.get('ally_supervisor')?.value;
+    return this.allUsers().filter(u => !memberIds.has(u.id) && u.id !== principalId && u.id !== allySupId);
   }
 
   readonly docTypes = ['CC', 'CE', 'TI', 'PP', 'RC', 'NIT', 'PEP'];
@@ -152,7 +162,7 @@ export class Step1bSupervisorsComponent implements OnInit {
 
   loadSupervisors(): void {
     this.loadingSupervisors.set(true);
-    this.supervisorSvc.getList().subscribe({
+    this.supervisorSvc.getList(this.allyId).subscribe({
       next: (res) => {
         this.supervisors.set(res.users);
         this.affiliates.set(res.affiliates);
@@ -164,7 +174,15 @@ export class Step1bSupervisorsComponent implements OnInit {
           const me = res.users.find(u => u.id === this.authStore.user()!.id);
           if (me) this.selectPrincipal(me);
         }
-        if (cid) this.selectedCustomer.set(res.affiliates.find(a => a.id === cid) ?? null);
+        // Sin alianza, res.affiliates siempre viene vacío (el backend ya no
+        // devuelve nada) — limpiamos cualquier ally_supervisor viejo del form
+        // para no reenviar un id que el backend ahora rechaza.
+        if (cid && !this.allyId) {
+          this.form.get('ally_supervisor')?.setValue('', { emitEvent: false });
+          this.selectedCustomer.set(null);
+        } else if (cid) {
+          this.selectedCustomer.set(res.affiliates.find(a => a.id === cid) ?? null);
+        }
         this.loadingSupervisors.set(false);
       },
       error: () => this.loadingSupervisors.set(false),
@@ -199,6 +217,7 @@ export class Step1bSupervisorsComponent implements OnInit {
   }
 
   toggleCustomerDropdown(): void {
+    if (!this.allyId) return;
     this.customerDropdownOpen.update(v => !v);
     this.principalDropdownOpen.set(false);
   }
@@ -232,6 +251,7 @@ export class Step1bSupervisorsComponent implements OnInit {
   }
 
   openCustomerModal(): void {
+    if (!this.allyId) return;
     this.customerDropdownOpen.set(false);
     this.customerError.set(null);
     this.customerForm.reset({ type_identification: 'CC' });
@@ -249,7 +269,7 @@ export class Step1bSupervisorsComponent implements OnInit {
     this.savingPrincipal.set(true);
     this.principalError.set(null);
     const v = this.principalForm.getRawValue();
-    this.supervisorSvc.createUser({
+    this.supervisorSvc.createCoordinador({
       first_name:               v.first_name!,
       first_surname:            v.first_surname!,
       second_surname:           v.second_surname!,
@@ -259,7 +279,6 @@ export class Step1bSupervisorsComponent implements OnInit {
       email:                    v.email!,
       phone:                    v.phone!,
       password:                 v.password!,
-      role:                     'COORDINADOR',
       middle_name:              v.middle_name  || undefined,
       address:                  v.address      || undefined,
       image_url:                this.principalImageFile,
@@ -285,12 +304,16 @@ export class Step1bSupervisorsComponent implements OnInit {
   }
 
   createCustomer(): void {
+    if (!this.allyId) {
+      this.customerError.set('Este proyecto no tiene una alianza asignada — asígnala en el paso 1.');
+      return;
+    }
     this.customerForm.markAllAsTouched();
     if (this.customerForm.invalid) return;
     this.savingCustomer.set(true);
     this.customerError.set(null);
     const v = this.customerForm.getRawValue();
-    this.supervisorSvc.createUser({
+    this.supervisorSvc.createSupervisorAliado({
       first_name:               v.first_name!,
       first_surname:            v.first_surname!,
       second_surname:           v.second_surname!,
@@ -300,8 +323,8 @@ export class Step1bSupervisorsComponent implements OnInit {
       email:                    v.email!,
       phone:                    v.phone!,
       password:                 v.password!,
-      role:                     'SUPERVISOR_ALIADO',
       middle_name:              v.middle_name || undefined,
+      ally_id:                  this.allyId ?? undefined,
     }).subscribe({
       next: (res: CreateSupervisorUserResponse) => {
         const aff: AffiliateUser = {
@@ -363,6 +386,8 @@ export class Step1bSupervisorsComponent implements OnInit {
     this.editingTeamUser.set(null);
     this.selectedTeamUserId = '';
     this.teamFormPermissions = emptyPermissions();
+    this.teamPermMode.set('read');
+    this.onTeamPermModeChange('read');
     this.teamError.set(null);
     this.showTeamForm.set(true);
   }
@@ -371,8 +396,29 @@ export class Step1bSupervisorsComponent implements OnInit {
     this.editingTeamUser.set(member.user_id);
     this.selectedTeamUserId = member.user_id;
     this.teamFormPermissions = { ...member.permissions };
+    this.teamPermMode.set(this.detectTeamPermMode(this.teamFormPermissions));
     this.teamError.set(null);
     this.showTeamForm.set(true);
+  }
+
+  // Detecta si todas las secciones comparten el mismo nivel (lectura o escritura)
+  // para preseleccionar el modo rápido; si están mezcladas, cae en "custom".
+  private detectTeamPermMode(perms: Record<ProjectSection, SectionPermission>): 'read' | 'write' | 'custom' {
+    const values = this.sections.map(s => perms[s]);
+    if (values.every(v => v === 'write')) return 'write';
+    if (values.every(v => v === 'read' || v === 'none') && values.some(v => v === 'read')) return 'read';
+    return 'custom';
+  }
+
+  onTeamPermModeChange(mode: 'read' | 'write' | 'custom'): void {
+    this.teamPermMode.set(mode);
+    if (mode === 'read') {
+      this.sections.forEach(s => this.setTeamPermission(s, 'read'));
+    } else if (mode === 'write') {
+      this.sections.forEach(s => this.setTeamPermission(s, 'write'));
+    } else {
+      this.sections.forEach(s => this.setTeamPermission(s, 'none'));
+    }
   }
 
   cancelTeamForm(): void {
@@ -432,7 +478,7 @@ export class Step1bSupervisorsComponent implements OnInit {
 
   removeTeamMember(member: TeamMember): void {
     if (!this.projectId) return;
-    if (!confirm(`¿Quitar a ${member.name} del equipo de apoyo?`)) return;
+    if (!confirm(`¿Quitar a ${member.user_name} del equipo de apoyo?`)) return;
     this.projectSvc.removeTeamMember(this.projectId, member.user_id).subscribe({
       next: () => this.loadTeam(),
       error: () => this.teamError.set('Error al quitar el miembro del equipo.'),

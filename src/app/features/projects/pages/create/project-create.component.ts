@@ -64,6 +64,9 @@ export class ProjectCreateComponent implements OnInit, OnDestroy {
   draftLoaded      = signal(false);
   stepData         = signal<Record<string, unknown>>({});
   showDraftPrompt  = signal(false);
+  // Alianza elegida en step 1 — se pasa como @Input a Step1b para filtrar supervisores.
+  allyId           = signal<string | null>(null);
+  allyName         = signal<string | null>(null);
 
   private toastTimer:  ReturnType<typeof setTimeout> | null = null;
   private navTimer:    ReturnType<typeof setTimeout> | null = null;
@@ -167,6 +170,7 @@ export class ProjectCreateComponent implements OnInit, OnDestroy {
         this.applyProgress(wizard.progress);
 
         const stepData: Record<string, unknown> = {};
+        const sup = wizard.supervisors;
 
         // ── Step 1 — contrato + servicio ──────────────────────────────────────
         if (c && svc) {
@@ -188,15 +192,17 @@ export class ProjectCreateComponent implements OnInit, OnDestroy {
             total_budget:       c.value                        ?? 0,
             other_type_if:      c.other_type_if                ?? false,
             antecedent:         svc.antecedent                 ?? '',
+            ally_id:            sup?.ally_id                   ?? null,
           } as ProjectStep1Request;
         }
 
         // ── Step 1b — supervisores ────────────────────────────────────────────
-        const sup = wizard.supervisors;
         stepData['step1b'] = {
           counterpart_supervisor: sup?.counterpart_supervisor?.id ?? null,
           ally_supervisor:        sup?.ally_supervisor?.id        ?? null,
         } as Step1bSavedData;
+        this.allyId.set(sup?.ally_id ?? null);
+        this.allyName.set(sup?.ally_name ?? null);
 
         // ── Step 2 — ubicaciones ───────────────────────────────────────────────
         if (wizard.step2?.length) stepData['step2'] = wizard.step2 as ContractLocationItem[];
@@ -322,6 +328,8 @@ export class ProjectCreateComponent implements OnInit, OnDestroy {
     this.totalSteps.set(draft.totalSteps ?? 11);
     this.percentDone.set(draft.percentDone ?? 0);
     this.stepData.set(draft.stepData ?? {});
+    const step1Draft = draft.stepData?.['step1'] as ProjectStep1Request | undefined;
+    this.allyId.set(step1Draft?.ally_id ?? null);
   }
 
   private saveDraft(): void {
@@ -673,13 +681,15 @@ export class ProjectCreateComponent implements OnInit, OnDestroy {
       service_end_date:   data.service_end_date   || null,
       service_duration:   data.service_duration   ?? 0,
       ...(data.other_type_if && {
-        ext_number:   data.ext_number  || null,
-        ext_date:     data.ext_date    || null,
-        ext_duration: data.ext_duration ?? null,
+        ext_number:      data.ext_number      || null,
+        ext_date:        data.ext_date        || null,
+        ext_duration:    data.ext_duration    ?? null,
+        ext_observation: data.ext_observation || null,
       }),
       ...(data.has_worker_order && {
         number_work_order: data.worker_order || null,
       }),
+      ally_id: data.ally_id || null,
     };
 
     const existingId = this.projectId();
@@ -689,8 +699,11 @@ export class ProjectCreateComponent implements OnInit, OnDestroy {
 
     req$.subscribe({
       next: (res) => {
+        if (!existingId) localStorage.removeItem(NEW_DRAFT); // migra borrador "new" al id real, evita huérfano
         this.projectId.set(res.contract.id);
         this.serviceId.set(res.service.id);
+        this.allyId.set(res.service.ally_id ?? null);
+        this.allyName.set(res.service.ally_name ?? null);
         this.applyProgress(res.progress);
         this.advanceNav();
         this.currentStep.set(2);     // actualiza ANTES de guardar el borrador
@@ -712,8 +725,38 @@ export class ProjectCreateComponent implements OnInit, OnDestroy {
     this.showToast('error', 'Completa los campos obligatorios antes de continuar.', fields);
   }
 
+  // UI currentStep (1-11) no coincide 1:1 con las llaves internas de stepData
+  // porque "step1b" (Supervisores) ocupa la posición 2 y desplaza todo lo siguiente.
+  private static readonly STEP_KEY_BY_UI: Record<number, string> = {
+    1: 'step1', 2: 'step1b', 3: 'step2', 4: 'step3', 5: 'step4',
+    6: 'step5', 7: 'step6', 8: 'step7', 9: 'step8', 10: 'step9', 11: 'step10',
+  };
+
+  // Cada step emite en (dataChange) la forma "request" completa (p.ej. { conditions: [...] }),
+  // pero getStepXSavedData()/los @Input savedData de los hijos esperan el array/objeto ya
+  // desenvuelto (igual a como lo guarda el handler de submit final). Sin este desenvolvido,
+  // el borrador queda con la forma equivocada y el `if (!val?.length) return` del hijo lo descarta.
+  private static readonly STEP_UNWRAP: Record<string, (data: unknown) => unknown> = {
+    step5:  (data) => (data as ContractStep5Request).conditions,
+    step6:  (data) => (data as ContractStep6Request).beneficiaries,
+    step7:  (data) => (data as ContractStep7Request).actors,
+    step9:  (data) => (data as ContractStep9Request).indicators,
+    step10: (data) => (data as ContractStep10Request).guarantees,
+  };
+
   onStepDataChange(data: unknown): void {
-    this.stepData.update(d => ({ ...d, [`step${this.currentStep()}`]: data }));
+    const key = ProjectCreateComponent.STEP_KEY_BY_UI[this.currentStep()];
+    if (!key) return;
+    if (key === 'step8') {
+      this.stepData.update(d => {
+        const prev = d['step8'] as ContractWizardStep8 | undefined;
+        const step8: ContractWizardStep8 = { contract_budget: prev?.contract_budget ?? null, components: data as unknown as ContractWizardStep8['components'] };
+        return { ...d, step8 };
+      });
+    } else {
+      const unwrap = ProjectCreateComponent.STEP_UNWRAP[key];
+      this.stepData.update(d => ({ ...d, [key]: unwrap ? unwrap(data) : data }));
+    }
     this.draftChange$.next();
   }
 
@@ -746,6 +789,8 @@ export class ProjectCreateComponent implements OnInit, OnDestroy {
     this.currentStep.set(1);
     this.projectId.set(null);
     this.serviceId.set(null);
+    this.allyId.set(null);
+    this.allyName.set(null);
     this.navSteps.set(0);
     this.completedSteps.set(0);
     this.percentDone.set(0);

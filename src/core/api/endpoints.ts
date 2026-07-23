@@ -72,6 +72,7 @@ export const ENDPOINTS = {
     locations:      (id: string) => `${API_URL}/projects/${id}/locations`,
     supports:       (id: string, sid: string) => `${API_URL}/projects/${id}/services/${sid}/supports`,
     supportById:    (id: string, sid: string, spid: string) => `${API_URL}/projects/${id}/services/${sid}/supports/${spid}`,
+    updateValue:    (id: string) => `${API_URL}/projects/${id}/value`,
   },
   obligations: {
     list:           (id: string) => `${API_URL}/projects/${id}/obligations`,
@@ -109,8 +110,9 @@ export const ENDPOINTS = {
     download: (name: string) => `${API_URL}/templates/${name}`,
   },
   supervisors: {
-    list:            `${API_URL}/projects/supervisors`,
-    createUser:      `${API_URL}/users`,
+    list:                    `${API_URL}/projects/supervisors`,
+    createCoordinador:       `${API_URL}/users/coordinadores`,
+    createSupervisorAliado:  `${API_URL}/users/supervisores-aliados`,
     createAffiliate: (projectId: string) => `${API_URL}/projects/${projectId}/affiliates`,
   },
   divipola: {
@@ -123,6 +125,14 @@ export const ENDPOINTS = {
   fodcConfig: {
     list:        `${API_URL}/fodc-config`,
     totalMoney:  `${API_URL}/fodc-config/total_money`,
+  },
+  allies: {
+    list:        `${API_URL}/allies`,
+    create:      `${API_URL}/allies`,
+    detail:      (id: string) => `${API_URL}/allies/${id}`,
+    update:      (id: string) => `${API_URL}/allies/${id}`,
+    deactivate:  (id: string) => `${API_URL}/allies/${id}`,
+    supervisors: (id: string) => `${API_URL}/allies/${id}/supervisors`,
   },
   dashboard: {
     fodcProjects:     `${API_URL}/dashboard/fodc-projects`,

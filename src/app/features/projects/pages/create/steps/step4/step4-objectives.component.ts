@@ -11,13 +11,17 @@ type StrList = WritableSignal<string[]>;
   templateUrl: './step4-objectives.component.html',
 })
 export class Step4ObjectivesComponent {
+  // Evita reescribir el DOM (y saltar el cursor / perder el ítem recién agregado) cuando
+  // el dato que llega es el eco de lo que este mismo componente acaba de emitir.
+  private lastEmittedJson: string | null = null;
+
   @Input() set savedData(val: ProjectWizardObjective | undefined) {
-    if (!val) return;
+    if (!val || JSON.stringify(val) === this.lastEmittedJson) return;
     this.form.patchValue({
       necessity:         val.necessity,
       general_objective: val.general_objective,
       goals:             val.goals,
-    });
+    }, { emitEvent: false });
     this.causes.set(val.causes?.length        ? [...val.causes]              : ['']);
     this.consequences.set(val.consequences?.length  ? [...val.consequences]        : ['']);
     this.specificObjectives.set(val.specific_objectives?.length ? [...val.specific_objectives] : ['']);
@@ -46,24 +50,48 @@ export class Step4ObjectivesComponent {
   consequences        = signal<string[]>(['']);
   specificObjectives  = signal<string[]>(['']);
 
+  constructor() {
+    this.form.valueChanges.subscribe(() => this.emit());
+  }
+
   isInvalid(field: string): boolean {
     const ctrl = this.form.get(field);
     return !!(ctrl?.invalid && ctrl?.touched);
   }
 
-  addItem(list: StrList): void               { list.update(arr => [...arr, '']); }
-  removeItem(list: StrList, i: number): void { list.update(arr => arr.filter((_, idx) => idx !== i)); }
-  updateItem(list: StrList, i: number, v: string): void { list.update(arr => arr.map((x, idx) => idx === i ? v : x)); }
+  private emit(): void {
+    const payload = this.buildPayload();
+    this.lastEmittedJson = JSON.stringify(payload);
+    this.dataChange.emit(payload);
+  }
 
+  addItem(list: StrList): void {
+    list.update(arr => [...arr, '']);
+    this.emit();
+  }
+
+  removeItem(list: StrList, i: number): void {
+    list.update(arr => arr.filter((_, idx) => idx !== i));
+    this.emit();
+  }
+
+  updateItem(list: StrList, i: number, v: string): void {
+    list.update(arr => arr.map((x, idx) => idx === i ? v : x));
+    this.emit();
+  }
+
+  // Sin filtrar: se usa para el autoguardado en vivo (dataChange). Si filtráramos aquí,
+  // el ítem vacío recién agregado con "addItem" se borraría solo al hacer eco el @Input
+  // savedData de vuelta hacia este mismo componente.
   private buildPayload(): ProjectStep4Request {
     const v = this.form.getRawValue();
     return {
       necessity:           v.necessity           ?? '',
       general_objective:   v.general_objective   ?? '',
       goals:               v.goals               ?? '',
-      causes:              this.causes().filter(c => c.trim()),
-      consequences:        this.consequences().filter(c => c.trim()),
-      specific_objectives: this.specificObjectives().filter(c => c.trim()),
+      causes:              this.causes(),
+      consequences:        this.consequences(),
+      specific_objectives: this.specificObjectives(),
     };
   }
 
@@ -76,6 +104,12 @@ export class Step4ObjectivesComponent {
       this.validationError.emit(missing);
       return;
     }
-    this.submitted.emit(this.buildPayload());
+    const payload = this.buildPayload();
+    this.submitted.emit({
+      ...payload,
+      causes:              payload.causes.filter(c => c.trim()),
+      consequences:        payload.consequences.filter(c => c.trim()),
+      specific_objectives: payload.specific_objectives.filter(c => c.trim()),
+    });
   }
 }

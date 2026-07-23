@@ -174,6 +174,24 @@
     </div>
   </div>
 
+  <!-- Alianza (opcional) -->
+  <div class="bg-surface rounded-2xl shadow-card border border-neutral-200 overflow-hidden mb-5">
+    <div class="flex items-center gap-3 px-6 py-4 border-b border-neutral-100 bg-gradient-to-r from-teal-50 to-transparent">
+      <div class="w-9 h-9 rounded-xl bg-teal-100 flex items-center justify-center flex-shrink-0">
+        <svg class="w-4 h-4 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"/></svg>
+      </div>
+      <div><h3 class="text-sm font-bold text-primary-700">Alianza</h3><p class="text-xs text-neutral-500">Organización aliada de este proyecto (opcional)</p></div>
+    </div>
+    <div class="p-6">
+      <label class="block text-xs font-bold text-neutral-600 mb-1.5 uppercase tracking-wide">Aliado</label>
+      <select formControlName="ally_id"
+        class="w-full px-4 py-2.5 rounded-xl border border-neutral-200 text-sm text-primary-700 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors">
+        <option value="">Sin alianza</option>
+        @for (a of allies(); track a.id) { <option [value]="a.id">{{ a.name }}</option> }
+      </select>
+    </div>
+  </div>
+
   <!-- ② other_type_if · ext_number · ext_date · ext_duration -->
   <div class="bg-surface rounded-2xl shadow-card border border-neutral-200 overflow-hidden mb-5">
     <div class="flex items-center gap-3 px-6 py-4 border-b border-neutral-100 bg-gradient-to-r from-rose-50 to-transparent">
@@ -183,7 +201,7 @@
       <div class="flex-1"><h3 class="text-sm font-bold text-primary-700">¿Aplica otrosí?</h3><p class="text-xs text-neutral-500">Activa si este proyecto es extensión de otro existente</p></div>
       <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
         <input type="checkbox" formControlName="other_type_if" class="sr-only peer"/>
-        <div class="w-12 h-6 bg-neutral-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-accent-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[3px] after:start-[3px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-[18px] after:w-[18px] after:transition-all peer-checked:bg-accent shadow-input"></div>
+        <div class="w-12 h-6 bg-neutral-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-accent-100 rounded-full peer peer-checked:after:translate-x-[24px] peer-checked:after:border-white after:content-[''] after:absolute after:top-[3px] after:start-[3px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-[18px] after:w-[18px] after:transition-all peer-checked:bg-accent shadow-input"></div>
         <span class="ms-2 text-sm font-bold" [class.text-accent]="showExtensionFields()" [class.text-neutral-400]="!showExtensionFields()">{{ showExtensionFields() ? 'Sí' : 'No' }}</span>
       </label>
     </div>
@@ -205,9 +223,17 @@
           @if (isInvalid('ext_date')) { <p class="mt-1 text-xs text-danger">La fecha es obligatoria</p> }
         </div>
         <div>
-          <label class="block text-xs font-bold text-neutral-600 mb-1.5 uppercase tracking-wide">Duración extensión (meses)</label>
-          <input formControlName="ext_duration" type="number" min="1" placeholder="Ej: 6"
-            class="w-full px-4 py-2.5 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-400 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+          <label class="block text-xs font-bold text-neutral-600 mb-1.5 uppercase tracking-wide">Duración extensión (meses, automática)</label>
+          <input formControlName="ext_duration" type="number" readonly
+            class="w-full px-4 py-2.5 rounded-xl border border-neutral-200 text-sm text-neutral-500 bg-neutral-100 cursor-not-allowed outline-none"/>
+        </div>
+        <div class="md:col-span-3">
+          <label class="block text-xs font-bold text-neutral-600 mb-1.5 uppercase tracking-wide">Observación de la Extensión <span class="text-danger">*</span></label>
+          <textarea formControlName="ext_observation" rows="3" placeholder="Describa el motivo u observaciones de la extensión..."
+            class="w-full px-4 py-2.5 rounded-xl border text-sm text-primary-700 placeholder-neutral-400 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 transition-colors"
+            [class.border-neutral-200]="!isInvalid('ext_observation')" [class.focus:ring-accent-200]="!isInvalid('ext_observation')" [class.focus:border-accent]="!isInvalid('ext_observation')"
+            [class.border-danger]="isInvalid('ext_observation')" [class.focus:ring-red-100]="isInvalid('ext_observation')" [class.bg-red-50]="isInvalid('ext_observation')"></textarea>
+          @if (isInvalid('ext_observation')) { <p class="mt-1 text-xs text-danger">La observación de la extensión es obligatoria</p> }
         </div>
       </div>
     } @else {
@@ -241,7 +267,7 @@
       <div class="flex-1"><h3 class="text-sm font-bold text-primary-700">Orden de Trabajo</h3><p class="text-xs text-neutral-500">Activa si este proyecto tiene orden de trabajo asociada</p></div>
       <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
         <input type="checkbox" formControlName="has_worker_order" class="sr-only peer"/>
-        <div class="w-12 h-6 bg-neutral-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-accent-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[3px] after:start-[3px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-[18px] after:w-[18px] after:transition-all peer-checked:bg-accent shadow-input"></div>
+        <div class="w-12 h-6 bg-neutral-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-accent-100 rounded-full peer peer-checked:after:translate-x-[24px] peer-checked:after:border-white after:content-[''] after:absolute after:top-[3px] after:start-[3px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-[18px] after:w-[18px] after:transition-all peer-checked:bg-accent shadow-input"></div>
         <span class="ms-2 text-sm font-bold" [class.text-accent]="showWorkerOrder()" [class.text-neutral-400]="!showWorkerOrder()">{{ showWorkerOrder() ? 'Sí' : 'No' }}</span>
       </label>
     </div>

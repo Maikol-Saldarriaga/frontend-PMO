@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Router, ActivatedRoute } from '@angular/router';
 import { ProjectService } from '../../services/project.service';
+import { ContractService } from '../../services/contract.service';
 import { ProjectDetails, ProjectAccess, ProjectSection, ProjectExtensionRequest } from '../../models/project.model';
 import { AuthStore } from '../../../../../core/auth/store/auth.store';
 import { TabEquipoComponent } from './tabs/tab-equipo/tab-equipo.component';
@@ -22,6 +23,7 @@ import { TabDocumentosComponent } from './tabs/tab-documentos/tab-documentos.com
 import { TabObligacionesComponent } from './tabs/tab-obligaciones/tab-obligaciones.component';
 import { TabAbastecimientoComponent } from './tabs/tab-abastecimiento/tab-abastecimiento.component';
 import { FormsModule } from '@angular/forms';
+import { MoneyMaskDirective } from '../../../../shared/directives/money-mask.directive';
 
 @Component({
   selector: 'app-project-detail',
@@ -45,6 +47,7 @@ import { FormsModule } from '@angular/forms';
     TabAbastecimientoComponent,
     TabEquipoComponent,
     FormsModule,
+    MoneyMaskDirective,
   ],
   templateUrl: './project-detail.component.html',
 })
@@ -52,6 +55,7 @@ export class ProjectDetailComponent implements OnInit {
   private router    = inject(Router);
   private route     = inject(ActivatedRoute);
   private service   = inject(ProjectService);
+  private contractService = inject(ContractService);
   private sanitizer = inject(DomSanitizer);
   private auth      = inject(AuthStore);
 
@@ -141,11 +145,7 @@ export class ProjectDetailComponent implements OnInit {
       icon: `<path stroke-linecap="round" stroke-linejoin="round" d="M20 12H4m16 0l-4-4m4 4l-4 4M4 12l4-4m-4 4l4 4"/>`,
     },
     {
-      id: 'historial', label: 'Historial', color: 'pink',
-      icon: `<path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>`,
-    },
-    {
-      id: 'equipo', label: 'Equipo de apoyo', color: 'purple',
+      id: 'equipo', label: 'Equipo', color: 'purple',
       icon: `<path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>`,
     },
   ];
@@ -155,7 +155,7 @@ export class ProjectDetailComponent implements OnInit {
     resumen: null, alcance: 'technical_components', ubicaciones: 'locations', condiciones: null,
     cronograma: null, presupuesto: 'budget', facturacion: 'finance', beneficiarios: 'beneficiaries',
     seguimiento: 'checkpoints', riesgos: 'risks', entregables: 'checkpoints', documentos: 'documents',
-    indicadores: null, obligaciones: 'compliance_matrix', abastecimiento: 'supply_plan', historial: null,
+    indicadores: null, obligaciones: 'compliance_matrix', abastecimiento: 'supply_plan',
     equipo: null,
   };
 
@@ -239,9 +239,60 @@ export class ProjectDetailComponent implements OnInit {
     this.showExtensionForm.set(true);
   }
 
+  onExtensionDateChange(): void {
+    const start = this.details()?.start_date;
+    const extDate = this.extensionForm.date;
+    if (start && extDate) {
+      const days = Math.ceil((new Date(extDate).getTime() - new Date(start).getTime()) / 86400000);
+      this.extensionForm.duration = days > 0 ? days : 0;
+    }
+  }
+
   cancelExtensionForm(): void {
     this.showExtensionForm.set(false);
     this.extensionError.set(null);
+  }
+
+  // ── Edición valor total del contrato (solo ADMIN, PATCH /projects/:id/value) ──
+
+  editingValue = signal(false);
+  valueSaving  = signal(false);
+  valueError   = signal<string | null>(null);
+  valueInput   = 0;
+
+  openValueEdit(): void {
+    this.valueInput = this.details()?.value ?? 0;
+    this.valueError.set(null);
+    this.editingValue.set(true);
+  }
+
+  cancelValueEdit(): void {
+    this.editingValue.set(false);
+    this.valueError.set(null);
+  }
+
+  saveValue(): void {
+    if (this.valueSaving()) return;
+    if (this.valueInput === null || this.valueInput <= 0) {
+      this.valueError.set('Ingresa un valor válido mayor a cero.');
+      return;
+    }
+    this.valueSaving.set(true);
+    this.valueError.set(null);
+    this.contractService.updateValue(this.projectId, this.valueInput).subscribe({
+      next: () => {
+        this.valueSaving.set(false);
+        this.editingValue.set(false);
+        this.refreshDetails();
+      },
+      error: err => {
+        this.valueSaving.set(false);
+        const msg = err?.status === 403
+          ? 'Solo un administrador puede editar el valor del contrato.'
+          : (err?.error?.error ?? err?.error?.message ?? 'Error al actualizar el valor.');
+        this.valueError.set(msg);
+      },
+    });
   }
 
   saveExtension(): void {
