@@ -723,6 +723,24 @@ export interface ProjectSnapshotsResponse {
   counts_by_activity:  Record<string, number>;
 }
 
+// ── Generación automática de periodos de seguimiento ────────────────────────
+
+export type CheckpointPeriodicity = 'mensual' | 'mensual_calendario' | 'semanal' | 'quincenal' | 'personalizado';
+
+export interface GenerateSnapshotsRequest {
+  periodicity:  CheckpointPeriodicity;
+  /** Requerido (> 0) solo cuando periodicity = 'personalizado'. */
+  custom_days?: number;
+  /** true = solo calcula y devuelve los periodos, no los guarda. */
+  preview:      boolean;
+  /** true = confirma reemplazar los periodos ya existentes de la actividad. */
+  replace?:     boolean;
+}
+
+export interface GenerateSnapshotsResponse {
+  checkpoints: Snapshot[];
+}
+
 // ── Entregables (delivery) de un checkpoint ─────────────────────────────────
 
 export interface DeliveryVerification {
@@ -1144,6 +1162,141 @@ export interface InvoiceRequest {
   status?:                InvoiceStatus;
   description?:           string;
   date?:                  string; // ISO 8601 completo, ej. "2026-01-15T00:00:00Z"
+}
+
+// ── Reporte de Seguimiento Técnico ───────────────────────────────────────────
+
+export type TrackingStatus = 'completado' | 'adelantado' | 'en_tiempo' | 'retrasado' | 'vencido' | 'pendiente';
+
+export interface TrackingStatusCounts {
+  completado: number;
+  adelantado: number;
+  en_tiempo:  number;
+  retrasado:  number;
+  vencido:    number;
+  pendiente:  number;
+}
+
+export interface TrackingKPIs {
+  overall_actual_pct:    number;
+  planned_pct_to_date:   number;
+  actual_pct_to_date:    number;
+  schedule_variance_pct: number;
+  spi:                   number;
+  days_elapsed:          number;
+  days_remaining:        number;
+  days_total:            number;
+  time_elapsed_pct:      number;
+  total_components:      number;
+  total_activities:      number;
+  total_checkpoints:     number;
+  completed_activities:  number;
+}
+
+export interface ComponentTrackingSummary {
+  id_component:          string;
+  name:                  string | null;
+  weight:                number;
+  budget:                number | null;
+  total_activities:      number;
+  completed_activities:  number;
+  planned_pct_to_date:   number;
+  actual_pct_to_date:    number;
+  schedule_variance_pct: number;
+  avg_compliance_pct:    number;
+  on_time_count:         number;
+  late_count:            number;
+  status_counts:         TrackingStatusCounts;
+}
+
+export interface ActivityTrackingSummary {
+  id_activity:             string;
+  id_component:            string;
+  component_name:          string | null;
+  act:                     number | null;
+  description:             string | null;
+  responsible:             string | null;
+  weight:                  number | null;
+  planned_start_date:      string | null;
+  planned_end_date:        string | null;
+  actual_start_date:       string | null;
+  actual_end_date:         string | null;
+  is_completed:            boolean | null;
+  cumulative_planned_pct:  number;
+  cumulative_actual_pct:   number;
+  schedule_variance_days:  number | null;
+  schedule_variance_pct:   number;
+  status:                  TrackingStatus;
+  checkpoints_total:       number;
+  checkpoints_delivered:   number;
+  risk_score:              number;
+}
+
+export interface SCurvePoint {
+  period_end:  string;
+  planned_pct: number;
+  actual_pct:  number;
+  planned_cum: number;
+  actual_cum:  number;
+}
+
+export interface TrackingReportFlatRow {
+  id_contract_agreement: string;
+  project_number:        string;
+  company_name:          string | null;
+  id_component:           string;
+  component_name:         string | null;
+  component_weight:       number;
+  id_activity:            string;
+  act:                    number | null;
+  activity_name:          string | null;
+  responsible:            string | null;
+  activity_weight:        number | null;
+  id_checkpoint:          string;
+  start_date:             string;
+  end_date:               string;
+  planned_pct:            number;
+  actual_pct:             number | null;
+  variance_pct:           number;
+  compliance_pct:         number | null;
+  status:                 TrackingStatus;
+  verifications_count:    number;
+  notes:                  string | null;
+}
+
+export interface TrackingReport {
+  id_contract_agreement: string;
+  project_number:        string;
+  company_name:          string | null;
+  object:                string;
+  start_date:             string | null;
+  end_date:               string | null;
+  status:                 string;
+  generated_at:           string;
+  kpis:                   TrackingKPIs;
+  status_counts:          TrackingStatusCounts;
+  components:             ComponentTrackingSummary[];
+  activities:              ActivityTrackingSummary[];
+  s_curve:                 SCurvePoint[];
+  s_curve_by_component:    Record<string, SCurvePoint[]>;
+  top_at_risk:              ActivityTrackingSummary[];
+  flat_rows:                TrackingReportFlatRow[];
+}
+
+export interface ReportToken {
+  id_token:              string;
+  id_company:             string;
+  id_contract_agreement:  string;
+  created_by:             string | null;
+  created_at:             string;
+  revoked_at:             string | null;
+  last_used_at:           string | null;
+}
+
+export interface CreateReportTokenResponse {
+  token:      string;
+  url:        string;
+  created_at: string;
 }
 
 export const PROJECT_STEPS = [

@@ -159,8 +159,12 @@ export class Step8ScopeComponent {
 
   // ── Actividades ────────────────────────────────────────────────────────────
   addAct(ci: number): void {
-    this.rows.update(r => r.map((comp, i) =>
-      i === ci ? { ...comp, acts: [...comp.acts, EMPTY_ACT()] } : comp));
+    this.rows.update(r => r.map((comp, i) => {
+      if (i !== ci) return comp;
+      // Número de actividad = máximo act existente + 1, o 1 si el componente no tiene ninguna aún.
+      const nextAct = comp.acts.reduce((max, a) => Math.max(max, a.act ?? 0), 0) + 1;
+      return { ...comp, acts: [...comp.acts, { ...EMPTY_ACT(), act: nextAct }] };
+    }));
   }
 
   removeAct(ci: number, ai: number): void {

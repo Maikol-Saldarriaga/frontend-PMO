@@ -9,6 +9,7 @@ import { ProjectCreateComponent } from './features/projects/pages/create/project
 import { ProjectDetailComponent } from './features/projects/pages/detail/project-detail.component';
 import { ProjectSummaryComponent } from './features/projects/pages/summary/project-summary.component';
 import { MonthlyComponent } from './features/projects/pages/monthly/monthly.component';
+import { TrackingReportComponent } from './features/projects/pages/tracking-report/tracking-report.component';
 import { DocumentsListComponent } from './features/documents/pages/list/documents-list.component';
 import { ScheduleListComponent } from './features/schedule/pages/list/schedule-list.component';
 import { ResourcesComponent } from './features/resources/pages/resources.component';
@@ -33,6 +34,7 @@ export const routes: Routes = [
       { path: 'projects/:id/edit',     component: ProjectCreateComponent },
       { path: 'projects/:id/summary',  component: ProjectSummaryComponent },
       { path: 'projects/:id/monthly',  component: MonthlyComponent },
+      { path: 'projects/:id/tracking-report', component: TrackingReportComponent },
       { path: 'documents',             component: DocumentsListComponent },
       { path: 'schedule',              component: ScheduleListComponent },
       { path: 'resources',             component: ResourcesComponent },

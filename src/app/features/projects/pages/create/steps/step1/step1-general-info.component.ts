@@ -6,6 +6,25 @@ import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { ProjectStep1Request } from '../../../../models/project.model';
 import { MoneyMaskDirective } from '../../../../../../shared/directives/money-mask.directive';
 
+/**
+ * Meses "de calendario real" entre dos fechas: cuenta meses completos comparando el día del
+ * mes (no una aproximación de días/30, que sobreestima en los meses de 31 días — p.ej. 1 mayo
+ * a 1 agosto son exactamente 3 meses, pero 92 días / 30 redondea a 4), y suma 1 más si queda un
+ * tramo de días sin completar un mes adicional. Usa los accesores UTC porque <input type="date">
+ * entrega "YYYY-MM-DD", que Date interpreta en UTC; leerlo con getMonth()/getDate() (hora local)
+ * puede correr la fecha un día según la zona horaria del navegador.
+ */
+function monthsBetweenDates(start: Date, end: Date): number {
+  if (end.getTime() <= start.getTime()) return 0;
+  let months = (end.getUTCFullYear() - start.getUTCFullYear()) * 12 + (end.getUTCMonth() - start.getUTCMonth());
+  if (end.getUTCDate() < start.getUTCDate()) months -= 1;
+  months = Math.max(months, 0);
+
+  const fullMonthsEnd = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + months, start.getUTCDate()));
+  if (end.getTime() > fullMonthsEnd.getTime()) months += 1;
+  return months;
+}
+
 @Component({
   selector: 'app-step1-general-info',
   standalone: true,
@@ -118,7 +137,11 @@ export class Step1GeneralInfoComponent implements OnInit, OnChanges {
     this.showWorkerOrder.set(data.has_worker_order);
     if (data.other_type_if)    this.applyExtensionValidators(true);
     if (data.has_worker_order) this.applyWorkerOrderValidator(true);
-    if (data.duration_days)    this.durationMonths.set(Math.ceil(data.duration_days / 30));
+    if (data.start_date && data.end_date) {
+      this.durationMonths.set(monthsBetweenDates(new Date(data.start_date), new Date(data.end_date)));
+    } else if (data.duration_days) {
+      this.durationMonths.set(Math.ceil(data.duration_days / 30));
+    }
     if (data.service_duration) this.serviceDurationDays.set(data.service_duration);
   }
 
@@ -126,10 +149,12 @@ export class Step1GeneralInfoComponent implements OnInit, OnChanges {
     const start = this.form.get('start_date')?.value;
     const end   = this.form.get('end_date')?.value;
     if (start && end) {
-      const days = Math.ceil((new Date(end).getTime() - new Date(start).getTime()) / 86400000);
+      const startDate = new Date(start);
+      const endDate   = new Date(end);
+      const days = Math.ceil((endDate.getTime() - startDate.getTime()) / 86400000);
       const validDays = days > 0 ? days : 0;
       this.form.get('duration_days')?.setValue(validDays);
-      this.durationMonths.set(Math.ceil(validDays / 30));
+      this.durationMonths.set(monthsBetweenDates(startDate, endDate));
     }
   }
 

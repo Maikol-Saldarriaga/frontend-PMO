@@ -1,0 +1,303 @@
+<div class="min-h-screen bg-neutral-50">
+
+  <!-- ── Topbar (no imprimir) ──────────────────────────────────────────────── -->
+  <div class="no-print sticky top-0 z-20 bg-surface/95 backdrop-blur border-b border-neutral-200 px-6 py-4">
+    <div class="flex items-center justify-between gap-4 flex-wrap">
+      <div class="flex items-center gap-2 min-w-0">
+        <button (click)="goBack()"
+          class="flex items-center gap-1.5 text-sm text-neutral-500 hover:text-primary-700 transition-colors flex-shrink-0">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+          </svg>
+          Entregables
+        </button>
+        <svg class="w-4 h-4 text-neutral-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+        <h1 class="text-base font-bold text-primary-700 truncate">Reporte de Seguimiento Técnico</h1>
+      </div>
+
+      @if (report()) {
+        <div class="flex items-center gap-2 flex-wrap">
+          <button (click)="print()"
+            class="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-neutral-200 text-sm text-neutral-600 hover:bg-neutral-50 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a1 1 0 001-1v-4a1 1 0 00-1-1H9a1 1 0 00-1 1v4a1 1 0 001 1zm8-14V5a2 2 0 00-2-2H9a2 2 0 00-2 2v2"/>
+            </svg>
+            Imprimir / PDF
+          </button>
+          <button (click)="exportToExcel()"
+            class="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50 text-sm text-emerald-700 hover:bg-emerald-100 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+            </svg>
+            Exportar a Excel
+          </button>
+          <button (click)="downloadCsv()" [disabled]="downloadingCsv()"
+            class="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-neutral-200 text-sm text-neutral-600 hover:bg-neutral-50 disabled:opacity-50 transition-colors">
+            @if (downloadingCsv()) {
+              <div class="w-3.5 h-3.5 border-2 border-neutral-400 border-t-transparent rounded-full animate-spin"></div>
+            }
+            CSV (Power BI)
+          </button>
+          <button (click)="togglePowerBiPanel()"
+            class="flex items-center gap-1.5 px-3 py-2 rounded-xl border transition-colors text-sm"
+            [class.border-violet-200]="!showPowerBiPanel()" [class.bg-violet-50]="!showPowerBiPanel()" [class.text-violet-700]="!showPowerBiPanel()"
+            [class.border-violet-400]="showPowerBiPanel()" [class.bg-violet-100]="showPowerBiPanel()" [class.text-violet-800]="showPowerBiPanel()">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+            </svg>
+            Power BI
+          </button>
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- ── Cabecera solo para impresión ──────────────────────────────────────── -->
+  @if (report(); as r) {
+    <div class="print-only px-6 pt-4">
+      <h1 class="text-lg font-bold">Reporte de Seguimiento Técnico — {{ r.project_number }}</h1>
+      <p class="text-sm">{{ r.object }}</p>
+      <p class="text-xs text-neutral-500">
+        {{ formatDate(r.start_date) }} → {{ formatDate(r.end_date) }} · Generado {{ formatDate(r.generated_at) }}
+      </p>
+    </div>
+  }
+
+  <!-- ── Loading / Error ───────────────────────────────────────────────────── -->
+  @if (loading()) {
+    <div class="flex flex-col items-center justify-center h-80 gap-3">
+      <div class="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+      <span class="text-sm text-neutral-400">Generando reporte…</span>
+    </div>
+  } @else if (error()) {
+    <div class="m-6 p-4 rounded-xl bg-red-50 border border-red-100 text-sm text-red-600">{{ error() }}</div>
+  } @else if (report()) {
+    @if (report(); as r) {
+    <div class="px-6 py-5 space-y-5">
+
+      <!-- ── KPI cards ────────────────────────────────────────────────────── -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 print-avoid-break">
+        <div class="bg-white rounded-2xl border border-neutral-100 shadow-sm p-4">
+          <p class="text-2xl font-bold text-neutral-900 leading-none">{{ formatPct(r.kpis.overall_actual_pct) }}</p>
+          <p class="text-xs text-neutral-400 mt-1">Avance real del contrato</p>
+        </div>
+        <div class="bg-white rounded-2xl border border-neutral-100 shadow-sm p-4">
+          <p class="text-2xl font-bold leading-none" [class]="varianceClass(r.kpis.schedule_variance_pct)">
+            {{ r.kpis.schedule_variance_pct > 0 ? '+' : '' }}{{ formatPct(r.kpis.schedule_variance_pct) }}
+          </p>
+          <p class="text-xs text-neutral-400 mt-1">Variación de cronograma</p>
+        </div>
+        <div class="bg-white rounded-2xl border border-neutral-100 shadow-sm p-4">
+          <p class="text-2xl font-bold leading-none" [class]="r.kpis.spi >= 1 ? 'text-emerald-600' : 'text-red-500'">
+            {{ r.kpis.spi.toFixed(2) }}
+          </p>
+          <p class="text-xs text-neutral-400 mt-1">SPI (real/planeado a la fecha)</p>
+        </div>
+        <div class="bg-white rounded-2xl border border-neutral-100 shadow-sm p-4">
+          <p class="text-2xl font-bold text-neutral-900 leading-none">{{ r.kpis.days_remaining }}</p>
+          <p class="text-xs text-neutral-400 mt-1">Días restantes de {{ r.kpis.days_total }} ({{ formatPct(r.kpis.time_elapsed_pct) }} transcurrido)</p>
+        </div>
+        <div class="bg-white rounded-2xl border border-neutral-100 shadow-sm p-4">
+          <p class="text-2xl font-bold text-neutral-900 leading-none">{{ r.kpis.total_components }}</p>
+          <p class="text-xs text-neutral-400 mt-1">Componentes</p>
+        </div>
+        <div class="bg-white rounded-2xl border border-neutral-100 shadow-sm p-4">
+          <p class="text-2xl font-bold text-neutral-900 leading-none">{{ r.kpis.completed_activities }}<span class="text-sm font-normal text-neutral-400">/{{ r.kpis.total_activities }}</span></p>
+          <p class="text-xs text-neutral-400 mt-1">Actividades completadas</p>
+        </div>
+        <div class="bg-white rounded-2xl border border-neutral-100 shadow-sm p-4">
+          <p class="text-2xl font-bold text-neutral-900 leading-none">{{ r.kpis.total_checkpoints }}</p>
+          <p class="text-xs text-neutral-400 mt-1">Períodos de seguimiento</p>
+        </div>
+        <div class="bg-white rounded-2xl border border-neutral-100 shadow-sm p-4">
+          <p class="text-2xl font-bold leading-none" [class]="varianceClass(r.kpis.actual_pct_to_date - r.kpis.planned_pct_to_date)">
+            {{ formatPct(r.kpis.planned_pct_to_date) }} / {{ formatPct(r.kpis.actual_pct_to_date) }}
+          </p>
+          <p class="text-xs text-neutral-400 mt-1">Planeado / real a la fecha</p>
+        </div>
+      </div>
+
+      <!-- ── Panel Power BI ───────────────────────────────────────────────── -->
+      @if (showPowerBiPanel()) {
+        <div class="no-print bg-white rounded-2xl border border-violet-100 shadow-sm p-5 space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-bold text-neutral-800">Conexión en vivo con Power BI</h3>
+            <button (click)="generateToken()" [disabled]="generatingToken()"
+              class="flex items-center gap-2 px-4 py-2 rounded-xl bg-violet-500 hover:bg-violet-600 disabled:opacity-50 text-white text-sm font-semibold transition-colors">
+              @if (generatingToken()) {
+                <div class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              }
+              Generar token
+            </button>
+          </div>
+          <p class="text-xs text-neutral-400">
+            Pega esta URL en Power BI Desktop/Service, en "Obtener datos → Web", para que el reporte se actualice automáticamente sin volver a exportar.
+          </p>
+
+          @if (tokenError()) {
+            <p class="text-xs text-red-500">{{ tokenError() }}</p>
+          }
+
+          @if (newTokenUrl(); as url) {
+            <div class="flex items-center gap-2 bg-violet-50 border border-violet-100 rounded-xl px-3 py-2">
+              <input type="text" readonly [value]="url" class="flex-1 bg-transparent text-xs text-violet-800 outline-none truncate"/>
+              <button (click)="copyUrl(url)" class="shrink-0 text-xs font-semibold text-violet-600 hover:text-violet-800">
+                {{ copiedUrl() ? '¡Copiado!' : 'Copiar' }}
+              </button>
+            </div>
+          }
+
+          @if (tokensLoading()) {
+            <p class="text-xs text-neutral-400">Cargando tokens…</p>
+          } @else if (tokens().length > 0) {
+            <div class="divide-y divide-neutral-50 border border-neutral-100 rounded-xl overflow-hidden">
+              @for (t of tokens(); track t.id_token) {
+                <div class="px-3 py-2 flex items-center justify-between text-xs">
+                  <span class="text-neutral-500">
+                    Creado {{ formatDate(t.created_at) }}
+                    @if (t.last_used_at) { · último uso {{ formatDate(t.last_used_at) }} }
+                  </span>
+                  <button (click)="revokeToken(t.id_token)" class="text-red-500 hover:text-red-700 font-semibold">Revocar</button>
+                </div>
+              }
+            </div>
+          } @else {
+            <p class="text-xs text-neutral-300">No hay tokens activos todavía.</p>
+          }
+        </div>
+      }
+
+      <!-- ── Curva S ──────────────────────────────────────────────────────── -->
+      @if (sCurveChart(); as chart) {
+        <div class="bg-white rounded-2xl border border-neutral-100 shadow-sm p-5 print-avoid-break">
+          <p class="text-sm font-bold text-neutral-700 mb-2">Curva S — Planeado acumulado vs. Real acumulado</p>
+          <apx-chart [series]="chart.series" [chart]="chart.chart" [stroke]="chart.stroke" [xaxis]="chart.xaxis"
+            [colors]="chart.colors" [dataLabels]="chart.dataLabels" [legend]="chart.legend" [tooltip]="chart.tooltip" [grid]="chart.grid">
+          </apx-chart>
+        </div>
+      }
+
+      <!-- ── Distribución de estado + avance por componente ──────────────── -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        @if (statusDonut(); as chart) {
+          <div class="bg-white rounded-2xl border border-neutral-100 shadow-sm p-5 print-avoid-break">
+            <p class="text-sm font-bold text-neutral-700 mb-2">Distribución de estado (por período)</p>
+            <apx-chart [series]="chart.series" [chart]="chart.chart" [labels]="chart.labels" [colors]="chart.colors"
+              [legend]="chart.legend" [dataLabels]="chart.dataLabels" [plotOptions]="chart.plotOptions" [tooltip]="chart.tooltip">
+            </apx-chart>
+          </div>
+        }
+        @if (componentBarChart(); as chart) {
+          <div class="bg-white rounded-2xl border border-neutral-100 shadow-sm p-5 print-avoid-break">
+            <p class="text-sm font-bold text-neutral-700 mb-2">Avance por componente (a la fecha)</p>
+            <apx-chart [series]="chart.series" [chart]="chart.chart" [xaxis]="chart.xaxis" [colors]="chart.colors"
+              [dataLabels]="chart.dataLabels" [legend]="chart.legend" [tooltip]="chart.tooltip" [plotOptions]="chart.plotOptions" [grid]="chart.grid">
+            </apx-chart>
+          </div>
+        }
+      </div>
+
+      <!-- ── Top actividades en riesgo ────────────────────────────────────── -->
+      @if (riskBarChart(); as chart) {
+        <div class="bg-white rounded-2xl border border-neutral-100 shadow-sm p-5 print-avoid-break">
+          <p class="text-sm font-bold text-neutral-700 mb-2">Actividades con mayor riesgo de atraso</p>
+          <apx-chart [series]="chart.series" [chart]="chart.chart" [xaxis]="chart.xaxis" [colors]="chart.colors"
+            [dataLabels]="chart.dataLabels" [legend]="chart.legend" [tooltip]="chart.tooltip" [plotOptions]="chart.plotOptions" [grid]="chart.grid">
+          </apx-chart>
+        </div>
+      }
+
+      <!-- ── Tabla: componentes ───────────────────────────────────────────── -->
+      <div class="bg-white rounded-2xl border border-neutral-100 shadow-sm overflow-hidden print-avoid-break">
+        <div class="px-5 py-3 border-b border-neutral-100">
+          <p class="text-sm font-bold text-neutral-700">Desglose por componente</p>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs">
+            <thead>
+              <tr class="text-left text-neutral-400 border-b border-neutral-100">
+                <th class="px-4 py-2 font-semibold">Componente</th>
+                <th class="px-4 py-2 font-semibold text-right">Peso</th>
+                <th class="px-4 py-2 font-semibold text-right">Actividades</th>
+                <th class="px-4 py-2 font-semibold text-right">Planeado</th>
+                <th class="px-4 py-2 font-semibold text-right">Real</th>
+                <th class="px-4 py-2 font-semibold text-right">Variación</th>
+                <th class="px-4 py-2 font-semibold text-right">Cumplim. prom.</th>
+                <th class="px-4 py-2 font-semibold text-right">A tiempo / atrasadas</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-neutral-50">
+              @for (c of r.components; track c.id_component) {
+                <tr>
+                  <td class="px-4 py-2 font-medium text-neutral-700">{{ c.name }}</td>
+                  <td class="px-4 py-2 text-right text-neutral-500">{{ formatPct(c.weight) }}</td>
+                  <td class="px-4 py-2 text-right text-neutral-500">{{ c.completed_activities }}/{{ c.total_activities }}</td>
+                  <td class="px-4 py-2 text-right text-neutral-500">{{ formatPct(c.planned_pct_to_date) }}</td>
+                  <td class="px-4 py-2 text-right text-neutral-500">{{ formatPct(c.actual_pct_to_date) }}</td>
+                  <td class="px-4 py-2 text-right font-semibold" [class]="varianceClass(c.schedule_variance_pct)">
+                    {{ c.schedule_variance_pct > 0 ? '+' : '' }}{{ formatPct(c.schedule_variance_pct) }}
+                  </td>
+                  <td class="px-4 py-2 text-right text-neutral-500">{{ formatPct(c.avg_compliance_pct) }}</td>
+                  <td class="px-4 py-2 text-right text-neutral-500">{{ c.on_time_count }} / {{ c.late_count }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ── Tabla: actividades ───────────────────────────────────────────── -->
+      <div class="bg-white rounded-2xl border border-neutral-100 shadow-sm overflow-hidden print-avoid-break">
+        <div class="px-5 py-3 border-b border-neutral-100 flex items-center justify-between">
+          <p class="text-sm font-bold text-neutral-700">Desglose por actividad</p>
+          <span class="text-xs text-neutral-400">{{ r.activities.length }} actividad{{ r.activities.length !== 1 ? 'es' : '' }}</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs">
+            <thead>
+              <tr class="text-left text-neutral-400 border-b border-neutral-100">
+                <th class="px-4 py-2 font-semibold">Componente</th>
+                <th class="px-4 py-2 font-semibold">Actividad</th>
+                <th class="px-4 py-2 font-semibold">Responsable</th>
+                <th class="px-4 py-2 font-semibold">Fin planeado</th>
+                <th class="px-4 py-2 font-semibold text-right">Avance</th>
+                <th class="px-4 py-2 font-semibold text-right">Variación días</th>
+                <th class="px-4 py-2 font-semibold">Estado</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-neutral-50">
+              @for (a of r.activities; track a.id_activity) {
+                <tr>
+                  <td class="px-4 py-2 text-neutral-500">{{ a.component_name }}</td>
+                  <td class="px-4 py-2 font-medium text-neutral-700">
+                    <span class="text-sky-500 mr-1">Act. {{ a.act }}</span>{{ a.description }}
+                  </td>
+                  <td class="px-4 py-2 text-neutral-500">{{ a.responsible || '—' }}</td>
+                  <td class="px-4 py-2 text-neutral-500">{{ formatDate(a.planned_end_date) }}</td>
+                  <td class="px-4 py-2 text-right text-neutral-500">
+                    {{ formatPct(a.cumulative_actual_pct) }} / {{ formatPct(a.cumulative_planned_pct) }}
+                  </td>
+                  <td class="px-4 py-2 text-right font-semibold"
+                    [class.text-red-500]="(a.schedule_variance_days ?? 0) > 0"
+                    [class.text-neutral-400]="!a.schedule_variance_days">
+                    {{ a.schedule_variance_days ?? '—' }}
+                  </td>
+                  <td class="px-4 py-2">
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold"
+                      [style.background-color]="statusColor(a.status) + '1a'" [style.color]="statusColor(a.status)">
+                      {{ statusLabels[a.status] }}
+                    </span>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+    }
+  }
+</div>

@@ -436,10 +436,15 @@ export class ProjectCreateComponent implements OnInit, OnDestroy {
     });
   }
 
+  // El backend siempre responde {"error": "<resumen>"} y, para errores de validación con
+  // varios campos, además {"errors": ["<campo 1>: <motivo>", ...]} (ver apierr.ResponseBody
+  // en el backend). Antes este método buscaba `message`/`errors` bajo llaves que el backend
+  // nunca envía (`message`), así que el mensaje real siempre se perdía y solo se veía el
+  // fallback genérico — de ahí que el usuario solo viera "Error".
   private handleError(err: unknown, fallback: string): void {
     this.submitting.set(false);
-    const e = err as { error?: { message?: string; errors?: string[] } };
-    this.showToast('error', e?.error?.message ?? fallback, Array.isArray(e?.error?.errors) ? e.error!.errors! : []);
+    const e = err as { error?: { error?: string; errors?: string[] } };
+    this.showToast('error', e?.error?.error ?? fallback, Array.isArray(e?.error?.errors) ? e.error!.errors! : []);
   }
 
   onStep9Submit(payload: Step9SubmitPayload): void {
@@ -757,11 +762,14 @@ export class ProjectCreateComponent implements OnInit, OnDestroy {
     this.validationErrors.set(errors);
     if (type === 'error') this.error.set(message);
     else                  this.success.set(message);
+    // Con una lista de errores de validación el usuario necesita más de 5s para leerlos todos
+    // (puede haber 8+ campos); el cierre manual (clearError()) sigue disponible en todo momento.
+    const timeout = errors.length > 0 ? 15000 : 5000;
     this.toastTimer = setTimeout(() => {
       this.error.set(null);
       this.success.set(null);
       this.validationErrors.set([]);
-    }, 5000);
+    }, timeout);
   }
 
   clearError(): void {

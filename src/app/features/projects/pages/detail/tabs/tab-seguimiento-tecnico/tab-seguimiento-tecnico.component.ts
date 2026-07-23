@@ -5,7 +5,7 @@ import { ProjectService } from '../../../../services/project.service';
 import { ServerTimeService } from '../../../../../../core/services/server-time.service';
 import {
   ProjectSnapshotItem, Snapshot, SnapshotRequest, ScopeSnapshotsResponse,
-  ScopeComponent, ScopeActivity,
+  ScopeComponent, ScopeActivity, CheckpointPeriodicity, GenerateSnapshotsRequest,
 } from '../../../../models/project.model';
 import { environment } from '../../../../../../../environments/environment';
 
@@ -45,6 +45,16 @@ const emptyForm = (): SnapshotForm => ({
   observation: '',
 });
 
+interface AutoForm {
+  periodicity: CheckpointPeriodicity;
+  custom_days: number | null;
+}
+
+const emptyAutoForm = (): AutoForm => ({
+  periodicity: 'mensual',
+  custom_days: null,
+});
+
 @Component({
   selector: 'app-tab-seguimiento-tecnico',
   standalone: true,
@@ -75,6 +85,13 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
   form: SnapshotForm = emptyForm();
   saving      = signal(false);
   saveError   = signal<string | null>(null);
+
+  // ── Distribución automática de períodos ──────────────────────────────────
+  showAutoForm   = signal(false);
+  autoForm: AutoForm = emptyAutoForm();
+  autoPreviewList = signal<Snapshot[] | null>(null);
+  autoLoading     = signal(false);
+  autoError       = signal<string | null>(null);
 
   activities = computed<FlatActivity[]>(() =>
     this.scopeComponents().flatMap(c =>
@@ -176,8 +193,13 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
     this.activitySnaps.set([]);
     this.scopeBounds.set(null);
     this.showForm.set(false);
+    this.showAutoForm.set(false);
+    this.loadActivitySnapshots(act.id);
+  }
+
+  private loadActivitySnapshots(activityId: string): void {
     this.snapsLoading.set(true);
-    this.svc.getScopeSnapshots(this.projectId, act.id).subscribe({
+    this.svc.getScopeSnapshots(this.projectId, activityId).subscribe({
       next:  (r: ScopeSnapshotsResponse) => {
         this.activitySnaps.set(r.checkpoints ?? []);
         this.scopeBounds.set({
@@ -195,6 +217,7 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
   openNewForm(): void {
     this.form = { ...emptyForm(), start_date: this.effectiveStart() ?? '', end_date: this.effectiveEnd() ?? '' };
     this.editingSnap.set(null);
+    this.showAutoForm.set(false);
     this.showForm.set(true);
     this.saveError.set(null);
   }
@@ -208,11 +231,91 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
       observation: '',
     };
     this.editingSnap.set(snap);
+    this.showAutoForm.set(false);
     this.showForm.set(true);
     this.saveError.set(null);
   }
 
   cancelForm(): void { this.showForm.set(false); this.editingSnap.set(null); this.saveError.set(null); }
+
+  // ── Distribución automática de períodos ──────────────────────────────────
+
+  autoPreviewTotalPct = computed(() => {
+    const list = this.autoPreviewList();
+    if (!list) return 0;
+    return Math.round(list.reduce((s, x) => s + x.planned_pct, 0) * 100) / 100;
+  });
+
+  openAutoForm(): void {
+    this.autoForm = emptyAutoForm();
+    this.autoPreviewList.set(null);
+    this.autoError.set(null);
+    this.showForm.set(false);
+    this.showAutoForm.set(true);
+  }
+
+  cancelAutoForm(): void {
+    this.showAutoForm.set(false);
+    this.autoPreviewList.set(null);
+    this.autoError.set(null);
+  }
+
+  previewAutoGenerate(): void {
+    const act = this.selectedActivity();
+    if (!act) return;
+    if (this.autoForm.periodicity === 'personalizado' && (!this.autoForm.custom_days || this.autoForm.custom_days <= 0)) {
+      this.autoError.set('Indica cada cuántos días se debe repetir el período.');
+      return;
+    }
+    const req: GenerateSnapshotsRequest = {
+      periodicity: this.autoForm.periodicity,
+      custom_days: this.autoForm.custom_days ?? undefined,
+      preview: true,
+    };
+    this.autoLoading.set(true);
+    this.autoError.set(null);
+    this.svc.generateSnapshots(this.projectId, act.id, req).subscribe({
+      next: r => {
+        this.autoPreviewList.set(r.checkpoints ?? []);
+        this.autoLoading.set(false);
+      },
+      error: err => {
+        this.autoError.set(err?.error?.error ?? err?.error?.message ?? 'No se pudieron calcular los períodos.');
+        this.autoLoading.set(false);
+      },
+    });
+  }
+
+  confirmAutoGenerate(): void {
+    const act = this.selectedActivity();
+    const preview = this.autoPreviewList();
+    if (!act || !preview) return;
+    const replace = this.activitySnaps().length > 0;
+    if (replace && !confirm(`Esto reemplazará los ${this.activitySnaps().length} período(s) existentes de esta actividad por los ${preview.length} generados automáticamente. ¿Continuar?`)) {
+      return;
+    }
+    const req: GenerateSnapshotsRequest = {
+      periodicity: this.autoForm.periodicity,
+      custom_days: this.autoForm.custom_days ?? undefined,
+      preview: false,
+      replace,
+    };
+    this.autoLoading.set(true);
+    this.autoError.set(null);
+    this.svc.generateSnapshots(this.projectId, act.id, req).subscribe({
+      next: () => {
+        this.autoLoading.set(false);
+        this.showAutoForm.set(false);
+        this.autoPreviewList.set(null);
+        this.loadActivitySnapshots(act.id);
+        this.load();
+      },
+      error: err => {
+        this.autoError.set(err?.error?.error ?? err?.error?.message ?? 'No se pudieron guardar los períodos.');
+        this.autoLoading.set(false);
+      },
+    });
+  }
 
   /** Observación obligatoria solo si se alarga el end_date más allá del que ya tenía el checkpoint (extensión real). */
   requiresObservation(): boolean {

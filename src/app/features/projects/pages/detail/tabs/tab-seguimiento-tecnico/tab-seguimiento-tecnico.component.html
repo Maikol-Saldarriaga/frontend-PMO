@@ -164,8 +164,18 @@
               <p class="text-lg font-bold text-sky-600 leading-none">{{ selectedActivity()!.progress | number:'1.0-1' }}%</p>
               <p class="text-[10px] text-sky-400 mt-0.5">Avance</p>
             </div>
+            <!-- Botón generar automático -->
+            @if (!showForm() && !showAutoForm()) {
+              <button (click)="openAutoForm()"
+                class="flex items-center gap-2 px-4 py-2 rounded-xl bg-violet-50 hover:bg-violet-100 border border-violet-100 text-violet-600 text-sm font-semibold transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                </svg>
+                Distribución automática
+              </button>
+            }
             <!-- Botón registrar -->
-            @if (!showForm()) {
+            @if (!showForm() && !showAutoForm()) {
               <button (click)="openNewForm()"
                 class="flex items-center gap-2 px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-600 text-white text-sm font-semibold transition-colors shadow-sm shadow-sky-200">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
@@ -206,6 +216,104 @@
             <span class="text-xs font-bold w-14 shrink-0 text-right"
               [class.text-emerald-600]="totalActual() <= 100" [class.text-red-600]="totalActual() > 100">{{ totalActual() | number:'1.0-1' }}%</span>
           </div>
+        </div>
+      }
+
+      <!-- ── DISTRIBUCIÓN AUTOMÁTICA ─────────────────────────────────────────── -->
+      @if (showAutoForm()) {
+        <div class="bg-white rounded-2xl border border-violet-100 shadow-sm p-5 mb-4">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-sm font-bold text-gray-800">Distribución automática de períodos</h3>
+            <button (click)="cancelAutoForm()" class="text-gray-400 hover:text-gray-600 transition-colors">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+
+          <p class="text-xs text-gray-400 mb-4">
+            Genera automáticamente los períodos de seguimiento entre
+            <strong class="text-gray-600">{{ effectiveStart() | date:'dd/MM/yyyy':'UTC' }}</strong> y
+            <strong class="text-gray-600">{{ effectiveEnd() | date:'dd/MM/yyyy':'UTC' }}</strong>,
+            repartiendo el 100% del planeado equitativamente entre todos los períodos generados.
+          </p>
+
+          <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 mb-1">Periodicidad</label>
+              <select [(ngModel)]="autoForm.periodicity"
+                class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-violet-300">
+                <option value="mensual">Mensual (por fecha de inicio, ej. 12 feb → 11 mar)</option>
+                <option value="mensual_calendario">Mensual (mes calendario, ej. 12 feb → 28 feb)</option>
+                <option value="semanal">Semanal (cada 7 días)</option>
+                <option value="quincenal">Quincenal (cada 15 días)</option>
+                <option value="personalizado">Personalizado</option>
+              </select>
+            </div>
+            @if (autoForm.periodicity === 'personalizado') {
+              <div>
+                <label class="block text-xs font-semibold text-gray-500 mb-1">Cada cuántos días <span class="text-red-400">*</span></label>
+                <input type="number" min="1" step="1" [(ngModel)]="autoForm.custom_days" placeholder="Ej. 10"
+                  class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-violet-300"/>
+              </div>
+            }
+          </div>
+
+          @if (autoError()) {
+            <p class="text-xs text-red-500 mb-3">{{ autoError() }}</p>
+          }
+
+          @if (!autoPreviewList()) {
+            <button (click)="previewAutoGenerate()" [disabled]="autoLoading()"
+              class="flex items-center gap-2 px-5 py-2 rounded-xl bg-violet-500 hover:bg-violet-600 disabled:opacity-50 text-white text-sm font-semibold transition-colors">
+              @if (autoLoading()) {
+                <div class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              }
+              Calcular períodos
+            </button>
+          } @else {
+            <!-- Preview de períodos calculados -->
+            <div class="rounded-xl border border-gray-100 overflow-hidden mb-4">
+              <div class="max-h-72 overflow-y-auto divide-y divide-gray-50">
+                @for (p of autoPreviewList(); track p.start_date + '-' + p.end_date) {
+                  <div class="px-4 py-2.5 flex items-center justify-between gap-3">
+                    <div class="text-xs text-gray-700">
+                      <strong>{{ p.start_date | date:'dd MMM y':'UTC' }}</strong>
+                      <span class="text-gray-400"> → </span>
+                      <strong>{{ p.end_date | date:'dd MMM y':'UTC' }}</strong>
+                    </div>
+                    <span class="text-xs font-bold text-violet-600 bg-violet-50 border border-violet-100 rounded-full px-2.5 py-0.5">
+                      {{ p.planned_pct | number:'1.0-2' }}%
+                    </span>
+                  </div>
+                }
+              </div>
+              <div class="px-4 py-2.5 bg-gray-50 flex items-center justify-between border-t border-gray-100">
+                <span class="text-xs font-semibold text-gray-500">{{ autoPreviewList()!.length }} período(s) generados</span>
+                <span class="text-xs font-bold" [class.text-emerald-600]="autoPreviewTotalPct() === 100" [class.text-red-500]="autoPreviewTotalPct() !== 100">
+                  Total: {{ autoPreviewTotalPct() | number:'1.0-2' }}%
+                </span>
+              </div>
+            </div>
+
+            @if (activitySnaps().length > 0) {
+              <p class="text-[11px] text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mb-3">
+                Esta actividad ya tiene {{ activitySnaps().length }} período(s) registrados. Confirmar reemplazará todos por los generados arriba.
+              </p>
+            }
+
+            <div class="flex items-center gap-2">
+              <button (click)="confirmAutoGenerate()" [disabled]="autoLoading()"
+                class="flex items-center gap-2 px-5 py-2 rounded-xl bg-violet-500 hover:bg-violet-600 disabled:opacity-50 text-white text-sm font-semibold transition-colors">
+                @if (autoLoading()) {
+                  <div class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                }
+                Confirmar y guardar
+              </button>
+              <button (click)="autoPreviewList.set(null)" class="px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-500 hover:bg-gray-50 transition-colors">Recalcular</button>
+              <button (click)="cancelAutoForm()" class="px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-500 hover:bg-gray-50 transition-colors">Cancelar</button>
+            </div>
+          }
         </div>
       }
 

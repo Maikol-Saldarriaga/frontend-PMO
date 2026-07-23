@@ -45,6 +45,11 @@ import {
   SnapshotRequest,
   ProjectSnapshotsResponse,
   ScopeSnapshotsResponse,
+  GenerateSnapshotsRequest,
+  GenerateSnapshotsResponse,
+  TrackingReport,
+  ReportToken,
+  CreateReportTokenResponse,
   DeliveryRequest,
   Delivery,
   DeliveryVerification,
@@ -259,6 +264,30 @@ export class ProjectService {
 
   upsertSnapshot(id: string, sid: string, data: SnapshotRequest): Observable<Snapshot> {
     return this.http.put<Snapshot>(ENDPOINTS.projects.scopeSnapshot(id, sid), data);
+  }
+
+  generateSnapshots(id: string, sid: string, data: GenerateSnapshotsRequest): Observable<GenerateSnapshotsResponse> {
+    return this.http.post<GenerateSnapshotsResponse>(ENDPOINTS.projects.scopeSnapshotsAutoGenerate(id, sid), data);
+  }
+
+  getTrackingReport(id: string): Observable<TrackingReport> {
+    return this.http.get<TrackingReport>(ENDPOINTS.projects.trackingReport(id));
+  }
+
+  downloadTrackingReportCsv(id: string): Observable<Blob> {
+    return this.http.getBlob(ENDPOINTS.projects.trackingReportCsv(id));
+  }
+
+  createReportToken(id: string): Observable<CreateReportTokenResponse> {
+    return this.http.post<CreateReportTokenResponse>(ENDPOINTS.projects.trackingReportTokens(id), {});
+  }
+
+  listReportTokens(id: string): Observable<{ tokens: ReportToken[] }> {
+    return this.http.get<{ tokens: ReportToken[] }>(ENDPOINTS.projects.trackingReportTokens(id));
+  }
+
+  revokeReportToken(id: string, tokenId: string): Observable<void> {
+    return this.http.delete<void>(ENDPOINTS.projects.trackingReportTokenById(id, tokenId));
   }
 
   getDelivery(id: string, sid: string, snid: string): Observable<Delivery> {

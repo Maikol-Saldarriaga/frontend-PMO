@@ -1,6 +1,7 @@
 import { Component, Input, OnInit, signal, computed, ViewChild, ElementRef, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { forkJoin, of, Observable } from 'rxjs';
 import { ProjectService } from '../../../../services/project.service';
 import { ServerTimeService } from '../../../../../../core/services/server-time.service';
@@ -46,7 +47,7 @@ const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'o
 @Component({
   selector: 'app-tab-entregables',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterLink],
   templateUrl: './tab-entregables.component.html',
 })
 export class TabEntregablesComponent implements OnInit {

@@ -239,3 +239,11 @@ html, body {
   &:hover { background: $color-neutral-100; color: $color-primary-700; }
   &--danger { color: $color-danger; &:hover { background: #fff5f5; } }
 }
+
+// ─── Impresión: oculta el chrome del dashboard (sidebar/topbar) en cualquier
+// página — usado por el reporte de seguimiento técnico para "Guardar como PDF".
+@media print {
+  app-sidebar, app-topbar { display: none !important; }
+  .dashboard-main { margin-left: 0 !important; }
+  .dashboard-content { padding: 0 !important; overflow: visible !important; }
+}
