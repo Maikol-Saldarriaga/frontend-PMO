@@ -1,0 +1,213 @@
+@if (open && item) {
+  <div class="fixed inset-0 z-40 bg-black/30" (click)="close()"></div>
+
+  <div class="fixed top-0 right-0 z-50 h-full w-full max-w-lg bg-white shadow-2xl overflow-y-auto">
+    <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
+      <div class="min-w-0">
+        <h3 class="text-sm font-bold text-gray-900 truncate">Pagos — {{ item.project_name || 'Requerimiento #' + item.consecutive_number }}</h3>
+        <p class="text-[11px] text-gray-400 truncate">{{ item.provider || 'Sin proveedor' }}</p>
+      </div>
+      <button (click)="close()" class="text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0 ml-3">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <div class="p-5 space-y-5">
+
+      <!-- Progreso -->
+      <div class="rounded-2xl border border-gray-100 bg-neutral-50 p-4">
+        <div class="flex items-center justify-between text-xs mb-1.5">
+          <span class="font-semibold text-neutral-500">Pagado: {{ formatCurrency(totalPaid()) }} / {{ formatCurrency(item.initial_budget) }}</span>
+          <span class="font-bold" [class.text-danger]="overBudget()" [class.text-accent]="!overBudget()">{{ progressPct() }}%</span>
+        </div>
+        <div class="w-full h-2 rounded-full bg-gray-200 overflow-hidden">
+          <div class="h-full rounded-full transition-all" [class.bg-danger]="overBudget()" [class.bg-accent]="!overBudget()"
+            [style.width.%]="progressPct()"></div>
+        </div>
+        @if (overBudget()) {
+          <p class="text-[11px] text-danger font-medium mt-1.5">Los pagos superan el presupuesto inicial del requerimiento.</p>
+        }
+      </div>
+
+      @if (!canWrite()) {
+        <div class="rounded-xl bg-amber-50 border border-amber-100 px-3 py-2 text-[11px] font-medium text-amber-700">
+          Solo ADMIN, COORDINADOR o FINANCE pueden registrar pagos.
+        </div>
+      }
+
+      <!-- Lista de pagos existentes -->
+      @if (loading()) {
+        <div class="flex items-center justify-center py-8">
+          <div class="w-6 h-6 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      } @else if (error()) {
+        <p class="text-xs text-danger">{{ error() }}</p>
+      } @else if (!payments().length) {
+        <p class="text-xs text-neutral-400 text-center py-4">Aún no hay pagos registrados para este requerimiento.</p>
+      } @else {
+        <div class="space-y-2.5">
+          @for (p of payments(); track trackById($index, p)) {
+            <div class="rounded-xl border border-gray-100 p-3.5">
+              <div class="flex items-center justify-between gap-2">
+                <p class="text-sm font-bold text-gray-900">{{ formatCurrency(p.value) }}</p>
+                <div class="flex items-center gap-2">
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold"
+                    [class.bg-emerald-50]="p.status === 'pagado'" [class.text-emerald-700]="p.status === 'pagado'"
+                    [class.bg-amber-50]="p.status === 'planeado'" [class.text-amber-700]="p.status === 'planeado'">
+                    {{ statusLabel(p.status) }}
+                  </span>
+                  @if (canWrite()) {
+                    <button type="button" (click)="deletePayment(p)" [disabled]="deletingId() === p.id" title="Eliminar"
+                      class="w-6 h-6 flex items-center justify-center rounded-lg text-neutral-400 hover:text-danger hover:bg-danger/10 transition-colors disabled:opacity-40">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                    </button>
+                  }
+                </div>
+              </div>
+              <p class="text-[11px] text-neutral-400 mt-0.5">{{ formatDate(p.payment_date) }}{{ p.payment_reference ? ' · ' + p.payment_reference : '' }}</p>
+              <div class="flex items-center gap-4 mt-1.5 text-[11px]">
+                <span class="text-neutral-500">Contraparte: <span class="font-semibold text-accent">{{ formatCurrency(p.counterpart_value) }}</span></span>
+                <span class="text-neutral-500">Aliado: <span class="font-semibold text-success">{{ formatCurrency(p.ally_value) }}</span></span>
+              </div>
+              @if (p.observation) {
+                <p class="text-[11px] text-neutral-400 mt-1.5 italic">{{ p.observation }}</p>
+              }
+              @if (p.invoice_document_key || p.evidence_document_key) {
+                <div class="flex items-center gap-3 mt-2">
+                  @if (p.invoice_document_key) {
+                    <a [href]="p.invoice_document_key" target="_blank" rel="noopener"
+                      class="inline-flex items-center gap-1 text-[11px] font-semibold text-accent hover:text-accent-700 transition-colors">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                      Factura {{ p.invoice_document_name ? '(' + p.invoice_document_name + ')' : '' }}
+                    </a>
+                  }
+                  @if (p.evidence_document_key) {
+                    <a [href]="p.evidence_document_key" target="_blank" rel="noopener"
+                      class="inline-flex items-center gap-1 text-[11px] font-semibold text-success hover:opacity-80 transition-colors">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                      Evidencia {{ p.evidence_document_name ? '(' + p.evidence_document_name + ')' : '' }}
+                    </a>
+                  }
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
+
+      @if (canWrite()) {
+        @if (!showForm()) {
+          <button type="button" (click)="startForm()"
+            class="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-accent hover:bg-accent-700 text-white text-sm font-semibold shadow-sm transition-all active:scale-95">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+            Registrar pago
+          </button>
+        } @else {
+          <div class="rounded-2xl border border-dashed border-accent-300 bg-accent-50/40 p-4 space-y-3">
+            <h4 class="text-xs font-bold text-primary-700 uppercase tracking-wide">Nuevo pago</h4>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Valor <span class="text-danger">*</span></label>
+                <input type="text" inputmode="numeric" appMoneyMask [(ngModel)]="form.value"
+                  class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-white outline-none focus:ring-2 focus:ring-sky-300"/>
+              </div>
+              <div>
+                <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Fecha de pago</label>
+                <input type="date" [(ngModel)]="form.payment_date"
+                  class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-white outline-none focus:ring-2 focus:ring-sky-300"/>
+              </div>
+              <div>
+                <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Contraparte</label>
+                <input type="text" inputmode="numeric" appMoneyMask [(ngModel)]="form.counterpart_value"
+                  class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-white outline-none focus:ring-2 focus:ring-sky-300"/>
+              </div>
+              <div>
+                <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Aliado</label>
+                <input type="text" inputmode="numeric" appMoneyMask [(ngModel)]="form.ally_value"
+                  class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-white outline-none focus:ring-2 focus:ring-sky-300"/>
+              </div>
+              <div>
+                <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Estado</label>
+                <select [(ngModel)]="form.status"
+                  class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-white outline-none focus:ring-2 focus:ring-sky-300">
+                  <option value="planeado">Planeado</option>
+                  <option value="pagado">Pagado</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Referencia</label>
+                <input type="text" [(ngModel)]="form.payment_reference"
+                  class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-white outline-none focus:ring-2 focus:ring-sky-300"/>
+              </div>
+            </div>
+
+            @if (splitOverflow()) {
+              <p class="text-[11px] font-medium text-danger">Contraparte + aliado no puede superar el valor del pago.</p>
+            }
+            @if (formOverBudget()) {
+              <p class="text-[11px] font-medium text-danger">Este pago superaría el presupuesto inicial del requerimiento (disponible: {{ formatCurrency(requirementAvailable()) }}).</p>
+            }
+
+            <div>
+              <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Observación</label>
+              <textarea [(ngModel)]="form.observation" rows="2"
+                class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-white outline-none focus:ring-2 focus:ring-sky-300 resize-none"></textarea>
+            </div>
+
+            <!-- Archivos -->
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Factura del proveedor</label>
+                @if (stagedInvoice) {
+                  <div class="flex items-center justify-between gap-2 px-3 py-2 rounded-xl border border-gray-200 bg-white">
+                    <span class="text-[11px] text-neutral-600 truncate">{{ stagedInvoice.file.name }}</span>
+                    <button type="button" (click)="removeStagedInvoice()" class="text-neutral-400 hover:text-danger flex-shrink-0">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                  </div>
+                } @else {
+                  <label class="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-dashed border-gray-300 bg-white text-[11px] text-neutral-400 cursor-pointer hover:border-accent hover:text-accent transition-colors">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                    Adjuntar
+                    <input type="file" class="hidden" (change)="onInvoiceFileSelected($event)"/>
+                  </label>
+                }
+              </div>
+              <div>
+                <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Evidencia de recibido</label>
+                @if (stagedEvidence) {
+                  <div class="flex items-center justify-between gap-2 px-3 py-2 rounded-xl border border-gray-200 bg-white">
+                    <span class="text-[11px] text-neutral-600 truncate">{{ stagedEvidence.file.name }}</span>
+                    <button type="button" (click)="removeStagedEvidence()" class="text-neutral-400 hover:text-danger flex-shrink-0">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                  </div>
+                } @else {
+                  <label class="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-dashed border-gray-300 bg-white text-[11px] text-neutral-400 cursor-pointer hover:border-accent hover:text-accent transition-colors">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                    Adjuntar
+                    <input type="file" class="hidden" (change)="onEvidenceFileSelected($event)"/>
+                  </label>
+                }
+              </div>
+            </div>
+
+            @if (saveError()) {
+              <p class="text-xs font-medium text-danger">{{ saveError() }}</p>
+            }
+
+            <div class="flex items-center gap-2 pt-1">
+              <button type="button" (click)="save()" [disabled]="saving() || !canSave()"
+                class="px-4 py-2 bg-accent hover:bg-accent-700 text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-50">
+                @if (saving()) { Guardando... } @else { Guardar pago }
+              </button>
+              <button type="button" (click)="cancelForm()" class="px-4 py-2 text-xs text-neutral-500 hover:text-neutral-700 transition-colors">Cancelar</button>
+            </div>
+          </div>
+        }
+      }
+
+    </div>
+  </div>
+}

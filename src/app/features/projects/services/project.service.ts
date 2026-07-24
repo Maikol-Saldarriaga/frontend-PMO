@@ -73,6 +73,9 @@ import {
   UserListItem,
   ProjectExtension,
   ProjectExtensionRequest,
+  FundingReceipt,
+  FundingReceiptRequest,
+  CashFlowReport,
 } from '../models/project.model';
 
 export interface ProjectFilters {
@@ -423,6 +426,30 @@ export class ProjectService {
 
   updateExtension(id: string, eid: string, data: ProjectExtensionRequest): Observable<ProjectExtension> {
     return this.http.put<ProjectExtension>(ENDPOINTS.projects.extensionById(id, eid), data);
+  }
+
+  // ── Cobros reales recibidos (contra una factura ya registrada) ─────────────
+
+  listFundingReceipts(id: string, budgetItemId: string, invoiceId: string): Observable<FundingReceipt[]> {
+    return this.http.get<FundingReceipt[]>(ENDPOINTS.projects.receipts(id, budgetItemId, invoiceId));
+  }
+
+  createFundingReceipt(id: string, budgetItemId: string, invoiceId: string, data: FundingReceiptRequest): Observable<FundingReceipt> {
+    return this.http.post<FundingReceipt>(ENDPOINTS.projects.receipts(id, budgetItemId, invoiceId), data);
+  }
+
+  updateFundingReceipt(id: string, budgetItemId: string, invoiceId: string, receiptId: string, data: FundingReceiptRequest): Observable<FundingReceipt> {
+    return this.http.put<FundingReceipt>(ENDPOINTS.projects.receiptById(id, budgetItemId, invoiceId, receiptId), data);
+  }
+
+  deleteFundingReceipt(id: string, budgetItemId: string, invoiceId: string, receiptId: string): Observable<void> {
+    return this.http.delete<void>(ENDPOINTS.projects.receiptById(id, budgetItemId, invoiceId, receiptId));
+  }
+
+  // ── Flujo de Caja ────────────────────────────────────────────────────────
+
+  getCashFlowReport(id: string): Observable<CashFlowReport> {
+    return this.http.get<CashFlowReport>(ENDPOINTS.projects.cashFlow(id));
   }
 
 }

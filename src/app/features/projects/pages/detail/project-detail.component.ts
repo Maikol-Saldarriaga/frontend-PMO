@@ -21,6 +21,7 @@ import { TabIndicadoresComponent } from './tabs/tab-indicadores/tab-indicadores.
 import { TabDocumentosComponent } from './tabs/tab-documentos/tab-documentos.component';
 import { TabObligacionesComponent } from './tabs/tab-obligaciones/tab-obligaciones.component';
 import { TabAbastecimientoComponent } from './tabs/tab-abastecimiento/tab-abastecimiento.component';
+import { TabFlujoCajaComponent } from './tabs/tab-flujo-caja/tab-flujo-caja.component';
 import { FormsModule } from '@angular/forms';
 
 @Component({
@@ -43,6 +44,7 @@ import { FormsModule } from '@angular/forms';
     TabDocumentosComponent,
     TabObligacionesComponent,
     TabAbastecimientoComponent,
+    TabFlujoCajaComponent,
     TabEquipoComponent,
     FormsModule,
   ],
@@ -101,6 +103,10 @@ export class ProjectDetailComponent implements OnInit {
       icon: `<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>`,
     },
     {
+      id: 'seguimiento', label: 'Seguimiento', color: 'amber',
+      icon: `<path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>`,
+    },
+    {
       id: 'presupuesto', label: 'Presupuesto', color: 'green',
       icon: `<path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>`,
     },
@@ -109,12 +115,16 @@ export class ProjectDetailComponent implements OnInit {
       icon: `<path stroke-linecap="round" stroke-linejoin="round" d="M9 14l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>`,
     },
     {
-      id: 'beneficiarios', label: 'Beneficiarios', color: 'cyan',
-      icon: `<path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>`,
+      id: 'abastecimiento', label: 'Plan de Abastecimiento', color: 'orange',
+      icon: `<path stroke-linecap="round" stroke-linejoin="round" d="M20 12H4m16 0l-4-4m4 4l-4 4M4 12l4-4m-4 4l4 4"/>`,
     },
     {
-      id: 'seguimiento', label: 'Seguimiento', color: 'amber',
-      icon: `<path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>`,
+      id: 'flujo-caja', label: 'Flujo de Caja', color: 'sky',
+      icon: `<path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/>`,
+    },
+    {
+      id: 'beneficiarios', label: 'Beneficiarios', color: 'cyan',
+      icon: `<path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>`,
     },
     {
       id: 'riesgos', label: 'Riesgos', color: 'red',
@@ -137,10 +147,6 @@ export class ProjectDetailComponent implements OnInit {
       icon: `<path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>`,
     },
     {
-      id: 'abastecimiento', label: 'Plan de Abastecimiento', color: 'orange',
-      icon: `<path stroke-linecap="round" stroke-linejoin="round" d="M20 12H4m16 0l-4-4m4 4l-4 4M4 12l4-4m-4 4l4 4"/>`,
-    },
-    {
       id: 'historial', label: 'Historial', color: 'pink',
       icon: `<path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>`,
     },
@@ -156,7 +162,7 @@ export class ProjectDetailComponent implements OnInit {
     cronograma: null, presupuesto: 'budget', facturacion: 'finance', beneficiarios: 'beneficiaries',
     seguimiento: 'checkpoints', riesgos: 'risks', entregables: 'checkpoints', documentos: 'documents',
     indicadores: null, obligaciones: 'compliance_matrix', abastecimiento: 'supply_plan', historial: null,
-    equipo: null,
+    equipo: null, 'flujo-caja': 'finance',
   };
 
   private sk(s: string | undefined) {

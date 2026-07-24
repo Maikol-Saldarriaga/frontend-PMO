@@ -58,6 +58,9 @@ export const ENDPOINTS = {
     teamMemberPermissions: (id: string, uid: string) => `${API_URL}/projects/${id}/team/${uid}/permissions`,
     extensions:        (id: string) => `${API_URL}/projects/${id}/extensions`,
     extensionById:     (id: string, eid: string) => `${API_URL}/projects/${id}/extensions/${eid}`,
+    receipts:          (id: string, bid: string, iid: string) => `${API_URL}/projects/${id}/budget/${bid}/invoices/${iid}/receipts`,
+    receiptById:       (id: string, bid: string, iid: string, rid: string) => `${API_URL}/projects/${id}/budget/${bid}/invoices/${iid}/receipts/${rid}`,
+    cashFlow:          (id: string) => `${API_URL}/projects/${id}/cash-flow`,
   },
   contracts: {
     list:           `${API_URL}/contracts`,
@@ -93,6 +96,10 @@ export const ENDPOINTS = {
     delete:  (id: string, sid: string) => `${API_URL}/projects/${id}/supply-plan/${sid}`,
     summary: (id: string) => `${API_URL}/projects/${id}/supply-plan/summary`,
     import:  (id: string) => `${API_URL}/projects/${id}/supply-plan/import`,
+    payments:          (id: string, sid: string) => `${API_URL}/projects/${id}/supply-plan/${sid}/payments`,
+    paymentById:       (id: string, sid: string, pid: string) => `${API_URL}/projects/${id}/supply-plan/${sid}/payments/${pid}`,
+    paymentInvoice:    (id: string, sid: string, pid: string) => `${API_URL}/projects/${id}/supply-plan/${sid}/payments/${pid}/invoice`,
+    paymentEvidence:   (id: string, sid: string, pid: string) => `${API_URL}/projects/${id}/supply-plan/${sid}/payments/${pid}/evidence`,
   },
   tasks: {
     list:   `${API_URL}/tasks`,

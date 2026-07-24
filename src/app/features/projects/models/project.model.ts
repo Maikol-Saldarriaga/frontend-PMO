@@ -1164,6 +1164,74 @@ export interface InvoiceRequest {
   date?:                  string; // ISO 8601 completo, ej. "2026-01-15T00:00:00Z"
 }
 
+// ── Cobros reales recibidos (contra una factura ya registrada) ──────────────
+
+export type FundingReceiptStatus = 'planeado' | 'recibido';
+
+export interface FundingReceipt {
+  id:                     string;
+  company_id:             string;
+  contract_agreement_id:  string;
+  finance_record_id:      string;
+  value:                  number;
+  value_before_tax:       number | null;
+  receipt_date:           string | null;
+  status:                 FundingReceiptStatus;
+  receipt_reference:      string | null;
+  observation:            string | null;
+  created_at:             string;
+  /** Resuelto desde la factura (finance_record) a la que pertenece este cobro — solo
+   * viene poblado cuando el cobro se obtiene como parte del reporte de Flujo de Caja. */
+  budget_item_id?:        string | null;
+}
+
+export interface FundingReceiptRequest {
+  value:               number;
+  value_before_tax?:   number | null;
+  receipt_date?:       string | null;
+  status:              FundingReceiptStatus;
+  receipt_reference?:  string | null;
+  observation?:        string | null;
+}
+
+// ── Flujo de Caja ─────────────────────────────────────────────────────────────
+
+export interface CashFlowMonth {
+  year:                number;
+  month:               number;
+  egreso_contraparte:  number;
+  egreso_aliado:       number;
+  egreso_total:        number;
+  ingreso_bruto:       number;
+  ingreso_neto:        number;
+  flujo_neto:          number;
+  saldo_acumulado:     number;
+  deficit:             boolean;
+}
+
+/** Cruce por rubro: cuánto se planeó gastar, cuánto ha entrado realmente del aliado, y cómo
+ * eso se reconcilia con lo que abastecimiento ha comprometido/pagado contra ese mismo rubro. */
+export interface CashFlowRubro {
+  budget_item_id:               string;
+  concept:                      string;
+  total_presupuestado:          number;
+  egreso_planeado:               number;
+  ingreso_recibido:              number;
+  comprometido_abastecimiento:   number;
+  pagado_abastecimiento:         number;
+}
+
+export interface CashFlowReport {
+  contract_id:      string;
+  months:           CashFlowMonth[];
+  total_ingresos:   number;
+  total_egresos:    number;
+  total_neto:       number;
+  saldo_final:      number;
+  rubro_breakdown:  CashFlowRubro[];
+  receipts:         FundingReceipt[];
+}
+
 // ── Reporte de Seguimiento Técnico ───────────────────────────────────────────
 
 export type TrackingStatus = 'completado' | 'adelantado' | 'en_tiempo' | 'retrasado' | 'vencido' | 'pendiente';

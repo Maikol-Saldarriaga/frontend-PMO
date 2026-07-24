@@ -21,6 +21,7 @@ import {
   SupportResponse,
   ContractObligation, ObligationRequest, ObligationEvidence, ObligationEvidenceRequest, ObligationImportRequest,
   SupplyPlanItem, SupplyPlanRequest, SupplyPlanSummary, SupplyPlanFilters,
+  ProcurementPayment, ProcurementPaymentRequest,
 } from '../models/contract.model';
 
 @Injectable({ providedIn: 'root' })
@@ -179,5 +180,35 @@ export class ContractService {
 
   importSupplyPlan(contractId: string, items: SupplyPlanRequest[]): Observable<SupplyPlanItem[]> {
     return this.http.post<SupplyPlanItem[]>(ENDPOINTS.supplyPlan.import(contractId), items);
+  }
+
+  // ── Pagos reales a proveedor (contra un requerimiento del plan de abastecimiento) ──
+
+  listProcurementPayments(contractId: string, supplyPlanItemId: string): Observable<ProcurementPayment[]> {
+    return this.http.get<ProcurementPayment[]>(ENDPOINTS.supplyPlan.payments(contractId, supplyPlanItemId));
+  }
+
+  createProcurementPayment(contractId: string, supplyPlanItemId: string, data: ProcurementPaymentRequest): Observable<ProcurementPayment> {
+    return this.http.post<ProcurementPayment>(ENDPOINTS.supplyPlan.payments(contractId, supplyPlanItemId), data);
+  }
+
+  getProcurementPayment(contractId: string, supplyPlanItemId: string, paymentId: string): Observable<ProcurementPayment> {
+    return this.http.get<ProcurementPayment>(ENDPOINTS.supplyPlan.paymentById(contractId, supplyPlanItemId, paymentId));
+  }
+
+  updateProcurementPayment(contractId: string, supplyPlanItemId: string, paymentId: string, data: ProcurementPaymentRequest): Observable<ProcurementPayment> {
+    return this.http.put<ProcurementPayment>(ENDPOINTS.supplyPlan.paymentById(contractId, supplyPlanItemId, paymentId), data);
+  }
+
+  deleteProcurementPayment(contractId: string, supplyPlanItemId: string, paymentId: string): Observable<void> {
+    return this.http.delete<void>(ENDPOINTS.supplyPlan.paymentById(contractId, supplyPlanItemId, paymentId));
+  }
+
+  uploadProcurementPaymentInvoice(contractId: string, supplyPlanItemId: string, paymentId: string, form: FormData): Observable<ProcurementPayment> {
+    return this.http.post<ProcurementPayment>(ENDPOINTS.supplyPlan.paymentInvoice(contractId, supplyPlanItemId, paymentId), form);
+  }
+
+  uploadProcurementPaymentEvidence(contractId: string, supplyPlanItemId: string, paymentId: string, form: FormData): Observable<ProcurementPayment> {
+    return this.http.post<ProcurementPayment>(ENDPOINTS.supplyPlan.paymentEvidence(contractId, supplyPlanItemId, paymentId), form);
   }
 }

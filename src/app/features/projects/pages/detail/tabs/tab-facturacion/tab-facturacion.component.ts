@@ -5,12 +5,30 @@ import { forkJoin } from 'rxjs';
 import { ProjectService } from '../../../../services/project.service';
 import {
   BudgetEntry, BudgetItem, BudgetMonthlyDistribution, Invoice, InvoiceRequest, InvoiceStatus,
+  FundingReceipt, FundingReceiptRequest, FundingReceiptStatus,
 } from '../../../../models/project.model';
 import { MoneyMaskDirective } from '../../../../../../shared/directives/money-mask.directive';
 import { AuthStore } from '../../../../../../../core/auth/store/auth.store';
 import { BudgetPeriodStatusComponent } from '../../../../components/budget-period-status/budget-period-status.component';
 
 const INVOICE_ROLES = ['ADMIN', 'COORDINADOR', 'FINANCE'];
+
+interface ReceiptFormState {
+  value:             number | null;
+  value_before_tax:  number | null;
+  receipt_date:      string | null;
+  status:            FundingReceiptStatus;
+  receipt_reference: string;
+  observation:       string;
+}
+
+function emptyReceiptForm(): ReceiptFormState {
+  return {
+    value: null, value_before_tax: null,
+    receipt_date: new Date().toISOString().slice(0, 10),
+    status: 'planeado', receipt_reference: '', observation: '',
+  };
+}
 
 export interface InvoiceItemRow {
   budget_item_id:        string;
@@ -67,6 +85,16 @@ export class TabFacturacionComponent implements OnInit {
 
   readonly canCreate = computed(() => INVOICE_ROLES.includes(this.auth.user()?.role ?? ''));
 
+  // ── Cobros reales recibidos (por factura) ───────────────────────────────
+  expandedInvoiceId    = signal<string | null>(null);
+  receiptsByInvoice    = signal<Record<string, FundingReceipt[]>>({});
+  receiptsLoadingId    = signal<string | null>(null);
+  receiptFormInvoiceId = signal<string | null>(null);
+  receiptForm: ReceiptFormState = emptyReceiptForm();
+  receiptSaving        = signal(false);
+  receiptError         = signal<string | null>(null);
+  deletingReceiptId    = signal<string | null>(null);
+
   ngOnInit(): void {
     this.svc.getBudgetWizard(this.projectId).subscribe({
       next: (w) => {
@@ -110,10 +138,16 @@ export class TabFacturacionComponent implements OnInit {
   selectItem(row: InvoiceItemRow): void {
     this.selectedItem.set(row);
     this.cancelForm();
+    this.expandedInvoiceId.set(null);
+    this.receiptsByInvoice.set({});
+    this.cancelReceiptForm();
     this.loadItemAndInvoices(row.budget_item_id);
   }
 
-  /** Carga en paralelo el ítem presupuestal (billed_amount actualizado por mes) y su historial de facturas. */
+  /** Carga en paralelo el ítem presupuestal (billed_amount actualizado por mes) y su historial de facturas.
+   * Los cobros de CADA factura también se cargan de una vez aquí (no solo al expandir) para que el chip
+   * "Cobrado $X / $Y" de la lista sea correcto desde el primer render — antes se quedaba en $0 hasta que
+   * el usuario hacía click para expandir esa factura en particular. */
   private loadItemAndInvoices(bid: string): void {
     this.invoicesLoading.set(true);
     this.invoicesError.set(null);
@@ -135,11 +169,25 @@ export class TabFacturacionComponent implements OnInit {
         }
         this.invoices.set(invoices ?? []);
         this.invoicesLoading.set(false);
+        this.loadAllReceipts(bid, invoices ?? []);
       },
       error: () => {
         this.invoicesError.set('No se pudo cargar el ítem o su historial de facturas.');
         this.invoicesLoading.set(false);
       },
+    });
+  }
+
+  private loadAllReceipts(bid: string, invoices: Invoice[]): void {
+    if (!invoices.length) { this.receiptsByInvoice.set({}); return; }
+    forkJoin(
+      invoices.reduce((acc, inv) => {
+        acc[inv.id] = this.svc.listFundingReceipts(this.projectId, bid, inv.id);
+        return acc;
+      }, {} as Record<string, ReturnType<ProjectService['listFundingReceipts']>>)
+    ).subscribe({
+      next: byInvoiceId => this.receiptsByInvoice.set(byInvoiceId as Record<string, FundingReceipt[]>),
+      error: () => {},
     });
   }
 
@@ -219,6 +267,116 @@ export class TabFacturacionComponent implements OnInit {
       },
     });
   }
+
+  // ── Cobros reales recibidos (por factura) ───────────────────────────────
+
+  toggleInvoiceReceipts(invoice: Invoice): void {
+    if (this.expandedInvoiceId() === invoice.id) {
+      this.expandedInvoiceId.set(null);
+      return;
+    }
+    this.expandedInvoiceId.set(invoice.id);
+    this.cancelReceiptForm();
+    if (!this.receiptsByInvoice()[invoice.id]) {
+      this.loadReceipts(invoice);
+    }
+  }
+
+  private loadReceipts(invoice: Invoice): void {
+    const item = this.selectedItem();
+    if (!item) return;
+    this.receiptsLoadingId.set(invoice.id);
+    this.svc.listFundingReceipts(this.projectId, item.budget_item_id, invoice.id).subscribe({
+      next: list => {
+        this.receiptsByInvoice.update(m => ({ ...m, [invoice.id]: list ?? [] }));
+        this.receiptsLoadingId.set(null);
+      },
+      error: () => this.receiptsLoadingId.set(null),
+    });
+  }
+
+  receiptsFor(invoiceId: string): FundingReceipt[] {
+    return this.receiptsByInvoice()[invoiceId] ?? [];
+  }
+
+  collectedFor(invoiceId: string): number {
+    return this.receiptsFor(invoiceId).reduce((s, r) => s + (r.value ?? 0), 0);
+  }
+
+  /** Totales del ítem seleccionado, para el resumen de "control de cobros" arriba de la lista. */
+  totalInvoiced = computed(() => this.invoices().reduce((s, i) => s + (i.value ?? 0), 0));
+  totalCollected = computed(() => this.invoices().reduce((s, i) => s + this.collectedFor(i.id), 0));
+  collectionPct = computed(() => {
+    const total = this.totalInvoiced();
+    return total > 0 ? Math.min(100, Math.round((this.totalCollected() / total) * 100)) : 0;
+  });
+
+  startReceiptForm(invoice: Invoice): void {
+    this.receiptFormInvoiceId.set(invoice.id);
+    this.receiptForm = emptyReceiptForm();
+    this.receiptError.set(null);
+  }
+
+  cancelReceiptForm(): void {
+    this.receiptFormInvoiceId.set(null);
+    this.receiptError.set(null);
+    this.receiptForm = emptyReceiptForm();
+  }
+
+  submitReceipt(invoice: Invoice): void {
+    const item = this.selectedItem();
+    if (!item || this.receiptSaving()) return;
+
+    if (!this.receiptForm.value || this.receiptForm.value <= 0) {
+      this.receiptError.set('El valor del cobro es requerido y debe ser mayor a 0.');
+      return;
+    }
+
+    this.receiptSaving.set(true);
+    this.receiptError.set(null);
+
+    const payload: FundingReceiptRequest = {
+      value:              this.receiptForm.value,
+      value_before_tax:   this.receiptForm.value_before_tax ?? undefined,
+      receipt_date:       this.receiptForm.receipt_date || null,
+      status:             this.receiptForm.status,
+      receipt_reference:  this.receiptForm.receipt_reference.trim() || null,
+      observation:        this.receiptForm.observation.trim() || null,
+    };
+
+    this.svc.createFundingReceipt(this.projectId, item.budget_item_id, invoice.id, payload).subscribe({
+      next: () => {
+        this.receiptSaving.set(false);
+        this.cancelReceiptForm();
+        this.loadReceipts(invoice);
+      },
+      error: err => {
+        this.receiptSaving.set(false);
+        this.receiptError.set(err?.error?.message ?? 'Error al registrar el cobro.');
+      },
+    });
+  }
+
+  deleteReceipt(invoice: Invoice, receipt: FundingReceipt): void {
+    const item = this.selectedItem();
+    if (!item) return;
+    if (!confirm('¿Eliminar este cobro registrado?')) return;
+    this.deletingReceiptId.set(receipt.id);
+    this.svc.deleteFundingReceipt(this.projectId, item.budget_item_id, invoice.id, receipt.id).subscribe({
+      next: () => {
+        this.receiptsByInvoice.update(m => ({ ...m, [invoice.id]: (m[invoice.id] ?? []).filter(r => r.id !== receipt.id) }));
+        this.deletingReceiptId.set(null);
+      },
+      error: () => this.deletingReceiptId.set(null),
+    });
+  }
+
+  receiptStatusLabel(s: FundingReceiptStatus): string {
+    return s === 'recibido' ? 'Recibido' : 'Planeado';
+  }
+
+  trackByInvoiceRow(_: number, i: Invoice) { return i.id; }
+  trackByReceipt(_: number, r: FundingReceipt) { return r.id; }
 
   // ── Helpers ──────────────────────────────────────────────────────────────
 

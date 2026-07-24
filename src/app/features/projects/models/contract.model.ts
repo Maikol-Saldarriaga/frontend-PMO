@@ -495,7 +495,11 @@ export interface SupplyPlanItem {
   project_name:            string | null;
   requirement_category:    string | null;
   requirement_detail:      string | null;
+  /** @deprecated legado de texto libre, ya no se escribe — usar requested_by_name */
   requested_by:            string | null;
+  /** Usuario del software que creó el requerimiento — lo asigna el backend, no editable. */
+  requested_by_user_id:    string | null;
+  requested_by_name:       string | null;
   receiving_party:         string | null;
   estimated_request_date:  string | null;
   actual_request_date:     string | null;
@@ -514,6 +518,8 @@ export interface SupplyPlanItem {
   period_year:             number;
   period_month:            number;
   created_at?:              string;
+  /** Rubro de presupuesto opcional al que se vincula este requerimiento (budget_items.id). */
+  budget_item_id:          string | null;
 }
 
 export interface SupplyPlanRequest {
@@ -522,7 +528,6 @@ export interface SupplyPlanRequest {
   project_name?:            string | null;
   requirement_category?:    string | null;
   requirement_detail?:      string | null;
-  requested_by?:            string | null;
   receiving_party?:         string | null;
   estimated_request_date?:  string | null;
   actual_request_date?:     string | null;
@@ -540,6 +545,8 @@ export interface SupplyPlanRequest {
   observation?:             string | null;
   period_year:              number;
   period_month:             number;
+  /** Rubro de presupuesto opcional al que se vincula este requerimiento (budget_items.id). */
+  budget_item_id?:          string | null;
 }
 
 export interface SupplyPlanSummary {
@@ -553,4 +560,39 @@ export interface SupplyPlanFilters {
   month?:    number | null;
   category?: string | null;
   status?:   SupplyPlanStatus | '' | null;
+}
+
+// ── Pagos reales a proveedor (contra un requerimiento del plan de abastecimiento) ──
+
+export type ProcurementPaymentStatus = 'planeado' | 'pagado';
+
+export interface ProcurementPayment {
+  id:                       string;
+  company_id:               string;
+  contract_agreement_id:    string;
+  supply_plan_item_id:      string;
+  value:                    number;
+  counterpart_value:        number;
+  ally_value:               number;
+  payment_date:             string | null;
+  status:                   ProcurementPaymentStatus;
+  payment_reference:        string | null;
+  /** URL prefirmada, lista para usar directo en un <a href>. */
+  invoice_document_key:     string | null;
+  invoice_document_name:    string | null;
+  /** URL prefirmada, lista para usar directo en un <a href>. */
+  evidence_document_key:    string | null;
+  evidence_document_name:   string | null;
+  observation:              string | null;
+  created_at:               string;
+}
+
+export interface ProcurementPaymentRequest {
+  value:               number;
+  counterpart_value:   number;
+  ally_value:          number;
+  payment_date?:       string | null;
+  status:              ProcurementPaymentStatus;
+  payment_reference?:  string | null;
+  observation?:        string | null;
 }
