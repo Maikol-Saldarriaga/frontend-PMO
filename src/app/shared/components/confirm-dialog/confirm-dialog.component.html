@@ -1,0 +1,39 @@
+@if (state().open) {
+  <div class="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-neutral-900/50 backdrop-blur-sm" (click)="onCancel()"></div>
+
+    <div class="relative w-full max-w-md rounded-xl bg-white shadow-2xl animate-[fadeIn_.15s_ease-out]">
+      <div class="p-6">
+        <div class="flex items-start gap-4">
+          <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full" [ngClass]="iconClasses().wrap">
+            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+            </svg>
+          </div>
+          <div class="flex-1 pt-1">
+            <h3 class="text-base font-semibold text-neutral-900">{{ state().title }}</h3>
+            <p class="mt-1 text-sm text-neutral-600">{{ state().message }}</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-3 rounded-b-xl bg-neutral-50 px-6 py-4">
+        <button
+          type="button"
+          class="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 focus:outline-none focus:ring-4 focus:ring-neutral-200"
+          (click)="onCancel()"
+        >
+          {{ state().cancelText }}
+        </button>
+        <button
+          type="button"
+          class="rounded-lg px-4 py-2 text-sm font-medium text-white focus:outline-none focus:ring-4"
+          [ngClass]="iconClasses().btn"
+          (click)="onConfirm()"
+        >
+          {{ state().confirmText }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

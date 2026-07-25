@@ -29,6 +29,10 @@ export class AllyService {
     return this.http.delete<void>(ENDPOINTS.allies.deactivate(id));
   }
 
+  activate(id: string): Observable<void> {
+    return this.http.put<void>(ENDPOINTS.allies.activate(id), {});
+  }
+
   listSupervisors(id: string): Observable<AllySupervisor[]> {
     return this.http.get<AllySupervisor[]>(ENDPOINTS.allies.supervisors(id));
   }

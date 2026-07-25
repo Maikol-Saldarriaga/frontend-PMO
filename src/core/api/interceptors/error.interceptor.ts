@@ -25,7 +25,7 @@ export const errorInterceptor: HttpInterceptorFn = (
 
   const forceLogout = () => {
     authStore.clearSession();
-    router.navigate(['/login']);
+    router.navigate(['/login'], { queryParams: { returnUrl: router.url } });
   };
 
   return next(req).pipe(

@@ -37,6 +37,10 @@ export interface CreateSupervisorUserRequest {
   ally_id?:                  string;
 }
 
+export type UpdateSupervisorUserRequest = Omit<CreateSupervisorUserRequest, 'password'> & {
+  password?: string;
+};
+
 export interface CreateSupervisorUserResponse {
   id:                       string;
   first_name:               string;

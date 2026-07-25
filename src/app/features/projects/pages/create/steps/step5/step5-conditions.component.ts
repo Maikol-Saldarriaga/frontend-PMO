@@ -6,7 +6,7 @@ import { ContractService } from '../../../../services/contract.service';
 import { SupportTypeKey, SUPPORT_TYPES, SUPPORT_TYPE_LABELS } from '../../../../models/support-types.constant';
 
 type ConditionType  = 'requisito_minimo' | 'supuesto' | 'exclusion' | 'restriccion';
-type ComplianceType = 'fecha_especifica' | 'hito_proyecto' | 'periodicidad' | 'permanente';
+type ComplianceType = 'fecha_especifica' | 'hito_proyecto' | 'periodicidad' | 'permanente' | 'na' | 'pendiente';
 
 interface PendingUpload {
   support_type: SupportTypeKey | '';
@@ -27,6 +27,7 @@ export interface Step5SubmitPayload {
 }
 
 interface ConditionRow {
+  _uid:             number;
   id?:              string;
   condition:        ConditionType;
   type_compliance:  ComplianceType;
@@ -65,6 +66,8 @@ const COMPLIANCE_TYPES: { value: ComplianceType; label: string }[] = [
   { value: 'hito_proyecto',    label: 'Hito del proyecto' },
   { value: 'periodicidad',     label: 'Periodicidad' },
   { value: 'permanente',       label: 'Permanente' },
+  { value: 'na',                label: 'No aplica' },
+  { value: 'pendiente',         label: 'Pendiente' },
 ];
 
 const HITOS: { value: string; label: string }[] = [
@@ -86,7 +89,11 @@ const emptyUpload = (): PendingUpload => ({
   support_type: '', name: '', files: [],
 });
 
+let rowUidCounter = 0;
+const nextUid = (): number => ++rowUidCounter;
+
 const EMPTY = (): ConditionRow => ({
+  _uid: nextUid(),
   condition: 'requisito_minimo', type_compliance: 'fecha_especifica',
   compliance_value: '', description: '',
   hasSupports: false, supports: [], upload: emptyUpload(),
@@ -101,8 +108,13 @@ const EMPTY = (): ConditionRow => ({
 export class Step5ConditionsComponent {
   @Input() projectId = '';
   @Input() serviceId = '';
+  private savedDataLoaded = false;
   @Input() set savedData(val: WizardCondition[] | undefined) {
-    if (!val?.length) return;
+    // El padre reenvía este mismo dato tras cada (dataChange) emitido por este
+    // componente; sin esta guarda, cada tecleo reconstruye las filas con _uid
+    // nuevos y el @for (track row._uid) destruye/recrea el DOM, perdiendo el foco.
+    if (this.savedDataLoaded || !val?.length) return;
+    this.savedDataLoaded = true;
     this.rows.set(val.map(v => {
       const type_compliance = (v.type_compliance as ComplianceType) ?? 'fecha_especifica';
       // <input type="date"> solo acepta "YYYY-MM-DD"; el backend puede devolver la fecha con hora/zona.
@@ -110,6 +122,7 @@ export class Step5ConditionsComponent {
         ? (v.compliance_value?.split('T')[0] ?? '')
         : (v.compliance_value ?? '');
       return {
+        _uid:             nextUid(),
         id:               v.id,
         condition:        (v.condition as ConditionType) ?? 'requisito_minimo',
         type_compliance,
@@ -218,12 +231,27 @@ export class Step5ConditionsComponent {
   }
 
   private formatComplianceValue(r: ConditionRow): string | null {
-    if (r.type_compliance === 'permanente') return null;
+    if (['permanente', 'na', 'pendiente'].includes(r.type_compliance)) return null;
     // El backend valida compliance_value como "YYYY-MM-DD" puro para fecha_especifica (sin hora/zona).
     return r.compliance_value || null;
   }
 
+  private validateRows(): string[] {
+    return this.rows().reduce<string[]>((errors, r, idx) => {
+      const requiresValue = !['permanente', 'na', 'pendiente'].includes(r.type_compliance);
+      if (requiresValue && !r.compliance_value) {
+        errors.push(`Condición ${idx + 1}: falta el valor de cumplimiento (${this.complianceTypes.find(c => c.value === r.type_compliance)?.label}).`);
+      }
+      return errors;
+    }, []);
+  }
+
   onSubmit(): void {
+    const errors = this.validateRows();
+    if (errors.length) {
+      this.validationError.emit(errors);
+      return;
+    }
     const uploads: PendingConditionUpload[] = this.rows()
       .map((r, rowIndex) => ({
         rowIndex,

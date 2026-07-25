@@ -60,6 +60,7 @@ import {
   Beneficiary,
   BeneficiaryRequest,
   BeneficiaryPageResponse,
+  BeneficiaryBulkResponse,
   IndicatorVerification,
   Indicator,
   IndicatorRequest,
@@ -76,6 +77,10 @@ import {
   FundingReceipt,
   FundingReceiptRequest,
   CashFlowReport,
+  Guarantee,
+  GuaranteeRequest,
+  ProjectSignatureInfo,
+  ProjectSignatureRequest,
 } from '../models/project.model';
 
 export interface ProjectFilters {
@@ -383,6 +388,10 @@ export class ProjectService {
     return this.http.delete<void>(ENDPOINTS.projects.affiliateById(id, bid));
   }
 
+  bulkImportBeneficiaries(id: string, items: BeneficiaryRequest[]): Observable<BeneficiaryBulkResponse> {
+    return this.http.post<BeneficiaryBulkResponse>(ENDPOINTS.projects.affiliatesBulk(id), { items });
+  }
+
   getDocuments(id: string): Observable<ProjectDocumentsResponse> {
     return this.http.get<ProjectDocumentsResponse>(ENDPOINTS.projects.documents(id));
   }
@@ -407,14 +416,13 @@ export class ProjectService {
     return this.http.delete<void>(ENDPOINTS.projects.teamMember(id, uid));
   }
 
-  // Un admin nunca puede ser miembro de apoyo (el backend también lo rechaza) —
-  // ya tiene acceso total, bajarlo a permisos por sección le quitaría autoridad.
+  // El equipo de apoyo de un proyecto solo admite usuarios con role=APOYO
+  // (el backend rechaza con 400 cualquier otro rol al agregarlo al equipo).
   getUsers(): Observable<UserListItem[]> {
-    return this.http.get<any>(ENDPOINTS.users.list).pipe(
+    return this.http.get<any>(ENDPOINTS.users.list, { params: { role: 'APOYO' } }).pipe(
       map(res => {
         const list = Array.isArray(res) ? res : (res?.data ?? res?.users ?? []);
         return list
-          .filter((u: any) => u.role !== 'ADMIN')
           .map((u: any) => ({
             id:    u.id,
             email: u.email,
@@ -454,6 +462,38 @@ export class ProjectService {
 
   getCashFlowReport(id: string): Observable<CashFlowReport> {
     return this.http.get<CashFlowReport>(ENDPOINTS.projects.cashFlow(id));
+  }
+
+  // ── Garantías ─────────────────────────────────────────────────────────────
+
+  getGuarantees(id: string): Observable<Guarantee[]> {
+    return this.http.get<Guarantee[]>(ENDPOINTS.projects.guarantees(id));
+  }
+
+  createGuarantee(id: string, data: GuaranteeRequest): Observable<Guarantee> {
+    return this.http.post<Guarantee>(ENDPOINTS.projects.guarantees(id), data);
+  }
+
+  updateGuarantee(id: string, gid: string, data: GuaranteeRequest): Observable<Guarantee> {
+    return this.http.put<Guarantee>(ENDPOINTS.projects.guaranteeById(id, gid), data);
+  }
+
+  deleteGuarantee(id: string, gid: string): Observable<void> {
+    return this.http.delete<void>(ENDPOINTS.projects.guaranteeById(id, gid));
+  }
+
+  // ── Firmas ────────────────────────────────────────────────────────────────
+
+  getSignature(id: string): Observable<ProjectSignatureInfo> {
+    return this.http.get<ProjectSignatureInfo>(ENDPOINTS.projects.signature(id));
+  }
+
+  saveSignature(id: string, data: ProjectSignatureRequest): Observable<ProjectSignatureInfo> {
+    return this.http.put<ProjectSignatureInfo>(ENDPOINTS.projects.signature(id), data);
+  }
+
+  uploadSignatureImage(id: string, kind: 'prepared' | 'approved', form: FormData): Observable<ProjectSignatureInfo> {
+    return this.http.post<ProjectSignatureInfo>(ENDPOINTS.projects.signatureImage(id, kind), form);
   }
 
 }

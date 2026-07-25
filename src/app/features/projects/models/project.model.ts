@@ -356,7 +356,7 @@ export interface ProjectWizardIndicator {
 
 // ── CRUD de indicadores (project_indicators) ────────────────────────────────
 
-export type IndicatorType = 'gestion' | 'proceso' | 'resultado' | 'efecto' | 'impacto';
+export type IndicatorType = 'gestion' | 'proceso' | 'resultado' | 'efecto' | 'impacto' | 'producto';
 
 export interface IndicatorRequest {
   component_id: string;
@@ -895,6 +895,12 @@ export interface Beneficiary {
   sidewalk:                string | null;
 }
 
+export interface BeneficiaryBulkResponse {
+  inserted: number;
+  updated:  number;
+  skipped:  number;
+}
+
 export interface BeneficiaryPageResponse {
   data:        Beneficiary[];
   next_cursor: string | null;
@@ -1137,6 +1143,71 @@ export interface ProjectExtensionRequest {
   date:        string;
   duration:    number;
   observation: string;
+}
+
+// ── Garantías (tab de detalle — antes step 11 del wizard de creación) ──────
+
+export type GuaranteeType =
+  | 'cumplimiento_de_contrato'
+  | 'calidad_del_servicio'
+  | 'buen_manejo_y_correcta_inversion_del_anticipo'
+  | 'estabilidad_y_calidad_de_la_obra'
+  | 'salarios_prestaciones_sociales_e_indemnizaciones'
+  | 'responsabilidad_civil_extracontextual'
+  | 'calidad_y_correcto_funcionamiento_de_los_bienes_y_equipo_suministrado'
+  | 'seriedad_de_la_oferta'
+  | 'pago_anticipado';
+
+export const GUARANTEE_TYPES: { value: GuaranteeType; label: string }[] = [
+  { value: 'cumplimiento_de_contrato',                                          label: 'Cumplimiento de contrato'                                    },
+  { value: 'calidad_del_servicio',                                              label: 'Calidad del servicio'                                        },
+  { value: 'buen_manejo_y_correcta_inversion_del_anticipo',                    label: 'Buen manejo y correcta inversión del anticipo'               },
+  { value: 'estabilidad_y_calidad_de_la_obra',                                 label: 'Estabilidad y calidad de la obra'                            },
+  { value: 'salarios_prestaciones_sociales_e_indemnizaciones',                 label: 'Salarios, prestaciones sociales e indemnizaciones'           },
+  { value: 'responsabilidad_civil_extracontextual',                             label: 'Responsabilidad civil extracontractual'                      },
+  { value: 'calidad_y_correcto_funcionamiento_de_los_bienes_y_equipo_suministrado', label: 'Calidad y correcto funcionamiento de bienes y equipos'  },
+  { value: 'seriedad_de_la_oferta',                                            label: 'Seriedad de la oferta'                                       },
+  { value: 'pago_anticipado',                                                  label: 'Pago anticipado'                                             },
+];
+
+export interface Guarantee {
+  id:                    string;
+  contract_agreement_id: string;
+  type:                  GuaranteeType;
+  description:           string | null;
+  percentage:            number | null;
+  duration:              number | null;
+}
+
+export interface GuaranteeRequest {
+  type:        GuaranteeType;
+  description?: string | null;
+  percentage?:  number | null;
+  duration?:    number | null;
+}
+
+// ── Firmas (tab de detalle) ─────────────────────────────────────────────────
+
+export interface ProjectSignatureInfo {
+  id:                     string;
+  contract_agreement_id:  string;
+  prepared_by_name:       string | null;
+  prepared_by_position:   string | null;
+  prepared_date:          string | null;
+  signature_prepared_url: string | null;
+  approved_by_name:       string | null;
+  approved_by_position:   string | null;
+  approved_date:          string | null;
+  approved_signature_url: string | null;
+}
+
+export interface ProjectSignatureRequest {
+  prepared_by_name?:     string | null;
+  prepared_by_position?: string | null;
+  prepared_date?:        string | null;
+  approved_by_name?:     string | null;
+  approved_by_position?: string | null;
+  approved_date?:        string | null;
 }
 
 // ── Facturación (invoices contra un budget_item) ────────────────────────────

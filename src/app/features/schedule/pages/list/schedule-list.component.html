@@ -103,7 +103,7 @@
                       <span class="inline-flex items-center text-[9px] font-bold tracking-wider uppercase px-1.5 py-0.5 rounded-md border" [class]="getStatusBadge(row.status)">
                         {{ statusLabel(row.status) }}
                       </span>
-                      <span class="text-[10px] text-neutral-400">{{ row.start_date | date:'d MMM yy' }} – {{ row.end_date | date:'d MMM yy' }}</span>
+                      <span class="text-[10px] text-neutral-400">{{ row.start_date | date:'d MMM yy':'UTC' }} – {{ row.end_date | date:'d MMM yy':'UTC' }}</span>
                     </div>
                   </div>
 

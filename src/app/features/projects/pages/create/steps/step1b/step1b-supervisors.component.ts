@@ -15,6 +15,7 @@ import { ProjectService } from '../../../../services/project.service';
 import { TeamMember, UserListItem, ProjectSection, SectionPermission } from '../../../../models/project.model';
 import { SECTION_LABELS } from '../../../detail/tabs/tab-equipo/tab-equipo.component';
 import { AuthStore } from '../../../../../../../core/auth/store/auth.store';
+import { ConfirmDialogService } from '../../../../../../shared/components/confirm-dialog/confirm-dialog.service';
 
 const ALL_SECTIONS = Object.keys(SECTION_LABELS) as ProjectSection[];
 
@@ -62,6 +63,7 @@ export class Step1bSupervisorsComponent implements OnInit {
   private userService   = inject(UserService);
   private projectSvc    = inject(ProjectService);
   private authStore     = inject(AuthStore);
+  private confirmDialog = inject(ConfirmDialogService);
   private avatarRetried = new Set<string>();
 
   readonly sections      = ALL_SECTIONS;
@@ -476,9 +478,82 @@ export class Step1bSupervisorsComponent implements OnInit {
     });
   }
 
-  removeTeamMember(member: TeamMember): void {
+  // ── Crear usuario apoyo (rápido, desde el modal de agregar miembro) ────────
+
+  showApoyoModal = signal(false);
+  savingApoyo    = signal(false);
+  apoyoError     = signal<string | null>(null);
+  apoyoImageFile: File | null = null;
+  apoyoForm = {
+    first_name: '', middle_name: '', first_surname: '', second_surname: '',
+    document_type: 'CC' as SupervisorDocumentType, identity_document_number: '',
+    birthdate: '', email: '', phone: '', password: '', address: '',
+  };
+
+  openApoyoModal(): void {
+    this.apoyoError.set(null);
+    this.apoyoImageFile = null;
+    this.apoyoForm = {
+      first_name: '', middle_name: '', first_surname: '', second_surname: '',
+      document_type: 'CC', identity_document_number: '',
+      birthdate: '', email: '', phone: '', password: '', address: '',
+    };
+    this.showApoyoModal.set(true);
+  }
+
+  closeApoyoModal(): void {
+    this.showApoyoModal.set(false);
+    this.apoyoError.set(null);
+  }
+
+  onApoyoImageChange(event: Event): void {
+    this.apoyoImageFile = (event.target as HTMLInputElement).files?.[0] ?? null;
+  }
+
+  createApoyo(): void {
+    const f = this.apoyoForm;
+    if (!f.first_name || !f.first_surname || !f.second_surname || !f.identity_document_number
+      || !f.birthdate || !f.email || !f.phone || !f.password) {
+      this.apoyoError.set('Completa todos los campos obligatorios.');
+      return;
+    }
+    this.savingApoyo.set(true);
+    this.apoyoError.set(null);
+    this.supervisorSvc.createApoyo({
+      first_name:               f.first_name,
+      first_surname:            f.first_surname,
+      second_surname:           f.second_surname,
+      document_type:            f.document_type,
+      identity_document_number: f.identity_document_number,
+      birthdate:                f.birthdate,
+      email:                    f.email,
+      phone:                    f.phone,
+      password:                 f.password,
+      middle_name:              f.middle_name || undefined,
+      address:                  f.address     || undefined,
+      image_url:                this.apoyoImageFile,
+    }).subscribe({
+      next: (res: CreateSupervisorUserResponse) => {
+        const user: UserListItem = {
+          id:    res.id,
+          email: res.email,
+          name:  `${res.first_name} ${res.first_surname}`,
+        };
+        this.allUsers.update(list => [...list, user]);
+        this.selectedTeamUserId = user.id;
+        this.savingApoyo.set(false);
+        this.showApoyoModal.set(false);
+      },
+      error: (err: { error?: { error?: string; message?: string } }) => {
+        this.savingApoyo.set(false);
+        this.apoyoError.set(err?.error?.error ?? err?.error?.message ?? 'Error al crear el usuario de apoyo.');
+      },
+    });
+  }
+
+  async removeTeamMember(member: TeamMember): Promise<void> {
     if (!this.projectId) return;
-    if (!confirm(`¿Quitar a ${member.user_name} del equipo de apoyo?`)) return;
+    if (!(await this.confirmDialog.confirm({ message: `¿Quitar a ${member.user_name} del equipo de apoyo?` }))) return;
     this.projectSvc.removeTeamMember(this.projectId, member.user_id).subscribe({
       next: () => this.loadTeam(),
       error: () => this.teamError.set('Error al quitar el miembro del equipo.'),

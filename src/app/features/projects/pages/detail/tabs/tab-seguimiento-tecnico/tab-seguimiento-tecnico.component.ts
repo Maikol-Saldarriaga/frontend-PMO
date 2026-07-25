@@ -8,6 +8,7 @@ import {
   ScopeComponent, ScopeActivity, CheckpointPeriodicity, GenerateSnapshotsRequest,
 } from '../../../../models/project.model';
 import { environment } from '../../../../../../../environments/environment';
+import { ConfirmDialogService } from '../../../../../../shared/components/confirm-dialog/confirm-dialog.service';
 
 interface FlatActivity {
   id:            string;
@@ -64,7 +65,7 @@ const emptyAutoForm = (): AutoForm => ({
 export class TabSeguimientoTecnicoComponent implements OnInit {
   @Input() projectId!: string;
 
-  constructor(private svc: ProjectService, private timeSvc: ServerTimeService) {}
+  constructor(private svc: ProjectService, private timeSvc: ServerTimeService, private confirmDialog: ConfirmDialogService) {}
 
   /** Hora real (internet, vía NTP en el backend / worldtimeapi en el front), no el reloj local. */
   nowDate = signal<Date>(new Date());
@@ -286,12 +287,12 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
     });
   }
 
-  confirmAutoGenerate(): void {
+  async confirmAutoGenerate(): Promise<void> {
     const act = this.selectedActivity();
     const preview = this.autoPreviewList();
     if (!act || !preview) return;
     const replace = this.activitySnaps().length > 0;
-    if (replace && !confirm(`Esto reemplazará los ${this.activitySnaps().length} período(s) existentes de esta actividad por los ${preview.length} generados automáticamente. ¿Continuar?`)) {
+    if (replace && !(await this.confirmDialog.confirm({ message: `Esto reemplazará los ${this.activitySnaps().length} período(s) existentes de esta actividad por los ${preview.length} generados automáticamente. ¿Continuar?` }))) {
       return;
     }
     const req: GenerateSnapshotsRequest = {

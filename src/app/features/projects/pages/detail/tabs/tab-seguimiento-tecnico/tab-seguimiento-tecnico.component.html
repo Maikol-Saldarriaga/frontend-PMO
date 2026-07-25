@@ -539,7 +539,7 @@
                     </svg>
                     <p class="text-xs text-violet-700">
                       Extensión: {{ snap.extension_observation }}
-                      @if (snap.extended_at) { <span class="text-violet-400">({{ snap.extended_at | date:'dd/MM/yyyy' }})</span> }
+                      @if (snap.extended_at) { <span class="text-violet-400">({{ snap.extended_at | date:'dd/MM/yyyy':'UTC' }})</span> }
                     </p>
                   </div>
                 }

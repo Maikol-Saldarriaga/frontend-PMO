@@ -103,7 +103,7 @@
                 @if (canCreate()) {
                   <button type="button" (click)="showForm() ? cancelForm() : startForm()"
                     class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-accent to-accent-700 hover:from-accent-600 hover:to-accent-800 text-white text-sm font-semibold shadow-sm transition-all active:scale-95 flex-shrink-0">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <svg class="w-4 h-4 transition-transform duration-300 ease-out" [class.rotate-45]="showForm()" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
                     </svg>
                     @if (showForm()) { Cancelar } @else { Nueva factura }
@@ -135,14 +135,17 @@
                   </div>
 
                   <div>
-                    <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Mes a facturar</label>
-                    <select [(ngModel)]="form.period"
+                    <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Mes a facturar <span class="text-danger">*</span></label>
+                    <select [(ngModel)]="form.period" required
                       class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors cursor-pointer">
-                      <option value="">Componente completo (sin mes específico)</option>
-                      @for (dist of selectedItem()!.monthly_distributions; track dist.id) {
+                      <option value="" disabled>Selecciona un mes</option>
+                      @for (dist of availableMonths(); track dist.id) {
                         <option [value]="periodValue(dist)">{{ monthLabel(dist) }}</option>
                       }
                     </select>
+                    @if (availableMonths().length === 0) {
+                      <p class="text-[10px] text-neutral-400 mt-1">No hay meses disponibles: todos ya fueron facturados.</p>
+                    }
                   </div>
                   <div>
                     <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Estado</label>

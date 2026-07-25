@@ -6,6 +6,7 @@ import {
   SupervisorListResponse,
   CreateSupervisorUserRequest,
   CreateSupervisorUserResponse,
+  UpdateSupervisorUserRequest,
   CreateAffiliateRequest,
   CreateAffiliateResponse,
 } from '../models/supervisor.model';
@@ -29,7 +30,23 @@ export class SupervisorService {
     return this.http.post<CreateSupervisorUserResponse>(ENDPOINTS.supervisors.createSupervisorAliado, this.buildUserForm(data));
   }
 
-  private buildUserForm(data: CreateSupervisorUserRequest): FormData {
+  createApoyo(data: CreateSupervisorUserRequest): Observable<CreateSupervisorUserResponse> {
+    return this.http.post<CreateSupervisorUserResponse>(ENDPOINTS.supervisors.createApoyo, this.buildUserForm(data));
+  }
+
+  updateSupervisorAliado(id: string, data: UpdateSupervisorUserRequest): Observable<CreateSupervisorUserResponse> {
+    return this.http.put<CreateSupervisorUserResponse>(ENDPOINTS.supervisors.update(id), this.buildUserForm(data));
+  }
+
+  activateSupervisor(id: string): Observable<void> {
+    return this.http.put<void>(ENDPOINTS.supervisors.activate(id), {});
+  }
+
+  deactivateSupervisor(id: string): Observable<void> {
+    return this.http.delete<void>(ENDPOINTS.supervisors.deactivate(id));
+  }
+
+  private buildUserForm(data: UpdateSupervisorUserRequest): FormData {
     const fd = new FormData();
     fd.append('first_name',               data.first_name);
     fd.append('first_surname',            data.first_surname);
@@ -39,7 +56,7 @@ export class SupervisorService {
     fd.append('birthdate',                data.birthdate);
     fd.append('email',                    data.email);
     fd.append('phone',                    data.phone);
-    fd.append('password',                 data.password);
+    if (data.password)    fd.append('password',    data.password);
     if (data.middle_name) fd.append('middle_name', data.middle_name);
     if (data.address)     fd.append('address',     data.address);
     if (data.image_url)   fd.append('image_url',   data.image_url, data.image_url.name);

@@ -32,6 +32,7 @@
               }
             ],
             "styles": [
+              "node_modules/apexcharts/dist/apexcharts.css",
               "src/styles.scss"
             ],
             "scripts": [
@@ -48,7 +49,7 @@
                 },
                 {
                   "type": "anyComponentStyle",
-                  "maximumWarning": "11kB",
+                  "maximumWarning": "12kB",
                   "maximumError": "15kB"
                 }
               ],

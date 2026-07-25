@@ -54,7 +54,7 @@ export class ProjectCreateComponent implements OnInit, OnDestroy {
   navSteps         = signal(0);
   // completedSteps / totalSteps / percentDone: solo para display en la barra
   completedSteps   = signal(0);
-  totalSteps       = signal(11);
+  totalSteps       = signal(PROJECT_STEPS.length);
   percentDone      = signal(0);
   submitting       = signal(false);
   loading          = signal(false);
@@ -269,9 +269,9 @@ export class ProjectCreateComponent implements OnInit, OnDestroy {
                         if (wizard.step8?.components?.length) {
                           nav = 9; // step 9 hecho → step 10 (Indicadores) accesible
                           if (wizard.step9?.length) {
-                            nav = 10; // step 10 (Garantías) accesible
+                            nav = 10; // step 10 hecho → step 11 (Garantías) accesible
                             if (wizard.step10?.length) {
-                              nav = 11; // paso siguiente
+                              nav = 11; // último paso del wizard completado
                             }
                           }
                         }
@@ -325,7 +325,7 @@ export class ProjectCreateComponent implements OnInit, OnDestroy {
     this.currentStep.set(draft.currentStep ?? 1);
     this.navSteps.set((draft as ContractDraft & { navSteps?: number }).navSteps ?? 0);
     this.completedSteps.set(draft.completedSteps ?? 0);
-    this.totalSteps.set(draft.totalSteps ?? 11);
+    this.totalSteps.set(draft.totalSteps ?? PROJECT_STEPS.length);
     this.percentDone.set(draft.percentDone ?? 0);
     this.stepData.set(draft.stepData ?? {});
     const step1Draft = draft.stepData?.['step1'] as ProjectStep1Request | undefined;
@@ -496,6 +496,9 @@ export class ProjectCreateComponent implements OnInit, OnDestroy {
     });
   }
 
+  /** Garantías es el último paso del wizard — al guardarlo se termina la creación del proyecto
+   * (borra el borrador y navega al detalle). Las firmas quedaron fuera del wizard; se gestionan
+   * aparte desde la pestaña Firmas del detalle del proyecto. */
   onStep10Submit(data: ContractStep10Request): void {
     const id = this.projectId();
     if (!id) { this.showToast('error', 'No se encontró el ID.'); return; }
@@ -506,6 +509,7 @@ export class ProjectCreateComponent implements OnInit, OnDestroy {
       next: () => {
         localStorage.removeItem(this.draftKey);
         this.submitting.set(false);
+        this.showToast('success', 'Garantías guardadas correctamente. Proyecto creado.');
         this.router.navigate(['/projects', id]);
       },
       error: (err) => this.handleError(err, 'Error al guardar las garantías.'),
@@ -725,7 +729,7 @@ export class ProjectCreateComponent implements OnInit, OnDestroy {
     this.showToast('error', 'Completa los campos obligatorios antes de continuar.', fields);
   }
 
-  // UI currentStep (1-11) no coincide 1:1 con las llaves internas de stepData
+  // UI currentStep (1-12) no coincide 1:1 con las llaves internas de stepData
   // porque "step1b" (Supervisores) ocupa la posición 2 y desplaza todo lo siguiente.
   private static readonly STEP_KEY_BY_UI: Record<number, string> = {
     1: 'step1', 2: 'step1b', 3: 'step2', 4: 'step3', 5: 'step4',

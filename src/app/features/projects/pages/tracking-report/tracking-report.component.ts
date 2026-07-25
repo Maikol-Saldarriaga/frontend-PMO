@@ -7,6 +7,8 @@ import {
 } from 'ng-apexcharts';
 import * as XLSX from 'xlsx';
 import { ProjectService } from '../../services/project.service';
+import { ConfirmDialogService } from '../../../../shared/components/confirm-dialog/confirm-dialog.service';
+import { buildTooltip } from '../../../../shared/utils/chart-tooltip.util';
 import {
   TrackingReport, ComponentTrackingSummary, ActivityTrackingSummary, ReportToken, TrackingStatus,
 } from '../../models/project.model';
@@ -78,6 +80,7 @@ export class TrackingReportComponent implements OnInit {
   private router  = inject(Router);
   private route   = inject(ActivatedRoute);
   private svc     = inject(ProjectService);
+  private confirmDialog = inject(ConfirmDialogService);
 
   projectId = '';
 
@@ -147,11 +150,29 @@ export class TrackingReportComponent implements OnInit {
       colors: ['#94a3b8', '#0ea5e9'],
       xaxis: { categories: r.s_curve.map(p => this.formatDate(p.period_end)) },
       dataLabels: { enabled: false },
-      legend: { position: 'top' },
-      tooltip: { shared: true, y: { formatter: (v: number) => `${v.toFixed(1)}%` } },
+      legend: { show: false },
+      tooltip: {
+        shared: true,
+        custom: ({ series, dataPointIndex, w }: any) =>
+          buildTooltip(this.formatDate(r.s_curve[dataPointIndex].period_end), w.config.series.map((s: any, i: number) => ({
+            label: s.name, value: `${series[i][dataPointIndex].toFixed(1)}%`, color: w.globals.colors[i],
+          }))),
+      },
       grid: { borderColor: '#e2e8f0' },
     };
   });
+
+  /** Leyendas propias — el render nativo de ApexCharts se ve vacío/roto por el
+   * mismo problema de CSS que rompía los tooltips. */
+  sCurveLegend = [
+    { label: 'Planeado acumulado', color: '#94a3b8' },
+    { label: 'Real acumulado', color: '#0ea5e9' },
+  ];
+
+  componentBarLegend = [
+    { label: 'Planeado a la fecha', color: '#94a3b8' },
+    { label: 'Real a la fecha', color: '#0ea5e9' },
+  ];
 
   statusDonut = computed<DonutChartOptions | null>(() => {
     const r = this.report();
@@ -170,7 +191,12 @@ export class TrackingReportComponent implements OnInit {
       colors: entries.map(([s]) => STATUS_COLORS[s]),
       legend: { position: 'bottom', fontSize: '12px' },
       dataLabels: { enabled: true },
-      tooltip: {},
+      tooltip: {
+        custom: ({ seriesIndex, w }: any) =>
+          buildTooltip(w.globals.labels[seriesIndex], [
+            { label: 'Actividades', value: `${w.globals.series[seriesIndex]}`, color: w.globals.colors[seriesIndex] },
+          ]),
+      },
       plotOptions: { pie: { donut: { size: '65%' } } },
     };
   });
@@ -188,8 +214,14 @@ export class TrackingReportComponent implements OnInit {
       colors: ['#94a3b8', '#0ea5e9'],
       xaxis: { categories: comps.map(c => c.name ?? '—') },
       dataLabels: { enabled: true, formatter: (v: number) => `${v.toFixed(0)}%` },
-      legend: { position: 'top' },
-      tooltip: { y: { formatter: (v: number) => `${v.toFixed(1)}%` } },
+      legend: { show: false },
+      tooltip: {
+        shared: true,
+        custom: ({ series, dataPointIndex, w }: any) =>
+          buildTooltip(comps[dataPointIndex].name ?? '—', w.config.series.map((s: any, i: number) => ({
+            label: s.name, value: `${series[i][dataPointIndex].toFixed(1)}%`, color: w.globals.colors[i],
+          }))),
+      },
       plotOptions: { bar: { horizontal: true, borderRadius: 4, barHeight: '35%' } },
       grid: { borderColor: '#e2e8f0' },
     };
@@ -206,7 +238,12 @@ export class TrackingReportComponent implements OnInit {
       xaxis: { categories: items.map(a => `Act. ${a.act ?? '—'} · ${(a.description ?? '').slice(0, 40)}`) },
       dataLabels: { enabled: true },
       legend: { show: false },
-      tooltip: {},
+      tooltip: {
+        custom: ({ dataPointIndex, series, w }: any) =>
+          buildTooltip(`Act. ${items[dataPointIndex].act ?? '—'}`, [
+            { label: items[dataPointIndex].description ?? '', value: `${series[0][dataPointIndex]}`, color: w.globals.colors[dataPointIndex] },
+          ]),
+      },
       plotOptions: { bar: { horizontal: true, borderRadius: 4, barHeight: '55%', distributed: true } },
       grid: { borderColor: '#e2e8f0' },
     };
@@ -354,8 +391,8 @@ export class TrackingReportComponent implements OnInit {
     });
   }
 
-  revokeToken(tokenId: string): void {
-    if (!confirm('¿Revocar este token? Cualquier reporte de Power BI conectado con él dejará de funcionar.')) return;
+  async revokeToken(tokenId: string): Promise<void> {
+    if (!(await this.confirmDialog.confirm({ message: '¿Revocar este token? Cualquier reporte de Power BI conectado con él dejará de funcionar.' }))) return;
     this.svc.revokeReportToken(this.projectId, tokenId).subscribe({
       next: () => this.tokens.update(list => list.filter(t => t.id_token !== tokenId)),
       error: () => this.tokenError.set('No se pudo revocar el token.'),

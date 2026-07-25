@@ -84,6 +84,13 @@ export class TabResumenComponent {
 
   trackBySnap(_: number, s: Snapshot) { return s.start_date + s.end_date; }
 
+  /** Igual criterio que el dashboard: bajo 5% muestra 2 decimales para que no se vea "0%"
+   * cuando en realidad hay un avance/consumo pequeño pero real. */
+  formatPct(val: number): string {
+    if (val > 0 && val < 5) return val.toFixed(2);
+    return Math.round(val).toString();
+  }
+
   formatCompact(v: number): string {
     if (v >= 1_000_000_000) return `$${(v / 1_000_000_000).toFixed(1)}B`;
     if (v >= 1_000_000)     return `$${(v / 1_000_000).toFixed(1)}M`;

@@ -1,6 +1,7 @@
 import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 
 import { AuthService } from '../../../../../core/auth/services/auth.service';
 
@@ -13,6 +14,7 @@ import { AuthService } from '../../../../../core/auth/services/auth.service';
 })
 export class LoginComponent {
   private authService = inject(AuthService);
+  private route        = inject(ActivatedRoute);
 
   email       = '';
   password    = '';
@@ -27,11 +29,13 @@ export class LoginComponent {
     this.loading  = true;
     this.errorMsg = '';
 
-    this.authService.login({ email: this.email, password: this.password })
+    const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl') ?? undefined;
+
+    this.authService.login({ email: this.email, password: this.password }, returnUrl)
       .subscribe({
         next: () => {
           this.loading = false;
-          // La navegación a /dashboard la maneja AuthService
+          // La navegación la maneja AuthService (returnUrl o /dashboard)
         },
         error: (err) => {
           this.loading  = false;

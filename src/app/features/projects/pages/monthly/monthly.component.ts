@@ -5,6 +5,7 @@ import { Router, ActivatedRoute } from '@angular/router';
 import { ProjectService } from '../../services/project.service';
 import { BudgetMonthlyDistribution, BudgetEntry, BudgetItem } from '../../models/project.model';
 import { MoneyMaskDirective } from '../../../../shared/directives/money-mask.directive';
+import { ConfirmDialogService } from '../../../../shared/components/confirm-dialog/confirm-dialog.service';
 
 export interface MonthlyRow {
   budget_component_id: string;
@@ -42,6 +43,7 @@ export class MonthlyComponent implements OnInit {
   private router  = inject(Router);
   private route   = inject(ActivatedRoute);
   private service = inject(ProjectService);
+  private confirmDialog = inject(ConfirmDialogService);
 
   projectId = '';
 
@@ -150,10 +152,10 @@ export class MonthlyComponent implements OnInit {
     return !!row.budget_id && !!row.start_date && !!row.unit_measurement && !!row.quantity && row.quantity > 0 && Number.isInteger(row.quantity);
   }
 
-  generateDistribution(row: MonthlyRow): void {
+  async generateDistribution(row: MonthlyRow): Promise<void> {
     if (!row.budget_id || row.generating || !this.canGenerateDistribution(row)) return;
 
-    if (!confirm('No se detectó una distribución mensual para este ítem. ¿Generarla automáticamente según su unidad, cantidad y fecha de inicio? Esto reemplaza cualquier distribución existente (se conserva lo ya facturado en los meses que coincidan).')) {
+    if (!(await this.confirmDialog.confirm({ message: 'No se detectó una distribución mensual para este ítem. ¿Generarla automáticamente según su unidad, cantidad y fecha de inicio? Esto reemplaza cualquier distribución existente (se conserva lo ya facturado en los meses que coincidan).' }))) {
       return;
     }
 

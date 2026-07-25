@@ -12,6 +12,7 @@ import { AuthStore } from '../../../../../../../core/auth/store/auth.store';
 import { BudgetPeriodStatusComponent } from '../../../../components/budget-period-status/budget-period-status.component';
 
 const INVOICE_ROLES = ['ADMIN', 'COORDINADOR', 'FINANCE'];
+const AMOUNT_EPSILON = 0.01;
 
 interface ReceiptFormState {
   value:             number | null;
@@ -200,9 +201,19 @@ export class TabFacturacionComponent implements OnInit {
       collection_act_number: '',
       status: 'PEND' as InvoiceStatus,
       period: '',
-      date: new Date().toISOString().slice(0, 10),
+      date: this.todayLocalDate(),
       description: '',
     };
+  }
+
+  /** "Hoy" en fecha local (no `toISOString()`, que primero pasa a UTC y cerca de
+   * medianoche en Bogotá ya cruzó al día siguiente, precargando la fecha equivocada). */
+  private todayLocalDate(): string {
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
   }
 
   periodValue(dist: BudgetMonthlyDistribution): string {
@@ -213,6 +224,27 @@ export class TabFacturacionComponent implements OnInit {
     const names = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
     return `${names[period.month - 1] ?? ''} ${period.year}`;
   }
+
+  /** Meses de distribución disponibles para facturar: un mes sale del dropdown solo cuando lo
+   * ya facturado (suma de sus facturas) alcanza o supera el valor presupuestado de ese mes —
+   * no basta con que ya tenga UNA factura, porque puede haber quedado parcialmente facturado
+   * y todavía falte completar el resto. */
+  availableMonths = computed(() => {
+    const item = this.selectedItem();
+    if (!item) return [];
+    const billedByPeriod = new Map<string, number>();
+    for (const inv of this.invoices()) {
+      if (inv.year == null || inv.month == null) continue;
+      const key = `${inv.year}-${inv.month}`;
+      billedByPeriod.set(key, (billedByPeriod.get(key) ?? 0) + inv.value);
+    }
+    return item.monthly_distributions.filter(dist => {
+      const period = this.periodValue(dist);
+      const billed = billedByPeriod.get(period) ?? 0;
+      const budgeted = dist.counterpart_amount + dist.ally_amount;
+      return billed < budgeted - AMOUNT_EPSILON;
+    });
+  });
 
   startForm(): void {
     this.form = this.emptyForm();
@@ -232,6 +264,11 @@ export class TabFacturacionComponent implements OnInit {
 
     if (!this.form.value || this.form.value <= 0) {
       this.formError.set('El valor de la factura es requerido y debe ser mayor a 0.');
+      return;
+    }
+
+    if (!this.form.period) {
+      this.formError.set('El mes a facturar es requerido.');
       return;
     }
 

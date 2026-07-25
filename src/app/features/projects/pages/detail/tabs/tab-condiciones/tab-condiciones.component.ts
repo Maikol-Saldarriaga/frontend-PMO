@@ -6,7 +6,7 @@ import { renameFileForUpload } from '../../../../../../../core/utils/file.utils'
 import { SupportTypeKey, SUPPORT_TYPES, SUPPORT_TYPE_LABELS } from '../../../../models/support-types.constant';
 
 type ConditionType  = 'requisito_minimo' | 'supuesto' | 'exclusion' | 'restriccion';
-type ComplianceType = 'fecha_especifica' | 'hito_proyecto' | 'periodicidad' | 'permanente';
+type ComplianceType = 'fecha_especifica' | 'hito_proyecto' | 'periodicidad' | 'permanente' | 'na' | 'pendiente';
 
 interface PendingUpload {
   support_type: SupportTypeKey | '';
@@ -40,6 +40,8 @@ const COMPLIANCE_TYPES: { value: ComplianceType; label: string }[] = [
   { value: 'hito_proyecto',    label: 'Hito del proyecto' },
   { value: 'periodicidad',     label: 'Periodicidad' },
   { value: 'permanente',       label: 'Permanente' },
+  { value: 'na',                label: 'No aplica' },
+  { value: 'pendiente',         label: 'Pendiente' },
 ];
 
 const HITOS: { value: string; label: string }[] = [
@@ -147,7 +149,7 @@ export class TabCondicionesComponent implements OnInit {
         ...(r.id ? { id: r.id } : {}),
         condition:        r.condition,
         type_compliance:  r.type_compliance,
-        compliance_value: r.type_compliance === 'permanente' ? null : (r.compliance_value || null),
+        compliance_value: ['permanente', 'na', 'pendiente'].includes(r.type_compliance) ? null : (r.compliance_value || null),
         description:      r.description || null,
         ...(r.id === row.id ? { delete: true } : {}),
       } as ContractConditionItem)),
@@ -289,7 +291,7 @@ export class TabCondicionesComponent implements OnInit {
         ...(r.id ? { id: r.id } : {}),
         condition:        r.condition,
         type_compliance:  r.type_compliance,
-        compliance_value: r.type_compliance === 'permanente' ? null : (r.compliance_value || null),
+        compliance_value: ['permanente', 'na', 'pendiente'].includes(r.type_compliance) ? null : (r.compliance_value || null),
         description:      r.description || null,
       } as ContractConditionItem)),
     };

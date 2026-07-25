@@ -6,6 +6,7 @@ import { AllyService } from '../../services/ally.service';
 import { Ally, AllySupervisor } from '../../models/ally.model';
 import { SupervisorService } from '../../../projects/services/supervisor.service';
 import { SupervisorDocumentType } from '../../../projects/models/supervisor.model';
+import { ConfirmDialogService } from '../../../../shared/components/confirm-dialog/confirm-dialog.service';
 
 interface AllyForm {
   name: string;
@@ -26,6 +27,8 @@ interface SupervisorForm {
   phone: string;
   password: string;
 }
+
+type SupervisorDialogMode = 'create' | 'edit';
 
 function emptyAllyForm(): AllyForm {
   return { name: '', nit: '', phone: '', email: '', address: '' };
@@ -48,6 +51,7 @@ function emptySupervisorForm(): SupervisorForm {
 export class AlliesListComponent implements OnInit {
   private svc = inject(AllyService);
   private supervisorSvc = inject(SupervisorService);
+  private confirmDialog = inject(ConfirmDialogService);
 
   readonly docTypes: SupervisorDocumentType[] = ['CC', 'CE', 'TI', 'PP', 'RC', 'NIT', 'PEP'];
 
@@ -70,6 +74,8 @@ export class AlliesListComponent implements OnInit {
   supervisorsError   = signal<string | null>(null);
 
   showSupervisorForm  = signal(false);
+  supervisorDialogMode: SupervisorDialogMode = 'create';
+  editingSupervisor   = signal<AllySupervisor | null>(null);
   supervisorForm: SupervisorForm = emptySupervisorForm();
   supervisorSaving    = signal(false);
   supervisorSaveError = signal<string | null>(null);
@@ -147,11 +153,18 @@ export class AlliesListComponent implements OnInit {
     });
   }
 
-  deactivate(ally: Ally): void {
-    if (!confirm(`¿Desactivar el aliado "${ally.name}"?`)) return;
+  async deactivate(ally: Ally): Promise<void> {
+    if (!(await this.confirmDialog.confirm({ message: `¿Desactivar el aliado "${ally.name}"?` }))) return;
     this.svc.deactivate(ally.id).subscribe({
       next: () => this.load(),
       error: () => this.error.set('Error al desactivar el aliado.'),
+    });
+  }
+
+  activate(ally: Ally): void {
+    this.svc.activate(ally.id).subscribe({
+      next: () => this.load(),
+      error: () => this.error.set('Error al activar el aliado.'),
     });
   }
 
@@ -181,13 +194,29 @@ export class AlliesListComponent implements OnInit {
   }
 
   openAddSupervisorForm(): void {
+    this.supervisorDialogMode = 'create';
+    this.editingSupervisor.set(null);
     this.supervisorForm = emptySupervisorForm();
+    this.supervisorSaveError.set(null);
+    this.showSupervisorForm.set(true);
+  }
+
+  openEditSupervisorForm(sup: AllySupervisor): void {
+    this.supervisorDialogMode = 'edit';
+    this.editingSupervisor.set(sup);
+    this.supervisorForm = {
+      ...emptySupervisorForm(),
+      first_name: sup.full_name.split(' ')[0] ?? '',
+      identity_document_number: sup.identification_number,
+      document_type: (sup.type_identification as SupervisorDocumentType) || 'CC',
+    };
     this.supervisorSaveError.set(null);
     this.showSupervisorForm.set(true);
   }
 
   cancelSupervisorForm(): void {
     this.showSupervisorForm.set(false);
+    this.editingSupervisor.set(null);
     this.supervisorSaveError.set(null);
   }
 
@@ -195,25 +224,48 @@ export class AlliesListComponent implements OnInit {
     const ally = this.activeAlly();
     if (!ally || this.supervisorSaving()) return;
 
+    const editing = this.editingSupervisor();
     const f = this.supervisorForm;
+    const passwordRequired = !editing;
     if (!f.first_name || !f.first_surname || !f.second_surname || !f.identity_document_number ||
-        !f.birthdate || !f.email || !f.phone || !f.password) {
+        !f.birthdate || !f.email || !f.phone || (passwordRequired && !f.password)) {
       this.supervisorSaveError.set('Todos los campos son obligatorios excepto donde se indique.');
       return;
     }
 
     this.supervisorSaving.set(true);
     this.supervisorSaveError.set(null);
-    this.supervisorSvc.createSupervisorAliado({ ...f, ally_id: ally.id }).subscribe({
+
+    const request = editing
+      ? this.supervisorSvc.updateSupervisorAliado(editing.id, { ...f, ally_id: ally.id })
+      : this.supervisorSvc.createSupervisorAliado({ ...f, ally_id: ally.id });
+
+    request.subscribe({
       next: () => {
         this.supervisorSaving.set(false);
         this.showSupervisorForm.set(false);
+        this.editingSupervisor.set(null);
         this.loadSupervisors();
       },
       error: err => {
         this.supervisorSaving.set(false);
-        this.supervisorSaveError.set(err?.error?.error ?? err?.error?.message ?? 'Error al crear el supervisor.');
+        this.supervisorSaveError.set(err?.error?.error ?? err?.error?.message ?? 'Error al guardar el supervisor.');
       },
+    });
+  }
+
+  async deactivateSupervisor(sup: AllySupervisor): Promise<void> {
+    if (!(await this.confirmDialog.confirm({ message: `¿Desactivar al supervisor "${sup.full_name}"?` }))) return;
+    this.supervisorSvc.deactivateSupervisor(sup.id).subscribe({
+      next: () => this.loadSupervisors(),
+      error: () => this.supervisorsError.set('Error al desactivar el supervisor.'),
+    });
+  }
+
+  activateSupervisor(sup: AllySupervisor): void {
+    this.supervisorSvc.activateSupervisor(sup.id).subscribe({
+      next: () => this.loadSupervisors(),
+      error: () => this.supervisorsError.set('Error al activar el supervisor.'),
     });
   }
 }

@@ -13,7 +13,7 @@ export class AuthService {
   private authStore = inject(AuthStore);
   private router    = inject(Router);
 
-  login(credentials: LoginRequest): Observable<LoginResponse> {
+  login(credentials: LoginRequest, returnUrl?: string): Observable<LoginResponse> {
     return this.http.post<LoginResponse>(ENDPOINTS.auth.login, credentials).pipe(
       tap(res => {
         const user: UserProfile = {
@@ -24,7 +24,7 @@ export class AuthService {
           image_url: res.image_url,
         };
         this.authStore.setSession(res.access_token, res.refresh_token, user);
-        this.router.navigate(['/dashboard']);
+        this.router.navigateByUrl(returnUrl && returnUrl !== '/login' ? returnUrl : '/dashboard');
       })
     );
   }

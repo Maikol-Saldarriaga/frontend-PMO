@@ -1,8 +1,16 @@
 import { Component, Input, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { forkJoin, of } from 'rxjs';
 import { ProjectService } from '../../../../services/project.service';
 import { ScopeComponent, ScopeActivity, ActivityFormData, ActivityRequest } from '../../../../models/project.model';
+import { ConfirmDialogService } from '../../../../../../shared/components/confirm-dialog/confirm-dialog.service';
+
+interface RebalanceRow {
+  id: string | null; // null = el nuevo elemento pendiente de crear
+  name: string;
+  percentage: number;
+}
 
 const PALETTE = ['#0EA5E9','#10B981','#F59E0B','#EF4444','#8B5CF6','#EC4899','#14B8A6','#F97316'];
 
@@ -22,7 +30,7 @@ const EMPTY_ACTIVITY_FORM = (): ActivityFormData => ({
 export class TabAlcanceComponent implements OnInit {
   @Input() projectId!: string;
 
-  constructor(private svc: ProjectService) {}
+  constructor(private svc: ProjectService, private confirmDialog: ConfirmDialogService) {}
 
   projectProgress  = signal<number>(0);
   scopeComponents  = signal<ScopeComponent[]>([]);
@@ -46,6 +54,13 @@ export class TabAlcanceComponent implements OnInit {
   editingCompId    = signal<string | null>(null);
   editingCompName  = signal('');
   editingCompPct   = signal<number | null>(null);
+
+  // ── Rebalanceo de porcentajes (límite 100%) ──────────────────────────────────
+  rebalanceMode    = signal<'component' | 'activity' | null>(null);
+  rebalanceCompId  = signal<string | null>(null);
+  rebalanceRows    = signal<RebalanceRow[]>([]);
+  rebalanceSaving  = signal(false);
+  rebalanceError   = signal<string | null>(null);
 
   ngOnInit(): void { this.load(); }
 
@@ -106,6 +121,10 @@ export class TabAlcanceComponent implements OnInit {
     const name = this.newComponentName().trim();
     const pct  = this.newComponentPct() ?? 0;
     if (!name) return;
+    if (this.usedComponentPct() + pct > 100) {
+      this.openComponentRebalance(name, pct);
+      return;
+    }
     this.scopeSaving.set(true);
     this.saveError.set(null);
     this.svc.createComponent(this.projectId, { name, percentage: pct }).subscribe({
@@ -157,8 +176,8 @@ export class TabAlcanceComponent implements OnInit {
 
   // ── Eliminar componente ───────────────────────────────────────────────────────
 
-  deleteComponent(comp: ScopeComponent): void {
-    if (!confirm(`¿Eliminar el componente "${comp.name}" y todas sus actividades?`)) return;
+  async deleteComponent(comp: ScopeComponent): Promise<void> {
+    if (!(await this.confirmDialog.confirm({ message: `¿Eliminar el componente "${comp.name}" y todas sus actividades?` }))) return;
     this.svc.deleteComponent(this.projectId, comp.id).subscribe({
       next: () => this.scopeComponents.update(list => list.filter(c => c.id !== comp.id)),
       error: err => this.saveError.set(err?.error?.message ?? 'Error al eliminar el componente.'),
@@ -215,8 +234,13 @@ export class TabAlcanceComponent implements OnInit {
 
   // ── Eliminar actividad ───────────────────────────────────────────────────────
 
-  deleteActivity(comp: ScopeComponent, actId: string): void {
-    if (!confirm('¿Eliminar esta actividad?')) return;
+  async deleteActivity(comp: ScopeComponent, actId: string): Promise<void> {
+    const act = comp.scopes.find(a => a.id === actId);
+    if (!(await this.confirmDialog.confirm({
+      title: 'Eliminar actividad',
+      message: `¿Eliminar la actividad "${act?.description ?? ''}" del componente "${comp.name}"? Esta acción no se puede deshacer.`,
+      confirmText: 'Eliminar',
+    }))) return;
     this.svc.deleteScope(this.projectId, comp.id, actId).subscribe({
       next: () => this.scopeComponents.update(list => list.map(c =>
         c.id === comp.id ? { ...c, scopes: c.scopes.filter(a => a.id !== actId) } : c
@@ -240,6 +264,11 @@ export class TabAlcanceComponent implements OnInit {
 
   saveNewActivity(comp: ScopeComponent): void {
     const f = this.newActivityForm;
+    const pct = f.percentage ?? 0;
+    if (this.usedScopePct(comp) + pct > 100) {
+      this.openActivityRebalance(comp, pct);
+      return;
+    }
     // Número de actividad = máximo act existente + 1, o 1 si no hay ninguno
     const nextAct = comp.scopes.reduce((max, a) => Math.max(max, a.act ?? 0), 0) + 1;
     f.act = nextAct;
@@ -298,4 +327,137 @@ export class TabAlcanceComponent implements OnInit {
   }
 
   color(i: number): string { return PALETTE[i % PALETTE.length]; }
+
+  /** Dasharray del círculo: a partir de 99.95% se pinta cerrado sin gap por redondeo. */
+  dashArrayFor(pct: number): string {
+    const clamped = Math.max(0, Math.min(100, pct ?? 0));
+    if (clamped >= 99.95) return '113.1 0';
+    return (clamped / 100 * 113.1) + ' 113.1';
+  }
+
+  /** Con dash completo el linecap "round" deja una costura visible; se usa "butt" al 100%. */
+  linecapFor(pct: number): 'round' | 'butt' {
+    return (pct ?? 0) >= 99.95 ? 'butt' : 'round';
+  }
+
+  // ── Rebalanceo de porcentajes ────────────────────────────────────────────────
+
+  openComponentRebalance(newName: string, newPct: number): void {
+    const rows: RebalanceRow[] = this.scopeComponents().map(c => ({ id: c.id, name: c.name, percentage: c.percentage ?? 0 }));
+    rows.push({ id: null, name: newName, percentage: newPct });
+    this.rebalanceRows.set(rows);
+    this.rebalanceMode.set('component');
+    this.rebalanceCompId.set(null);
+    this.rebalanceError.set(null);
+  }
+
+  openActivityRebalance(comp: ScopeComponent, newPct: number): void {
+    const rows: RebalanceRow[] = comp.scopes.map(a => ({ id: a.id, name: a.description, percentage: a.percentage ?? 0 }));
+    rows.push({ id: null, name: this.newActivityForm.description.trim() || 'Nueva actividad', percentage: newPct });
+    this.rebalanceRows.set(rows);
+    this.rebalanceMode.set('activity');
+    this.rebalanceCompId.set(comp.id);
+    this.rebalanceError.set(null);
+  }
+
+  rebalanceSum(): number {
+    return this.rebalanceRows().reduce((s, r) => s + (r.percentage ?? 0), 0);
+  }
+
+  updateRebalanceRow(index: number, value: number): void {
+    const rows = this.rebalanceRows().map((r, i) => i === index ? { ...r, percentage: value } : r);
+    this.rebalanceRows.set(rows);
+  }
+
+  closeRebalance(): void {
+    this.rebalanceMode.set(null);
+    this.rebalanceCompId.set(null);
+    this.rebalanceRows.set([]);
+    this.rebalanceError.set(null);
+    this.rebalanceSaving.set(false);
+  }
+
+  confirmRebalance(): void {
+    const sum = Math.round(this.rebalanceSum() * 100) / 100;
+    if (sum !== 100) {
+      this.rebalanceError.set('La suma de porcentajes debe ser exactamente 100%.');
+      return;
+    }
+    const mode = this.rebalanceMode();
+    const rows = this.rebalanceRows();
+    this.rebalanceSaving.set(true);
+    this.rebalanceError.set(null);
+
+    if (mode === 'component') {
+      const existing = rows.filter(r => r.id);
+      const newRow = rows.find(r => !r.id)!;
+      const updates = existing.map(r => this.svc.updateComponent(this.projectId, r.id!, { name: r.name, percentage: r.percentage }));
+      forkJoin(updates.length ? updates : [of(null)]).subscribe({
+        next: () => {
+          this.svc.createComponent(this.projectId, { name: newRow.name, percentage: newRow.percentage }).subscribe({
+            next: () => {
+              this.closeRebalance();
+              this.addingComponent.set(false);
+              this.newComponentName.set('');
+              this.newComponentPct.set(null);
+              this.load();
+            },
+            error: err => {
+              this.rebalanceError.set(err?.error?.message ?? 'Error al crear el nuevo componente.');
+              this.rebalanceSaving.set(false);
+            },
+          });
+        },
+        error: err => {
+          this.rebalanceError.set(err?.error?.message ?? 'Error al ajustar los componentes existentes.');
+          this.rebalanceSaving.set(false);
+        },
+      });
+    } else if (mode === 'activity') {
+      const compId = this.rebalanceCompId()!;
+      const comp = this.scopeComponents().find(c => c.id === compId)!;
+      const existing = rows.filter(r => r.id);
+      const newRow = rows.find(r => !r.id)!;
+      const updates = existing.map(r => {
+        const act = comp.scopes.find(a => a.id === r.id)!;
+        const req = this.buildActivityRequest({ ...this.activityToForm(act), percentage: r.percentage });
+        return this.svc.updateScope(this.projectId, compId, r.id!, req!);
+      });
+      forkJoin(updates.length ? updates : [of(null)]).subscribe({
+        next: () => {
+          const nextAct = comp.scopes.reduce((max, a) => Math.max(max, a.act ?? 0), 0) + 1;
+          const f = { ...this.newActivityForm, percentage: newRow.percentage, act: nextAct };
+          const req = this.buildActivityRequest(f);
+          if (!req) { this.rebalanceSaving.set(false); return; }
+          this.svc.createScope(this.projectId, compId, req).subscribe({
+            next: () => {
+              this.closeRebalance();
+              this.addingActivityToCompId.set(null);
+              this.load();
+            },
+            error: err => {
+              this.rebalanceError.set(err?.error?.message ?? 'Error al crear la nueva actividad.');
+              this.rebalanceSaving.set(false);
+            },
+          });
+        },
+        error: err => {
+          this.rebalanceError.set(err?.error?.message ?? 'Error al ajustar las actividades existentes.');
+          this.rebalanceSaving.set(false);
+        },
+      });
+    }
+  }
+
+  private activityToForm(act: ScopeActivity): ActivityFormData {
+    return {
+      act: act.act, description: act.description, percentage: act.percentage,
+      start_date: act.start_date ? act.start_date.slice(0, 10) : '',
+      end_date: act.end_date ? act.end_date.slice(0, 10) : '',
+      start_plan: act.start_plan, responsible: act.responsible ?? '', objective: act.objective ?? '',
+      actual_start_date: act.actual_start_date ? act.actual_start_date.slice(0, 10) : '',
+      actual_end_date: act.actual_end_date ? act.actual_end_date.slice(0, 10) : '',
+      actual_start_plan: act.actual_start_plan ?? null,
+    };
+  }
 }

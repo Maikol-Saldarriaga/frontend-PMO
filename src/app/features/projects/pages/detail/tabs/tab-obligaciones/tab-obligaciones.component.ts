@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { forkJoin, of, Observable } from 'rxjs';
 import { ContractService } from '../../../../services/contract.service';
+import { ConfirmDialogService } from '../../../../../../shared/components/confirm-dialog/confirm-dialog.service';
 import {
   ContractObligation, ObligationEvidence, ObligationRequest, ObligationEvidenceRequest,
   ObligationImportRow,
@@ -83,7 +84,7 @@ type ImportMode = 'add' | 'replace';
 export class TabObligacionesComponent implements OnInit {
   @Input() projectId!: string;
 
-  constructor(private svc: ContractService) {}
+  constructor(private svc: ContractService, private confirmDialog: ConfirmDialogService) {}
 
   loading = signal(true);
   error   = signal<string | null>(null);
@@ -276,8 +277,8 @@ export class TabObligacionesComponent implements OnInit {
     });
   }
 
-  deleteObligation(o: ContractObligation): void {
-    if (!confirm(`¿Eliminar la obligación de "${o.contract_clause}"? Esto también elimina sus ${o.evidences?.length ?? 0} evidencia(s).`)) return;
+  async deleteObligation(o: ContractObligation): Promise<void> {
+    if (!(await this.confirmDialog.confirm({ message: `¿Eliminar la obligación de "${o.contract_clause}"? Esto también elimina sus ${o.evidences?.length ?? 0} evidencia(s).` }))) return;
 
     this.deletingObligationId.set(o.id);
     this.svc.deleteObligation(this.projectId, o.id).subscribe({
@@ -331,10 +332,10 @@ export class TabObligacionesComponent implements OnInit {
     });
   }
 
-  deleteEvidence(ev: ObligationEvidence): void {
+  async deleteEvidence(ev: ObligationEvidence): Promise<void> {
     const id = this.editingId();
     if (!id) return;
-    if (!confirm('¿Eliminar esta evidencia de cumplimiento?')) return;
+    if (!(await this.confirmDialog.confirm({ message: '¿Eliminar esta evidencia de cumplimiento?' }))) return;
     this.svc.deleteObligationEvidence(this.projectId, id, ev.id).subscribe({
       next: () => {
         this.existingEvidences.update(list => list.filter(e => e.id !== ev.id));
@@ -382,11 +383,11 @@ export class TabObligacionesComponent implements OnInit {
       .filter(r => r.contract_clause && r.obligation_text);
   }
 
-  runImport(): void {
+  async runImport(): Promise<void> {
     const rows = this.parseImportRows(this.importText());
     if (!rows.length) { this.importError.set('No se detectaron filas válidas. Cada línea necesita al menos cláusula y texto de la obligación.'); return; }
 
-    if (this.importMode() === 'replace' && !confirm(`Esto reemplaza TODA la matriz de cumplimiento actual (${this.rows().length} obligación(es)) por las ${rows.length} filas pegadas. ¿Continuar?`)) {
+    if (this.importMode() === 'replace' && !(await this.confirmDialog.confirm({ message: `Esto reemplaza TODA la matriz de cumplimiento actual (${this.rows().length} obligación(es)) por las ${rows.length} filas pegadas. ¿Continuar?` }))) {
       return;
     }
 

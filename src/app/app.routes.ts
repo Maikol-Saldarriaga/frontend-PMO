@@ -15,6 +15,8 @@ import { ScheduleListComponent } from './features/schedule/pages/list/schedule-l
 import { ResourcesComponent } from './features/resources/pages/resources.component';
 import { ReportsComponent } from './features/reports/pages/reports.component';
 import { AlliesListComponent } from './features/allies/pages/list/allies-list.component';
+import { FoundationUsersComponent } from './features/foundation/pages/list/foundation-users.component';
+import { ApoyoListComponent } from './features/apoyo/pages/list/apoyo-list.component';
 import { authGuard, rootRedirectGuard, canCreateProjectGuard, adminGuard } from '../core/auth/guards/auth.guard';
 
 export const routes: Routes = [
@@ -40,6 +42,8 @@ export const routes: Routes = [
       { path: 'schedule',              component: ScheduleListComponent },
       { path: 'resources',             component: ResourcesComponent },
       { path: 'allies',                component: AlliesListComponent, canActivate: [adminGuard] },
+      { path: 'foundation',            component: FoundationUsersComponent, canActivate: [adminGuard] },
+      { path: 'apoyo',                 component: ApoyoListComponent, canActivate: [adminGuard] },
       { path: 'reports',               component: ReportsComponent },
     ]
   },

@@ -19,8 +19,11 @@ if [ ! -d "$DIST_DIR/browser" ]; then
 fi
 
 echo "==> Sincronizando con $VPS_HOST:$VPS_PATH ..."
-# --omit-dir-times evita el warning "failed to set times" en directorios
-# que pertenecen a root (el usuario solo tiene permiso de grupo, no dueño).
-rsync -avz --delete --omit-dir-times "$DIST_DIR/" "$VPS_HOST:$VPS_PATH/"
+# -rlz en vez de -a: copia contenido + symlinks pero no intenta preservar
+# owner/group/permisos/mtime de cada archivo. Con -a, si los archivos remotos
+# quedaron con dueño root (deploys previos con sudo, etc), el usuario actual
+# no puede tocar esos atributos y rsync termina en exit 23 (partial transfer)
+# aunque el contenido sí se haya copiado bien.
+rsync -rlz --delete "$DIST_DIR/" "$VPS_HOST:$VPS_PATH/"
 
 echo "==> Deploy completado."

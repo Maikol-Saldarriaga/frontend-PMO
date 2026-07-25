@@ -13,7 +13,7 @@
     </div>
 
     <div class="divide-y divide-neutral-100">
-      @for (row of rows(); track $index; let i = $index) {
+      @for (row of rows(); track row._uid; let i = $index) {
         <div class="p-6">
 
           <!-- Row header -->
@@ -86,13 +86,15 @@
                   }
                 </select>
               }
-              @if (row.type_compliance === 'permanente') {
+              @if (row.type_compliance === 'permanente' || row.type_compliance === 'na' || row.type_compliance === 'pendiente') {
                 <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Cumplimiento</label>
                 <div class="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-neutral-200 bg-neutral-50 text-sm text-neutral-400">
                   <svg class="w-4 h-4 text-accent flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                   </svg>
-                  Permanente — sin valor adicional
+                  @if (row.type_compliance === 'permanente') { Permanente — sin valor adicional }
+                  @if (row.type_compliance === 'na') { No aplica — sin valor adicional }
+                  @if (row.type_compliance === 'pendiente') { Pendiente — sin valor adicional }
                 </div>
               }
             </div>

@@ -6,6 +6,7 @@ import {
   BudgetItem, BudgetItemRequest, BUDGET_ITEM_UNIT_OPTIONS,
 } from '../../../../../models/project.model';
 import { MoneyMaskDirective } from '../../../../../../../shared/directives/money-mask.directive';
+import { ConfirmDialogService } from '../../../../../../../shared/components/confirm-dialog/confirm-dialog.service';
 
 const MONTH_NAMES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
@@ -68,7 +69,7 @@ export class BudgetItemPanelComponent implements OnChanges {
   readonly periodicityOptions = BUDGET_ITEM_UNIT_OPTIONS;
   readonly monthNames = MONTH_NAMES;
 
-  constructor(private svc: ProjectService) {}
+  constructor(private svc: ProjectService, private confirmDialog: ConfirmDialogService) {}
 
   // ── Estado del formulario del ítem ──────────────────────────────────────
   existingId: string | null = null;
@@ -77,7 +78,6 @@ export class BudgetItemPanelComponent implements OnChanges {
   periodicity = '';
   startDate: string | null = null;
   quantity: number | null = null;
-  unitValue: number | null = null;
   counterpartContribution: number | null = null;
   allyContribution: number | null = null;
 
@@ -102,7 +102,6 @@ export class BudgetItemPanelComponent implements OnChanges {
     this.periodicity  = item?.unit_measurement ?? '';
     this.startDate    = item?.start_date ? item.start_date.slice(0, 10) : null;
     this.quantity     = item?.quantity ?? null;
-    this.unitValue    = item?.unit_value ?? null;
     this.counterpartContribution = item?.counterpart_contribution ?? null;
     this.allyContribution        = item?.ally_contribution ?? null;
     this.itemDirty.set(false);
@@ -120,16 +119,29 @@ export class BudgetItemPanelComponent implements OnChanges {
       : this.previewPeriods); // ítem nuevo (o sin distribución aún) → arranca con la vista previa equitativa
   }
 
-  get totalValue(): number {
-    return (this.unitValue ?? 0) * (this.quantity ?? 0);
-  }
-
   get aportesTotal(): number {
     return (this.counterpartContribution ?? 0) + (this.allyContribution ?? 0);
   }
 
+  /** Total del ítem = suma de contrapartida + aliado (ya no se digita valor unitario). */
+  get totalValue(): number {
+    return this.aportesTotal;
+  }
+
+  /** Valor unitario = total (contrapartida + aliado) / cantidad — campo bloqueado, automático. */
+  get unitValue(): number {
+    const qty = this.quantity ?? 0;
+    return qty > 0 ? this.totalValue / qty : 0;
+  }
+
   get aportesOverflow(): boolean {
-    return this.aportesTotal > this.totalValue + AMOUNT_EPSILON;
+    return false;
+  }
+
+  readonly maxQuantity = 99;
+
+  get quantityExceedsLimit(): boolean {
+    return (this.quantity ?? 0) > this.maxQuantity;
   }
 
   get projectedComponentTotal(): number {
@@ -158,7 +170,7 @@ export class BudgetItemPanelComponent implements OnChanges {
   get previewPeriods(): PeriodRow[] {
     if (!this.canPreviewDistribution || !this.startDate) return [];
     const step = PERIOD_STEP_MONTHS[this.periodicity] ?? 1;
-    const n = Math.floor(this.quantity ?? 0);
+    const n = Math.min(this.maxQuantity, Math.floor(this.quantity ?? 0));
     // Redondea cada periodo a centavos excepto el último, que absorbe lo que sobre del
     // redondeo — así la suma siempre da EXACTO el aporte total, sin importar que no divida
     // parejo (ej. 2.000.000 / 3 = 666.666,67 x2 + 666.666,66 el último, nunca 666.666,67 x3
@@ -217,11 +229,10 @@ export class BudgetItemPanelComponent implements OnChanges {
     if (!this.concept.trim())    missing.push('Concepto');
     if (!this.periodicity.trim()) missing.push('Periodicidad');
     if (!this.quantity)          missing.push('Cantidad');
-    if (!this.unitValue)         missing.push('Valor unitario');
     if (missing.length) { this.itemError.set(`Requeridos: ${missing.join(', ')}`); return; }
 
-    if (this.aportesOverflow) {
-      this.itemError.set(`Los aportes no pueden superar el total del ítem.`);
+    if (this.quantityExceedsLimit) {
+      this.itemError.set(`La cantidad no puede superar ${this.maxQuantity}.`);
       return;
     }
     if (this.capOverflow) {
@@ -304,10 +315,10 @@ export class BudgetItemPanelComponent implements OnChanges {
    * periodicidad + cantidad + fecha de inicio (igual criterio que el backend). Es puramente
    * local — no persiste nada por sí sola, tanto para un ítem nuevo como para uno existente: el
    * resultado se guarda recién al hacer clic en "Guardar ítem", junto con el resto de los datos. */
-  regenerateDistribution(): void {
+  async regenerateDistribution(): Promise<void> {
     if (!this.canPreviewDistribution) return;
     if (this.periodsTouchedManually &&
-        !confirm('Esto reemplaza la distribución actual por una equitativa entre todos los periodos. ¿Continuar?')) {
+        !(await this.confirmDialog.confirm({ message: 'Esto reemplaza la distribución actual por una equitativa entre todos los periodos. ¿Continuar?' }))) {
       return;
     }
     this.periodsTouchedManually = false;
@@ -316,6 +327,7 @@ export class BudgetItemPanelComponent implements OnChanges {
   }
 
   addPeriod(): void {
+    if (this.periods().length >= this.maxQuantity) return;
     this.periodsTouchedManually = true;
     const last = this.periods().at(-1);
     let year  = last?.year  ?? (this.startDate ? new Date(this.startDate).getUTCFullYear() : new Date().getFullYear());
@@ -337,9 +349,9 @@ export class BudgetItemPanelComponent implements OnChanges {
     this.itemDirty.set(true);
   }
 
-  deleteItem(): void {
+  async deleteItem(): Promise<void> {
     if (!this.existingId) { this.closed.emit(); return; }
-    if (!confirm(`¿Eliminar el ítem "${this.concept || 'sin concepto'}"? Esta acción no se puede revertir.`)) return;
+    if (!(await this.confirmDialog.confirm({ message: `¿Eliminar el ítem "${this.concept || 'sin concepto'}"? Esta acción no se puede revertir.` }))) return;
     this.svc.deleteBudgetItem(this.projectId, this.existingId).subscribe({
       next: () => this.deleted.emit(),
       error: () => this.itemError.set('Error al eliminar el ítem.'),

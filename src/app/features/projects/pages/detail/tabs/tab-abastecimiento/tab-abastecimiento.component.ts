@@ -5,6 +5,7 @@ import { MoneyMaskDirective } from '../../../../../../shared/directives/money-ma
 import { ContractService } from '../../../../services/contract.service';
 import { ProjectService } from '../../../../services/project.service';
 import { AuthStore } from '../../../../../../../core/auth/store/auth.store';
+import { ConfirmDialogService } from '../../../../../../shared/components/confirm-dialog/confirm-dialog.service';
 import {
   SupplyPlanItem, SupplyPlanRequest, SupplyPlanStatus, SupplyPlanFilters,
 } from '../../../../models/contract.model';
@@ -125,7 +126,7 @@ export interface RubroBreakdown {
 export class TabAbastecimientoComponent implements OnInit {
   @Input() projectId!: string;
 
-  constructor(private svc: ContractService, private projectSvc: ProjectService) {}
+  constructor(private svc: ContractService, private projectSvc: ProjectService, private confirmDialog: ConfirmDialogService) {}
 
   private auth = inject(AuthStore);
 
@@ -468,8 +469,8 @@ export class TabAbastecimientoComponent implements OnInit {
     });
   }
 
-  deleteItem(item: SupplyPlanItem): void {
-    if (!confirm(`¿Eliminar el requerimiento #${item.consecutive_number}${item.requirement_category ? ' — ' + item.requirement_category : ''}?`)) return;
+  async deleteItem(item: SupplyPlanItem): Promise<void> {
+    if (!(await this.confirmDialog.confirm({ message: `¿Eliminar el requerimiento #${item.consecutive_number}${item.requirement_category ? ' — ' + item.requirement_category : ''}?` }))) return;
     this.deletingId.set(item.id);
     this.svc.deleteSupplyPlanItem(this.projectId, item.id).subscribe({
       next: () => {

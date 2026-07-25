@@ -32,6 +32,8 @@ export class SidebarComponent {
     { label: 'Cronograma',    icon: 'calendar', route: '/schedule' },
     { label: 'Recursos',      icon: 'users',    route: '/resources', adminOnly: true },
     { label: 'Alianzas',      icon: 'link',     route: '/allies',    adminOnly: true },
+    { label: 'Fundación',     icon: 'building', route: '/foundation', adminOnly: true },
+    { label: 'Apoyo',         icon: 'shield',   route: '/apoyo',      adminOnly: true },
     { label: 'Reportes',      icon: 'chart',    route: '/reports' },
     { label: 'Configuración', icon: 'settings', route: '/settings' },
   ];

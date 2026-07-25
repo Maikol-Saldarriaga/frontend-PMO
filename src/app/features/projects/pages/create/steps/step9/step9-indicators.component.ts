@@ -72,10 +72,14 @@ const EMPTY = (): IndicatorRow => ({
   verifications: [], upload: emptyUpload(),
 });
 
+// Mismo catálogo que enums.IndicatorType en el backend (indicator_type.go).
 export const INDICATOR_TYPES = [
-  { value: 'producto',  label: 'Producto'  },
+  { value: 'gestion',   label: 'Gestión'   },
+  { value: 'proceso',   label: 'Proceso'   },
   { value: 'resultado', label: 'Resultado' },
+  { value: 'efecto',    label: 'Efecto'    },
   { value: 'impacto',   label: 'Impacto'   },
+  { value: 'producto',  label: 'Producto'  },
 ];
 
 @Component({
@@ -88,6 +92,30 @@ export class Step9IndicatorsComponent {
   @Input() projectId = '';
   @Input() set savedData(val: WizardIndicator[] | undefined) {
     if (!val?.length) return;
+
+    // El padre reenvía este mismo `savedData` en cada `dataChange` (incluido el simple
+    // cambio del <select> de tipo), así que si reconstruyéramos `rows` entero cada vez se
+    // perdería lo que solo vive en el componente: verificaciones ya cargadas y el borrador
+    // de "medio de verificación" que el usuario esté llenando (tipo/nombre/archivos) sin
+    // haber subido aún. Si las filas (por id, en el mismo orden) son las mismas de antes,
+    // es un eco de una edición local — solo mezclamos los campos que sí vienen del padre,
+    // sin tocar `verifications` ni `upload`. Solo se reconstruye todo (y se recargan las
+    // verificaciones del backend) cuando de verdad cambia el conjunto de filas: carga
+    // inicial del wizard, o tras guardar cuando el backend asigna ids nuevos.
+    const current = this.rows();
+    const isEcho = current.length === val.length && current.every((r, i) => r.id === val[i].id);
+    if (isEcho) {
+      this.rows.update(rows => rows.map((r, i) => ({
+        ...r,
+        component_id: val[i].component_id,
+        type:         val[i].type ?? r.type,
+        name:         val[i].name ?? r.name,
+        line:         val[i].line ?? r.line,
+        goal:         val[i].goal ?? r.goal,
+      })));
+      return;
+    }
+
     this.rows.set(val.map(v => ({
       id:           v.id,
       component_id: v.component_id,

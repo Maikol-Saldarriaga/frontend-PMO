@@ -68,11 +68,21 @@ export class ProjectsListComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
+  /** El backend guarda el status en inglés (active/completed/cancelled); el selector de
+   * filtros usa las etiquetas en español, así que hay que traducir antes de enviarlo. */
+  private readonly statusToBackend: Record<string, string> = {
+    activo: 'active', completado: 'completed', cancelado: 'cancelled',
+  };
+
   fetchProjects(): void {
     this.loading.set(true);
     this.error.set(null);
     const f = this.filters();
-    this.projectService.getProjects(20, 0, f).subscribe({
+    const backendFilters: ProjectFilters = {
+      ...f,
+      status: this.statusToBackend[f.status] ?? f.status,
+    };
+    this.projectService.getProjects(20, 0, backendFilters).subscribe({
       next: (res) => {
         this.projects.set(res.data ?? []);
         this.summary.set(res.summary ?? null);
@@ -116,7 +126,15 @@ export class ProjectsListComponent implements OnInit, OnDestroy {
   }
 
   progressValue(project: ProjectCreateResponse): number {
-    return this.usesRealProgress(project) ? Math.round(project.real_progress!) : project.percent_done;
+    return this.usesRealProgress(project) ? project.real_progress! : project.percent_done;
+  }
+
+  /** Igual criterio que el dashboard: bajo 5% muestra 2 decimales para que no se vea "0%"
+   * cuando en realidad hay un avance pequeño pero real. */
+  progressLabel(project: ProjectCreateResponse): string {
+    const val = this.progressValue(project);
+    if (val > 0 && val < 5) return val.toFixed(2);
+    return Math.round(val).toString();
   }
 
   hasExtension(project: ProjectCreateResponse): boolean {

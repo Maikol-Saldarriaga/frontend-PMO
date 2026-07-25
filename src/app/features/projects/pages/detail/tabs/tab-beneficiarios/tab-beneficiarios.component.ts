@@ -2,22 +2,19 @@ import { Component, Input, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { from, Observable } from 'rxjs';
-import { concatMap, toArray, catchError } from 'rxjs/operators';
+import { concatMap, toArray } from 'rxjs/operators';
 import * as XLSX from 'xlsx';
 import { ProjectService } from '../../../../services/project.service';
 import { TemplateService } from '../../../../../../core/services/template.service';
 
 const BENEFICIARIOS_TEMPLATE = 'beneficiarios_template.xlsx';
+// El backend acepta hasta 5000 filas por request de /beneficiaries/bulk;
+// por encima de eso se trocea en varias idas secuenciales sumando el resultado.
+const BULK_CHUNK_SIZE = 5000;
 import {
   Beneficiary, BeneficiaryRequest, BeneficiaryDocumentType, BeneficiaryGender, BeneficiaryZoneType,
+  BeneficiaryBulkResponse,
 } from '../../../../models/project.model';
-
-interface ImportRowResult {
-  row: number;
-  identification: string;
-  status: 'created' | 'updated' | 'error';
-  message?: string;
-}
 
 interface BeneficiaryForm {
   first_name:             string;
@@ -88,10 +85,16 @@ export class TabBeneficiariosComponent implements OnInit {
 
   beneficiaries = signal<Beneficiary[]>([]);
   loading       = signal(true);
-  loadingMore   = signal(false);
+  loadingPage   = signal(false);
   error         = signal<string | null>(null);
-  nextCursor    = signal<string | null>(null);
   hasMore       = signal(false);
+  pageSize      = 50;
+
+  // El backend pagina por cursor (no por offset), así que para poder volver
+  // atrás guardamos el cursor con el que se pidió cada página ya visitada.
+  // pageCursors[i] = cursor usado para pedir la página i+1 (índice 0 = null).
+  pageCursors   = signal<(string | null)[]>([null]);
+  currentPage   = signal(1);
 
   search = signal('');
   filtered = computed(() => {
@@ -113,7 +116,7 @@ export class TabBeneficiariosComponent implements OnInit {
 
   importing       = signal(false);
   importProgress  = signal<{ done: number; total: number } | null>(null);
-  importResults   = signal<ImportRowResult[] | null>(null);
+  importResults   = signal<BeneficiaryBulkResponse | null>(null);
   importError     = signal<string | null>(null);
 
   ngOnInit(): void { this.load(); }
@@ -141,30 +144,53 @@ export class TabBeneficiariosComponent implements OnInit {
   load(): void {
     this.loading.set(true);
     this.error.set(null);
-    this.svc.getBeneficiaries(this.projectId).subscribe({
+    this.pageCursors.set([null]);
+    this.currentPage.set(1);
+    this.svc.getBeneficiaries(this.projectId, null, this.pageSize).subscribe({
       next: page => {
         this.beneficiaries.set(page.data ?? []);
-        this.nextCursor.set(page.next_cursor);
         this.hasMore.set(page.has_more);
+        if (page.has_more && page.next_cursor) {
+          this.pageCursors.set([null, page.next_cursor]);
+        }
         this.loading.set(false);
       },
       error: () => { this.error.set('No se pudieron cargar los beneficiarios.'); this.loading.set(false); },
     });
   }
 
-  loadMore(): void {
-    const cursor = this.nextCursor();
-    if (!cursor || this.loadingMore()) return;
-    this.loadingMore.set(true);
-    this.svc.getBeneficiaries(this.projectId, cursor).subscribe({
+  private goToPage(pageNumber: number): void {
+    const cursors = this.pageCursors();
+    const cursor = cursors[pageNumber - 1];
+    if (cursor === undefined || this.loadingPage()) return;
+    this.loadingPage.set(true);
+    this.svc.getBeneficiaries(this.projectId, cursor, this.pageSize).subscribe({
       next: page => {
-        this.beneficiaries.update(list => [...list, ...(page.data ?? [])]);
-        this.nextCursor.set(page.next_cursor);
+        this.beneficiaries.set(page.data ?? []);
         this.hasMore.set(page.has_more);
-        this.loadingMore.set(false);
+        this.currentPage.set(pageNumber);
+        // Solo agrega el cursor de la siguiente página si aún no lo teníamos
+        // cacheado (evita perder el cursor de páginas ya visitadas más adelante).
+        if (page.has_more && page.next_cursor && cursors.length === pageNumber) {
+          this.pageCursors.set([...cursors, page.next_cursor]);
+        }
+        this.loadingPage.set(false);
       },
-      error: () => { this.loadingMore.set(false); },
+      error: () => {
+        this.error.set('No se pudo cargar la página.');
+        this.loadingPage.set(false);
+      },
     });
+  }
+
+  goNextPage(): void {
+    if (!this.hasMore()) return;
+    this.goToPage(this.currentPage() + 1);
+  }
+
+  goPrevPage(): void {
+    if (this.currentPage() <= 1) return;
+    this.goToPage(this.currentPage() - 1);
   }
 
   openNewForm(): void {
@@ -374,78 +400,57 @@ export class TabBeneficiariosComponent implements OnInit {
     return out;
   }
 
-  private runImport(parsed: { rowNumber: number; req: BeneficiaryRequest }[]): void {
-    this.importProgress.set({ done: 0, total: parsed.length });
-
-    this.fetchAllBeneficiaries().subscribe({
-      next: existing => {
-        const byId = new Map(existing.map(b => [b.identification_number, b]));
-
-        from(parsed).pipe(
-          concatMap(({ rowNumber, req }) => {
-            const match = byId.get(req.identification_number);
-            const request$: Observable<Beneficiary> = match
-              ? this.svc.updateBeneficiary(this.projectId, match.id, req)
-              : this.svc.createBeneficiary(this.projectId, req);
-
-            return request$.pipe(
-              concatMap(saved => {
-                this.beneficiaries.update(list => {
-                  const idx = list.findIndex(b => b.id === saved.id);
-                  return idx >= 0 ? list.map((b, i) => i === idx ? saved : b) : [saved, ...list];
-                });
-                byId.set(saved.identification_number, saved);
-                this.importProgress.update(p => p ? { ...p, done: p.done + 1 } : p);
-                const result: ImportRowResult = { row: rowNumber, identification: req.identification_number, status: match ? 'updated' : 'created' };
-                return [result];
-              }),
-              catchError(err => {
-                this.importProgress.update(p => p ? { ...p, done: p.done + 1 } : p);
-                const result: ImportRowResult = {
-                  row: rowNumber,
-                  identification: req.identification_number,
-                  status: 'error',
-                  message: err?.error?.message ?? 'Error al guardar.',
-                };
-                return [result];
-              }),
-            );
-          }),
-          toArray(),
-        ).subscribe({
-          next: results => {
-            this.importResults.set(results);
-            this.importing.set(false);
-            this.importProgress.set(null);
-          },
-          error: () => {
-            this.importError.set('La importación se detuvo por un error inesperado.');
-            this.importing.set(false);
-            this.importProgress.set(null);
-          },
-        });
-      },
-      error: () => {
-        this.importError.set('No se pudo verificar beneficiarios existentes antes de importar.');
-        this.importing.set(false);
-      },
-    });
+  // Dedupe dentro del mismo Excel por número de identificación (último valor
+  // gana) — evita mandarle al backend filas repetidas de la misma subida,
+  // que en Postgres dispararía "cannot affect row a second time" en el UPSERT.
+  private dedupeParsed(parsed: { rowNumber: number; req: BeneficiaryRequest }[]): BeneficiaryRequest[] {
+    // Sin cédula el backend nunca dedupea (índice único parcial la excluye) —
+    // esas filas se mandan todas tal cual, o se colapsarían entre sí por clave ''.
+    const byIdentification = new Map<string, BeneficiaryRequest>();
+    const withoutIdentification: BeneficiaryRequest[] = [];
+    for (const { req } of parsed) {
+      const key = req.identification_number.trim().toUpperCase();
+      if (!key) { withoutIdentification.push(req); continue; }
+      byIdentification.set(key, req);
+    }
+    return [...byIdentification.values(), ...withoutIdentification];
   }
 
-  private fetchAllBeneficiaries(cursor: string | null = null, acc: Beneficiary[] = []): Observable<Beneficiary[]> {
-    return new Observable<Beneficiary[]>(observer => {
-      this.svc.getBeneficiaries(this.projectId, cursor, 200).subscribe({
-        next: page => {
-          const merged = [...acc, ...(page.data ?? [])];
-          if (page.has_more && page.next_cursor) {
-            this.fetchAllBeneficiaries(page.next_cursor, merged).subscribe(observer);
-          } else {
-            observer.next(merged);
-            observer.complete();
-          }
-        },
-        error: err => observer.error(err),
-      });
+  private runImport(parsed: { rowNumber: number; req: BeneficiaryRequest }[]): void {
+    const items = this.dedupeParsed(parsed);
+    const chunks: BeneficiaryRequest[][] = [];
+    for (let i = 0; i < items.length; i += BULK_CHUNK_SIZE) {
+      chunks.push(items.slice(i, i + BULK_CHUNK_SIZE));
+    }
+
+    this.importProgress.set({ done: 0, total: items.length });
+
+    from(chunks).pipe(
+      concatMap(chunk =>
+        this.svc.bulkImportBeneficiaries(this.projectId, chunk).pipe(
+          concatMap(res => {
+            this.importProgress.update(p => p ? { ...p, done: p.done + chunk.length } : p);
+            return [res];
+          }),
+        )
+      ),
+      toArray(),
+    ).subscribe({
+      next: results => {
+        this.importResults.set(results.reduce((acc, r) => ({
+          inserted: acc.inserted + r.inserted,
+          updated:  acc.updated + r.updated,
+          skipped:  acc.skipped + r.skipped,
+        }), { inserted: 0, updated: 0, skipped: 0 }));
+        this.importing.set(false);
+        this.importProgress.set(null);
+        this.load();
+      },
+      error: err => {
+        this.importError.set(err?.error?.message ?? 'La importación se detuvo por un error inesperado.');
+        this.importing.set(false);
+        this.importProgress.set(null);
+      },
     });
   }
 

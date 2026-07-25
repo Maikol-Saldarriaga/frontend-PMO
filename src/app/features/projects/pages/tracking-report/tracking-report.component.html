@@ -173,6 +173,14 @@
       @if (sCurveChart(); as chart) {
         <div class="bg-white rounded-2xl border border-neutral-100 shadow-sm p-5 print-avoid-break">
           <p class="text-sm font-bold text-neutral-700 mb-2">Curva S — Planeado acumulado vs. Real acumulado</p>
+          <div class="flex flex-wrap items-center gap-4 mb-3">
+            @for (item of sCurveLegend; track item.label) {
+              <div class="flex items-center gap-1.5 text-xs font-medium text-neutral-500">
+                <span class="w-2.5 h-2.5 rounded-full inline-block" [style.background]="item.color"></span>
+                {{ item.label }}
+              </div>
+            }
+          </div>
           <apx-chart [series]="chart.series" [chart]="chart.chart" [stroke]="chart.stroke" [xaxis]="chart.xaxis"
             [colors]="chart.colors" [dataLabels]="chart.dataLabels" [legend]="chart.legend" [tooltip]="chart.tooltip" [grid]="chart.grid">
           </apx-chart>
@@ -184,6 +192,14 @@
         @if (statusDonut(); as chart) {
           <div class="bg-white rounded-2xl border border-neutral-100 shadow-sm p-5 print-avoid-break">
             <p class="text-sm font-bold text-neutral-700 mb-2">Distribución de estado (por período)</p>
+            <div class="flex flex-wrap items-center justify-center gap-3 mb-2">
+              @for (label of chart.labels; track label; let i = $index) {
+                <div class="flex items-center gap-1.5 text-xs font-medium text-neutral-500">
+                  <span class="w-2.5 h-2.5 rounded-full inline-block" [style.background]="chart.colors[i]"></span>
+                  {{ label }}
+                </div>
+              }
+            </div>
             <apx-chart [series]="chart.series" [chart]="chart.chart" [labels]="chart.labels" [colors]="chart.colors"
               [legend]="chart.legend" [dataLabels]="chart.dataLabels" [plotOptions]="chart.plotOptions" [tooltip]="chart.tooltip">
             </apx-chart>
@@ -192,6 +208,14 @@
         @if (componentBarChart(); as chart) {
           <div class="bg-white rounded-2xl border border-neutral-100 shadow-sm p-5 print-avoid-break">
             <p class="text-sm font-bold text-neutral-700 mb-2">Avance por componente (a la fecha)</p>
+            <div class="flex flex-wrap items-center gap-4 mb-3">
+              @for (item of componentBarLegend; track item.label) {
+                <div class="flex items-center gap-1.5 text-xs font-medium text-neutral-500">
+                  <span class="w-2.5 h-2.5 rounded-full inline-block" [style.background]="item.color"></span>
+                  {{ item.label }}
+                </div>
+              }
+            </div>
             <apx-chart [series]="chart.series" [chart]="chart.chart" [xaxis]="chart.xaxis" [colors]="chart.colors"
               [dataLabels]="chart.dataLabels" [legend]="chart.legend" [tooltip]="chart.tooltip" [plotOptions]="chart.plotOptions" [grid]="chart.grid">
             </apx-chart>

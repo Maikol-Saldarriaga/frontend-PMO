@@ -23,6 +23,8 @@ import { TabDocumentosComponent } from './tabs/tab-documentos/tab-documentos.com
 import { TabObligacionesComponent } from './tabs/tab-obligaciones/tab-obligaciones.component';
 import { TabAbastecimientoComponent } from './tabs/tab-abastecimiento/tab-abastecimiento.component';
 import { TabFlujoCajaComponent } from './tabs/tab-flujo-caja/tab-flujo-caja.component';
+import { TabGarantiasComponent } from './tabs/tab-garantias/tab-garantias.component';
+import { TabFirmasComponent } from './tabs/tab-firmas/tab-firmas.component';
 import { FormsModule } from '@angular/forms';
 import { MoneyMaskDirective } from '../../../../shared/directives/money-mask.directive';
 
@@ -47,6 +49,8 @@ import { MoneyMaskDirective } from '../../../../shared/directives/money-mask.dir
     TabObligacionesComponent,
     TabAbastecimientoComponent,
     TabFlujoCajaComponent,
+    TabGarantiasComponent,
+    TabFirmasComponent,
     TabEquipoComponent,
     FormsModule,
     MoneyMaskDirective,
@@ -151,12 +155,16 @@ export class ProjectDetailComponent implements OnInit {
       icon: `<path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>`,
     },
     {
-      id: 'historial', label: 'Historial', color: 'pink',
-      icon: `<path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>`,
+      id: 'equipo', label: 'Equipo', color: 'purple',
+      icon: `<path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>`,
     },
     {
-      id: 'equipo', label: 'Equipo de apoyo', color: 'purple',
-      icon: `<path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>`,
+      id: 'garantias', label: 'Garantías', color: 'yellow',
+      icon: `<path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>`,
+    },
+    {
+      id: 'firmas', label: 'Firmas', color: 'pink',
+      icon: `<path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.586-6.586a2 2 0 112.828 2.828L11.828 13.828a4 4 0 01-1.414.94l-2.828.943a1 1 0 01-1.264-1.264l.943-2.828a4 4 0 01.94-1.414zM4 17h16"/>`,
     },
   ];
 
@@ -166,7 +174,7 @@ export class ProjectDetailComponent implements OnInit {
     cronograma: null, presupuesto: 'budget', facturacion: 'finance', beneficiarios: 'beneficiaries',
     seguimiento: 'checkpoints', riesgos: 'risks', entregables: 'checkpoints', documentos: 'documents',
     indicadores: null, obligaciones: 'compliance_matrix', abastecimiento: 'supply_plan', historial: null,
-    equipo: null, 'flujo-caja': 'finance',
+    equipo: null, 'flujo-caja': 'finance', garantias: 'documents', firmas: 'signature',
   };
 
   private sk(s: string | undefined) {

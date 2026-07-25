@@ -184,7 +184,12 @@
 
       @if (!editingUser()) {
         <div class="mb-4">
-          <label class="text-xs font-semibold text-gray-600">Usuario</label>
+          <div class="flex items-center justify-between mb-1">
+            <label class="text-xs font-semibold text-gray-600">Usuario (apoyo)</label>
+            <button type="button" (click)="openApoyoModal()" class="text-xs font-semibold text-violet-600 hover:text-violet-800">
+              + Crear apoyo
+            </button>
+          </div>
           <select [(ngModel)]="selectedUserId" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm">
             <option value="">Selecciona un usuario</option>
             @for (u of availableUsers(); track u.id) {
@@ -236,6 +241,85 @@
         <button (click)="save()" [disabled]="saving()"
           class="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-700 disabled:opacity-50">
           {{ saving() ? 'Guardando...' : 'Guardar' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (showApoyoModal()) {
+  <div class="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[85vh] overflow-y-auto">
+      <h3 class="text-base font-bold text-gray-900 mb-4">Crear usuario de apoyo</h3>
+
+      @if (apoyoError()) {
+        <div class="mb-3 p-2.5 rounded-lg bg-red-50 border border-red-100 text-xs text-red-600">{{ apoyoError() }}</div>
+      }
+
+      <div class="grid grid-cols-2 gap-3">
+        <div class="col-span-1">
+          <label class="text-xs font-semibold text-gray-600">Primer nombre *</label>
+          <input [(ngModel)]="apoyoForm.first_name" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"/>
+        </div>
+        <div class="col-span-1">
+          <label class="text-xs font-semibold text-gray-600">Segundo nombre</label>
+          <input [(ngModel)]="apoyoForm.middle_name" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"/>
+        </div>
+        <div class="col-span-1">
+          <label class="text-xs font-semibold text-gray-600">Primer apellido *</label>
+          <input [(ngModel)]="apoyoForm.first_surname" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"/>
+        </div>
+        <div class="col-span-1">
+          <label class="text-xs font-semibold text-gray-600">Segundo apellido *</label>
+          <input [(ngModel)]="apoyoForm.second_surname" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"/>
+        </div>
+        <div class="col-span-1">
+          <label class="text-xs font-semibold text-gray-600">Tipo documento *</label>
+          <select [(ngModel)]="apoyoForm.document_type" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm">
+            <option value="CC">CC</option>
+            <option value="CE">CE</option>
+            <option value="TI">TI</option>
+            <option value="PP">PP</option>
+            <option value="RC">RC</option>
+            <option value="NIT">NIT</option>
+            <option value="PEP">PEP</option>
+          </select>
+        </div>
+        <div class="col-span-1">
+          <label class="text-xs font-semibold text-gray-600">N° documento *</label>
+          <input [(ngModel)]="apoyoForm.identity_document_number" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"/>
+        </div>
+        <div class="col-span-1">
+          <label class="text-xs font-semibold text-gray-600">Fecha nacimiento *</label>
+          <input type="date" [(ngModel)]="apoyoForm.birthdate" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"/>
+        </div>
+        <div class="col-span-1">
+          <label class="text-xs font-semibold text-gray-600">Teléfono *</label>
+          <input [(ngModel)]="apoyoForm.phone" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"/>
+        </div>
+        <div class="col-span-2">
+          <label class="text-xs font-semibold text-gray-600">Correo *</label>
+          <input type="email" [(ngModel)]="apoyoForm.email" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"/>
+        </div>
+        <div class="col-span-2">
+          <label class="text-xs font-semibold text-gray-600">Contraseña *</label>
+          <input type="password" [(ngModel)]="apoyoForm.password" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"/>
+        </div>
+        <div class="col-span-2">
+          <label class="text-xs font-semibold text-gray-600">Dirección</label>
+          <input [(ngModel)]="apoyoForm.address" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"/>
+        </div>
+        <div class="col-span-2">
+          <label class="text-xs font-semibold text-gray-600">Foto</label>
+          <input type="file" accept="image/*" (change)="onApoyoImageChange($event)" class="mt-1 w-full text-sm"/>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 mt-5">
+        <button (click)="closeApoyoModal()" class="px-4 py-2 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-100">Cancelar</button>
+        <button (click)="createApoyo()" [disabled]="savingApoyo()"
+          class="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-700 disabled:opacity-50">
+          {{ savingApoyo() ? 'Creando...' : 'Crear' }}
         </button>
       </div>
     </div>

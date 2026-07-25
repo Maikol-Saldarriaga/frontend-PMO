@@ -10,6 +10,7 @@ import {
 } from '../../../../models/project.model';
 import { SupportTypeKey, SUPPORT_TYPES, SUPPORT_TYPE_LABELS } from '../../../../models/support-types.constant';
 import { environment } from '../../../../../../../environments/environment';
+import { ConfirmDialogService } from '../../../../../../shared/components/confirm-dialog/confirm-dialog.service';
 
 type DeliveryEstado = 'pendiente' | 'vencido' | 'retrasado' | 'completado' | 'adelantado';
 type DeliveryFilter = 'todos' | 'completados' | 'atrasados' | 'adelantados';
@@ -54,7 +55,7 @@ export class TabEntregablesComponent implements OnInit {
   @Input() projectId!: string;
   @ViewChild('scrollContainer') scrollContainerRef?: ElementRef<HTMLElement>;
 
-  constructor(private svc: ProjectService, private timeSvc: ServerTimeService) {}
+  constructor(private svc: ProjectService, private timeSvc: ServerTimeService, private confirmDialog: ConfirmDialogService) {}
 
   /** Hora real (internet), no el reloj local del equipo — se usa para decidir si un entregable venció. */
   nowDate = signal<Date>(new Date());
@@ -283,10 +284,10 @@ export class TabEntregablesComponent implements OnInit {
 
   deletingVerificationId = signal<string | null>(null);
 
-  deleteVerification(v: DeliveryVerification): void {
+  async deleteVerification(v: DeliveryVerification): Promise<void> {
     const item = this.selectedDelivery();
     if (!item || !item.id_checkpoint) return;
-    if (!confirm(`¿Eliminar "${v.name || 'esta verificación'}"? Esta acción no se puede deshacer.`)) return;
+    if (!(await this.confirmDialog.confirm({ message: `¿Eliminar "${v.name || 'esta verificación'}"? Esta acción no se puede deshacer.` }))) return;
 
     this.deletingVerificationId.set(v.id);
     this.svc.deleteDeliveryVerification(this.projectId, item.id_activity, item.id_checkpoint, v.id).subscribe({

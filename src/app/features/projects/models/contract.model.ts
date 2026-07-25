@@ -379,8 +379,13 @@ export interface WizardIndicator {
 
 export interface WizardSignature {
   id:                      string;
-  date:                    string;
+  prepared_by_name:        string | null;
+  prepared_by_position:    string | null;
+  prepared_date:           string | null;
   signature_prepared_url:  string | null;
+  approved_by_name:        string | null;
+  approved_by_position:    string | null;
+  approved_date:           string | null;
   approved_signature_url:  string | null;
 }
 

@@ -94,7 +94,7 @@
                   <p class="text-[11px] text-gray-400">
                     <span class="text-gray-300">↳</span>
                     <span class="font-mono text-gray-500">{{ inv.collection_act_number || 'Sin acta' }}</span>
-                    · {{ inv.status === 'FACT' ? 'FACT' : 'PEND' }} · {{ inv.date | date:'dd MMM yyyy' }} · {{ formatCurrency(inv.value) }}
+                    · {{ inv.status === 'FACT' ? 'FACT' : 'PEND' }} · {{ inv.date | date:'dd MMM yyyy':'UTC' }} · {{ formatCurrency(inv.value) }}
                   </p>
                 }
               </div>
@@ -112,7 +112,7 @@
           @for (inv of generalInvoices; track trackByInvoice($index, inv)) {
             <div class="flex items-center justify-between gap-3 text-xs">
               <span class="text-gray-500 font-mono">{{ inv.collection_act_number || 'Sin acta' }}</span>
-              <span class="text-gray-400">{{ inv.date | date:'dd MMM yyyy' }}</span>
+              <span class="text-gray-400">{{ inv.date | date:'dd MMM yyyy':'UTC' }}</span>
               <span class="font-semibold text-gray-800">{{ formatCurrency(inv.value) }}</span>
               <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold"
                 [class.bg-emerald-50]="inv.status === 'FACT'" [class.text-emerald-700]="inv.status === 'FACT'"

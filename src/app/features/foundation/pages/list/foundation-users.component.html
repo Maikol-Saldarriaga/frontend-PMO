@@ -1,0 +1,145 @@
+<div class="px-6 py-6">
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <h2 class="text-base font-bold text-gray-900">Fundación</h2>
+        <p class="text-xs text-gray-500 mt-0.5">Usuarios internos de la fundación (coordinadores, diligenciadores, etc).</p>
+      </div>
+      <button (click)="openAddForm()"
+        class="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold transition-colors">
+        Nuevo usuario
+      </button>
+    </div>
+
+    @if (loading()) {
+      <p class="text-sm text-gray-400 py-8 text-center">Cargando usuarios...</p>
+    } @else if (error()) {
+      <div class="p-3 rounded-lg bg-red-50 border border-red-100 text-sm text-red-600">{{ error() }}</div>
+    } @else if (!users().length) {
+      <p class="text-sm text-gray-400 py-8 text-center">Aún no hay usuarios registrados.</p>
+    } @else {
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-left text-xs text-gray-400 uppercase border-b border-gray-100">
+              <th class="py-2 pr-4">Nombre</th>
+              <th class="py-2 pr-4">Rol</th>
+              <th class="py-2 pr-4">Contacto</th>
+              <th class="py-2 pr-4">Estado</th>
+              <th class="py-2 pr-4"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (u of users(); track trackById($index, u)) {
+              <tr class="border-b border-gray-50">
+                <td class="py-3 pr-4 font-semibold text-gray-800">{{ fullName(u) }}</td>
+                <td class="py-3 pr-4 text-gray-500">{{ roleLabel(u.role) }}</td>
+                <td class="py-3 pr-4 text-gray-500">
+                  <div>{{ u.phone || '—' }}</div>
+                  <div class="text-xs text-gray-400">{{ u.email || '' }}</div>
+                </td>
+                <td class="py-3 pr-4">
+                  <span class="px-2 py-0.5 rounded-md text-[11px] font-medium"
+                    [class.bg-emerald-50]="u.is_active" [class.text-emerald-700]="u.is_active"
+                    [class.bg-gray-100]="!u.is_active" [class.text-gray-500]="!u.is_active">
+                    {{ u.is_active ? 'Activo' : 'Inactivo' }}
+                  </span>
+                </td>
+                <td class="py-3 pr-4 text-right whitespace-nowrap">
+                  @if (u.is_active) {
+                    <button (click)="deactivate(u)" title="Desactivar"
+                      class="inline-flex p-1.5 rounded-lg text-red-500 hover:bg-red-50 hover:text-red-700 transition-colors">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.243M9.878 9.878L3 3m6.878 6.878L21 21"/>
+                      </svg>
+                    </button>
+                  } @else {
+                    <button (click)="activate(u)" title="Activar"
+                      class="inline-flex p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:text-emerald-800 transition-colors">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                      </svg>
+                    </button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+
+  </div>
+</div>
+
+<!-- Modal: nuevo usuario de fundación -->
+@if (showForm()) {
+  <div class="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[85vh] overflow-y-auto">
+      <h3 class="text-base font-bold text-gray-900 mb-4">Nuevo usuario de fundación</h3>
+
+      @if (saveError()) {
+        <div class="mb-3 p-2.5 rounded-lg bg-red-50 border border-red-100 text-xs text-red-600">{{ saveError() }}</div>
+      }
+
+      <div class="space-y-3">
+        <div>
+          <label class="text-xs font-semibold text-gray-600">Rol</label>
+          <select [(ngModel)]="form.role" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm">
+            @for (r of creatableRoles; track r) { <option [value]="r">{{ roleLabel(r) }}</option> }
+          </select>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs font-semibold text-gray-600">Primer nombre</label>
+            <input [(ngModel)]="form.first_name" type="text" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-gray-600">Primer apellido</label>
+            <input [(ngModel)]="form.first_surname" type="text" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-gray-600">Segundo apellido</label>
+            <input [(ngModel)]="form.second_surname" type="text" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-gray-600">Tipo documento</label>
+            <select [(ngModel)]="form.document_type" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm">
+              @for (d of docTypes; track d) { <option [value]="d">{{ d }}</option> }
+            </select>
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-gray-600">N° documento</label>
+            <input [(ngModel)]="form.identity_document_number" type="text" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-gray-600">Fecha de nacimiento</label>
+            <input [(ngModel)]="form.birthdate" type="date" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-gray-600">Teléfono</label>
+            <input [(ngModel)]="form.phone" type="tel" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-gray-600">Correo</label>
+            <input [(ngModel)]="form.email" type="email" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-gray-600">Contraseña</label>
+            <input [(ngModel)]="form.password" type="password" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+          </div>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 mt-5">
+        <button (click)="cancelForm()" class="px-4 py-2 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-100">Cancelar</button>
+        <button (click)="save()" [disabled]="saving()"
+          class="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-700 disabled:opacity-50">
+          {{ saving() ? 'Guardando...' : 'Guardar' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

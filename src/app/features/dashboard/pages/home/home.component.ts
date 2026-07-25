@@ -1,5 +1,6 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router, ActivatedRoute } from '@angular/router';
 import {
   NgApexchartsModule,
   ApexAxisChartSeries,
@@ -16,6 +17,7 @@ import {
 } from 'ng-apexcharts';
 import { HighchartsChartComponent } from 'highcharts-angular';
 import type Highcharts from 'highcharts';
+import { buildTooltip } from '../../../../shared/utils/chart-tooltip.util';
 import { AuthStore } from '../../../../../core/auth/store/auth.store';
 import {
   DashboardService,
@@ -79,10 +81,27 @@ interface ComboChartOptions {
 
 const PALETTE = ['#0ea5e9', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#14b8a6', '#f97316', '#6366f1'];
 
-function escapeHtml(value: string): string {
-  const div = document.createElement('div');
-  div.textContent = value;
-  return div.innerHTML;
+function formatUsagePct(val: number): string {
+  if (val > 0 && val < 5) return `${val.toFixed(2)}%`;
+  return `${Math.round(val)}%`;
+}
+
+const MONTH_NAMES = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+];
+
+const MONTH_ABBR_MAP: Record<string, string> = {
+  ene: 'Enero', feb: 'Febrero', mar: 'Marzo', abr: 'Abril', may: 'Mayo', jun: 'Junio',
+  jul: 'Julio', ago: 'Agosto', sep: 'Septiembre', set: 'Septiembre', oct: 'Octubre',
+  nov: 'Noviembre', dic: 'Diciembre',
+};
+
+function monthLabel(month: string): string {
+  const n = parseInt(month, 10);
+  if (!isNaN(n) && n >= 1 && n <= 12) return MONTH_NAMES[n - 1];
+  const key = month.trim().toLowerCase().replace(/\.$/, '');
+  return MONTH_ABBR_MAP[key] ?? month;
 }
 
 const CATEGORY_LABELS: Record<AllyCategoryKey, string> = {
@@ -107,19 +126,33 @@ const CATEGORY_COLORS: Record<AllyCategoryKey, string> = {
 export class HomeComponent implements OnInit {
   private authStore    = inject(AuthStore);
   private dashboardSvc = inject(DashboardService);
+  private router       = inject(Router);
+  private route        = inject(ActivatedRoute);
 
   today = new Date().toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' });
 
   get user() { return this.authStore.user(); }
 
   // ── Tabs ──────────────────────────────────────
+  private static readonly TAB_IDS = ['general', 'budget', 'partnerships'] as const;
+
   activeTab = signal<'general' | 'budget' | 'partnerships'>('general');
 
   setTab(tab: 'general' | 'budget' | 'partnerships'): void {
     this.activeTab.set(tab);
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { tab },
+      queryParamsHandling: 'merge',
+    });
   }
 
   ngOnInit(): void {
+    const tab = this.route.snapshot.queryParamMap.get('tab');
+    if (tab && (HomeComponent.TAB_IDS as readonly string[]).includes(tab)) {
+      this.activeTab.set(tab as 'general' | 'budget' | 'partnerships');
+    }
+
     this.loadFodcProjects();
     this.loadBudgetMonthly('all');
     this.loadAlliesList();
@@ -208,7 +241,7 @@ export class HomeComponent implements OnInit {
 
   fodcUsedPct = computed(() => {
     const budget = this.fodcGeneralBudget();
-    return budget > 0 ? Math.min(100, Math.round((this.fodcUsedTotal() / budget) * 100)) : 0;
+    return budget > 0 ? Math.min(100, (this.fodcUsedTotal() / budget) * 100) : 0;
   });
 
   // Gauge: presupuesto FODC usado
@@ -226,7 +259,7 @@ export class HomeComponent implements OnInit {
         track: { background: '#e2e8f0' },
         dataLabels: {
           name: { show: true, fontSize: '12px', color: '#94a3b8', offsetY: -10 },
-          value: { fontSize: '26px', fontWeight: 700, color: '#1e293b', offsetY: 6, formatter: (val: number) => `${val}%` },
+          value: { fontSize: '26px', fontWeight: 700, color: '#1e293b', offsetY: 6, formatter: (val: number) => formatUsagePct(val) },
         },
       },
     },
@@ -255,7 +288,8 @@ export class HomeComponent implements OnInit {
             distance: 20,
             connectorShape: 'straight',
             softConnector: false,
-            format: '{point.name}<br/>{point.percentage:.1f}%',
+            useHTML: true,
+            format: '<div class="donut-label"><span class="donut-label__name">{point.name}</span><span class="donut-label__pct">{point.percentage:.1f}%</span></div>',
             style: { fontSize: '11px', fontWeight: '500', textOutline: 'none', color: '#475569' },
           },
         },
@@ -286,7 +320,12 @@ export class HomeComponent implements OnInit {
       xaxis: { categories: ['Facturado', 'Planeado'], labels: { formatter: (val: string) => this.formatCop(+val) } },
       dataLabels: { enabled: true, formatter: (val: number) => this.formatCop(val) },
       legend: { show: false },
-      tooltip: { y: { formatter: (val: number) => this.formatCop(val) } },
+      tooltip: {
+        custom: ({ series, seriesIndex, dataPointIndex, w }: any) =>
+          buildTooltip(w.globals.labels[dataPointIndex], [
+            { label: 'Valor', value: this.formatCop(series[seriesIndex][dataPointIndex]), color: w.globals.colors[dataPointIndex] },
+          ]),
+      },
       plotOptions: { bar: { horizontal: true, borderRadius: 6, barHeight: '45%', distributed: true } },
       grid: { borderColor: '#e2e8f0' },
     };
@@ -319,7 +358,7 @@ export class HomeComponent implements OnInit {
 
   executedPct = computed(() => {
     const { planned, executed } = this.budgetTotals();
-    return planned > 0 ? Math.min(100, Math.round((executed / planned) * 100)) : 0;
+    return planned > 0 ? Math.min(100, (executed / planned) * 100) : 0;
   });
 
   // Gauge: planeado vs ejecutado
@@ -337,7 +376,7 @@ export class HomeComponent implements OnInit {
         track: { background: '#e2e8f0' },
         dataLabels: {
           name: { show: true, fontSize: '12px', color: '#94a3b8', offsetY: -10 },
-          value: { fontSize: '26px', fontWeight: 700, color: '#1e293b', offsetY: 6, formatter: (val: number) => `${val}%` },
+          value: { fontSize: '26px', fontWeight: 700, color: '#1e293b', offsetY: 6, formatter: (val: number) => formatUsagePct(val) },
         },
       },
     },
@@ -398,11 +437,18 @@ export class HomeComponent implements OnInit {
       chart: { height: 340, type: 'line', toolbar: { show: false } },
       stroke: { width: [0, 3, 3], curve: 'smooth' },
       colors: ['#cbd5e1', '#0ea5e9', '#10b981'],
-      xaxis: { categories: data.map(p => p.month) },
+      xaxis: { categories: data.map(p => monthLabel(p.month)) },
       yaxis: { labels: { formatter: (val: number) => this.formatCop(val) } },
       dataLabels: { enabled: false },
       legend: { position: 'top' },
-      tooltip: { shared: true, intersect: false, y: { formatter: (val: number) => this.formatCop(val) } },
+      tooltip: {
+        shared: true,
+        intersect: false,
+        custom: ({ series, dataPointIndex, w }: any) =>
+          buildTooltip(monthLabel(data[dataPointIndex].month), w.config.series.map((s: any, i: number) => ({
+            label: s.name, value: this.formatCop(series[i][dataPointIndex]), color: w.globals.colors[i],
+          }))),
+      },
       plotOptions: { bar: { columnWidth: '45%', borderRadius: 4 } },
       grid: { borderColor: '#e2e8f0' },
     };
@@ -426,11 +472,13 @@ export class HomeComponent implements OnInit {
       dataLabels: { enabled: true, formatter: (val: number) => `${val}%` },
       legend: { show: false },
       tooltip: {
-        y: {
-          formatter: (val: number, opts: { dataPointIndex: number }) => {
-            const p = data[opts.dataPointIndex];
-            return `${val}% · ${this.formatCop(p.invoicedTotal)} / ${this.formatCop(p.plannedTotal)}`;
-          },
+        custom: ({ series, seriesIndex, dataPointIndex, w }: any) => {
+          const p = data[dataPointIndex];
+          return buildTooltip(p.name, [
+            { label: '% facturado', value: `${series[seriesIndex][dataPointIndex]}%`, color: w.globals.colors[dataPointIndex] },
+            { label: 'Facturado', value: this.formatCop(p.invoicedTotal) },
+            { label: 'Planeado', value: this.formatCop(p.plannedTotal) },
+          ]);
         },
       },
       plotOptions: { bar: { horizontal: true, borderRadius: 6, barHeight: '55%', distributed: true } },
@@ -605,7 +653,16 @@ export class HomeComponent implements OnInit {
       colors: cats.map(c => c.color),
       legend: { position: 'bottom', fontSize: '12px' },
       dataLabels: { enabled: true, formatter: (val: number) => `${val.toFixed(1)}%` },
-      tooltip: { y: { formatter: (val: number) => this.formatCop(val) } },
+      tooltip: {
+        custom: ({ series, seriesIndex, w }: any) => {
+          const total = series.reduce((a: number, b: number) => a + b, 0);
+          const pct = total > 0 ? ((series[seriesIndex] / total) * 100).toFixed(1) : '0.0';
+          return buildTooltip(w.globals.labels[seriesIndex], [
+            { label: 'Monto', value: this.formatCop(series[seriesIndex]), color: w.globals.colors[seriesIndex] },
+            { label: 'Porcentaje', value: `${pct}%` },
+          ]);
+        },
+      },
       plotOptions: { pie: { donut: { size: '65%' } } },
     };
   });
@@ -657,7 +714,14 @@ export class HomeComponent implements OnInit {
       yaxis: { labels: { formatter: (val: number) => this.formatCop(val) } },
       dataLabels: { enabled: false },
       legend: { position: 'top' },
-      tooltip: { shared: true, intersect: false, y: { formatter: (val: number) => this.formatCop(val) } },
+      tooltip: {
+        shared: true,
+        intersect: false,
+        custom: ({ series, dataPointIndex, w }: any) =>
+          buildTooltip(w.globals.labels[dataPointIndex], w.config.series.map((s: any, i: number) => ({
+            label: s.name, value: this.formatCop(series[i][dataPointIndex]), color: w.globals.colors[i],
+          }))),
+      },
       plotOptions: { bar: { columnWidth: '55%', borderRadius: 4 } },
       grid: { borderColor: '#e2e8f0' },
     };

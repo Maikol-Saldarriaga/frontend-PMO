@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, signal, computed } from '@angular/core';
+import { Component, Input, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -7,6 +7,7 @@ import {
   BudgetWizardResponse, BudgetEntry, BudgetItem, BUDGET_ITEM_UNIT_OPTIONS,
 } from '../../../../models/project.model';
 import { BudgetItemPanelComponent, BudgetPanelContext } from './budget-item-panel/budget-item-panel.component';
+import { ConfirmDialogService } from '../../../../../../shared/components/confirm-dialog/confirm-dialog.service';
 
 const PALETTE = ['#0EA5E9','#10B981','#F59E0B','#EF4444','#8B5CF6','#EC4899','#14B8A6','#F97316'];
 const AMOUNT_EPSILON = 0.01;
@@ -45,7 +46,7 @@ export interface ComponentSection {
 export class TabPresupuestoComponent implements OnInit {
   @Input() projectId!: string;
 
-  constructor(private svc: ProjectService, private rtr: Router) {}
+  constructor(private svc: ProjectService, private rtr: Router, private confirmDialog: ConfirmDialogService) {}
 
   readonly unitOptions = BUDGET_ITEM_UNIT_OPTIONS;
 
@@ -64,7 +65,11 @@ export class TabPresupuestoComponent implements OnInit {
   addingComponentError = signal<string | null>(null);
   addingComponentSaving = signal(false);
 
-  budgetComponentTotals = computed(() => {
+  /** Métodos normales, no `computed()`: `sections` es un array plano reasignado en cada
+   * recarga, no un signal, así que un `computed` quedaría con el valor cacheado del primer
+   * cálculo y nunca reflejaría los totales tras crear/editar un ítem. Al ser métodos, se
+   * reevalúan en cada ciclo de detección de cambios. */
+  budgetComponentTotals() {
     return this.sections.map(s => ({
       name: s.name,
       is_complete: s.is_complete,
@@ -72,16 +77,22 @@ export class TabPresupuestoComponent implements OnInit {
       entries: s.entries.length,
       filled: s.entries.filter(e => e.items.length > 0).length,
     }));
-  });
+  }
 
-  budgetGrandTotal = computed(() => this.sections.reduce((s, sec) => s + this.compTotal(sec), 0));
+  budgetGrandTotal(): number {
+    return this.sections.reduce((s, sec) => s + this.compTotal(sec), 0);
+  }
 
   ngOnInit(): void {
+    this.loadProjectTotal();
+    this.load();
+  }
+
+  private loadProjectTotal(): void {
     this.svc.getProjectDetails(this.projectId).subscribe({
       next: d => this.projectTotalBudget.set(d.value ?? null),
       error: () => this.projectTotalBudget.set(null),
     });
-    this.load();
   }
 
   private load(): void {
@@ -154,7 +165,7 @@ export class TabPresupuestoComponent implements OnInit {
   }
   capPct(s: ComponentSection): number {
     if (!s.budgetCap) return 0;
-    return Math.min(100, Math.round((this.compItemsTotal(s) / s.budgetCap) * 100));
+    return Math.min(100, (this.compItemsTotal(s) / s.budgetCap) * 100);
   }
 
   /** Estado real del componente técnico según su consumo de presupuesto (independiente de `is_complete` del backend). */
@@ -246,7 +257,7 @@ export class TabPresupuestoComponent implements OnInit {
     return this.unitOptions.find(o => o.value === value)?.label ?? (value || '—');
   }
 
-  // ── Sub-componentes de presupuesto (budget_component) ──────────────────────
+  // ── Rubros de presupuesto (budget_component) ──────────────────────
 
   startAddComponent(): void {
     this.addingComponent.set(true);
@@ -322,9 +333,9 @@ export class TabPresupuestoComponent implements OnInit {
     });
   }
 
-  deleteEntry(sec: ComponentSection, entry: EntrySection): void {
-    if (entry.items.length && !confirm(`"${entry.name}" tiene ${entry.items.length} ítem(s) de presupuesto. ¿Eliminar de todas formas?`)) return;
-    if (!entry.items.length && !confirm(`¿Eliminar el sub-componente "${entry.name}"?`)) return;
+  async deleteEntry(sec: ComponentSection, entry: EntrySection): Promise<void> {
+    if (entry.items.length && !(await this.confirmDialog.confirm({ message: `"${entry.name}" tiene ${entry.items.length} ítem(s) de presupuesto. ¿Eliminar de todas formas?` }))) return;
+    if (!entry.items.length && !(await this.confirmDialog.confirm({ message: `¿Eliminar el sub-componente "${entry.name}"?` }))) return;
 
     this.svc.deleteBudgetComponent(this.projectId, entry.budget_component_id).subscribe({
       next: () => {
@@ -371,6 +382,7 @@ export class TabPresupuestoComponent implements OnInit {
   }
 
   onPanelSaved(): void {
+    this.closePanel();
     this.load();
   }
 
@@ -398,8 +410,8 @@ export class TabPresupuestoComponent implements OnInit {
     });
   }
 
-  deleteItemQuick(sec: ComponentSection, entry: EntrySection, item: BudgetItem): void {
-    if (!confirm(`¿Eliminar el ítem "${item.concept || 'sin concepto'}"? Esta acción no se puede revertir.`)) return;
+  async deleteItemQuick(sec: ComponentSection, entry: EntrySection, item: BudgetItem): Promise<void> {
+    if (!(await this.confirmDialog.confirm({ message: `¿Eliminar el ítem "${item.concept || 'sin concepto'}"? Esta acción no se puede revertir.` }))) return;
     this.svc.deleteBudgetItem(this.projectId, item.id).subscribe({
       next: () => this.load(),
       error: () => this.showMsg('Error al eliminar el ítem.'),
@@ -412,6 +424,13 @@ export class TabPresupuestoComponent implements OnInit {
   }
 
   openMonthlyEditor(): void { this.rtr.navigate(['/projects', this.projectId, 'monthly']); }
+
+  /** Igual criterio que el dashboard: bajo 5% muestra 2 decimales para que no se vea "0%"
+   * cuando en realidad hay un consumo pequeño pero real. */
+  formatPct(val: number): string {
+    if (val > 0 && val < 5) return val.toFixed(2);
+    return Math.round(val).toString();
+  }
 
   formatCurrency(v: number): string {
     return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(v);

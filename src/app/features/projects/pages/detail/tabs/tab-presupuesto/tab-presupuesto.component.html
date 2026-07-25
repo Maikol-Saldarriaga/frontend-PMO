@@ -32,10 +32,10 @@
       </div>
     </div>
 
-    <!-- ── Crear componente de presupuesto ─────────────────────────────── -->
+    <!-- ── Crear rubro de presupuesto ─────────────────────────────── -->
     @if (addingComponent()) {
       <div class="rounded-2xl border border-dashed border-accent-300 bg-accent-50/40 p-5 space-y-3">
-        <h3 class="text-sm font-bold text-primary-700">Nuevo componente de presupuesto</h3>
+        <h3 class="text-sm font-bold text-primary-700">Nuevo rubro de presupuesto</h3>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Nombre</label>
@@ -82,7 +82,11 @@
             <tr class="border-b border-gray-100">
               <td class="px-5 py-3.5">
                 <p class="text-lg font-black text-gray-900 leading-tight">{{ formatCompact(budgetGrandTotal()) }}</p>
-                <p class="text-[10px] text-gray-400 mt-0.5">{{ formatCurrency(budgetGrandTotal()) }}</p>
+                @if (projectTotalBudget() !== null) {
+                  <p class="text-[10px] text-gray-400 mt-0.5">Total: {{ formatCurrency(projectTotalBudget()!) }}</p>
+                } @else {
+                  <p class="text-[10px] text-gray-400 mt-0.5">{{ formatCurrency(budgetGrandTotal()) }}</p>
+                }
               </td>
               <td class="px-5 py-3.5">
                 <p class="text-lg font-black text-gray-900">{{ sections.length }}</p>
@@ -168,7 +172,7 @@
                     @if (capOverflow(sec)) {
                       <p class="text-[10px] text-red-600 font-semibold mt-1">Supera en {{ formatCurrency(compItemsTotal(sec) - sec.budgetCap) }}</p>
                     } @else {
-                      <p class="text-[10px] text-gray-400 mt-1">{{ capPct(sec) | number:'1.0-1' }}% · Disp: {{ formatCurrency(capRemaining(sec)) }}</p>
+                      <p class="text-[10px] text-gray-400 mt-1">{{ formatPct(capPct(sec)) }}% · Disp: {{ formatCurrency(capRemaining(sec)) }}</p>
                     }
                   } @else {
                     <p class="text-[10px] text-gray-400">Sin tope asignado</p>
@@ -191,8 +195,8 @@
       </div>
     </div>
 
-    <!-- ── Componentes de presupuesto (una tabla por componente) ────────── -->
-    <h3 class="text-sm font-bold text-gray-800 px-1">Componentes de presupuesto</h3>
+    <!-- ── Rubros de presupuesto (una tabla por componente) ────────── -->
+    <h3 class="text-sm font-bold text-gray-800 px-1">Rubros de presupuesto</h3>
 
     @for (sec of sections; track trackByComp($index, sec); let si = $index) {
       @for (entry of sec.entries; track trackByEntry($index, entry)) {
@@ -313,7 +317,7 @@
 
     @if (!hasAnyEntries()) {
       <div class="flex flex-col items-center justify-center py-12 gap-2 border border-dashed border-gray-200 rounded-2xl">
-        <p class="text-sm font-medium text-gray-500">Aún no hay componentes de presupuesto.</p>
+        <p class="text-sm font-medium text-gray-500">Aún no hay rubros de presupuesto.</p>
         <p class="text-xs text-gray-400">Usa "Crear rubro" arriba para crear el primero.</p>
       </div>
     }

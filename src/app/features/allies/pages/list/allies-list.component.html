@@ -47,9 +47,34 @@
                   </span>
                 </td>
                 <td class="py-3 pr-4 text-right whitespace-nowrap">
-                  <button (click)="openSupervisors(a)" class="text-xs font-semibold text-violet-600 hover:text-violet-800 mr-3">Supervisores</button>
-                  <button (click)="openEditForm(a)" class="text-xs font-semibold text-sky-600 hover:text-sky-800 mr-3">Editar</button>
-                  <button (click)="deactivate(a)" class="text-xs font-semibold text-red-500 hover:text-red-700">Desactivar</button>
+                  <button (click)="openSupervisors(a)" title="Supervisores"
+                    class="inline-flex p-1.5 rounded-lg text-violet-600 hover:bg-violet-50 hover:text-violet-800 mr-1.5 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-5.13a4 4 0 11-8 0 4 4 0 018 0zm6 3a4 4 0 10-8 0"/>
+                    </svg>
+                  </button>
+                  <button (click)="openEditForm(a)" title="Editar"
+                    class="inline-flex p-1.5 rounded-lg text-sky-600 hover:bg-sky-50 hover:text-sky-800 mr-1.5 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                    </svg>
+                  </button>
+                  @if (a.is_active) {
+                    <button (click)="deactivate(a)" title="Desactivar"
+                      class="inline-flex p-1.5 rounded-lg text-red-500 hover:bg-red-50 hover:text-red-700 transition-colors">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.243M9.878 9.878L3 3m6.878 6.878L21 21"/>
+                      </svg>
+                    </button>
+                  } @else {
+                    <button (click)="activate(a)" title="Activar"
+                      class="inline-flex p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:text-emerald-800 transition-colors">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                      </svg>
+                    </button>
+                  }
                 </td>
               </tr>
             }
@@ -135,6 +160,8 @@
             <tr class="text-left text-xs text-gray-400 uppercase border-b border-gray-100">
               <th class="py-2 pr-4">Nombre</th>
               <th class="py-2 pr-4">Documento</th>
+              <th class="py-2 pr-4">Estado</th>
+              <th class="py-2 pr-4"></th>
             </tr>
           </thead>
           <tbody>
@@ -142,74 +169,111 @@
               <tr class="border-b border-gray-50">
                 <td class="py-2 pr-4 font-medium text-gray-800">{{ s.full_name }}</td>
                 <td class="py-2 pr-4 text-gray-500">{{ s.type_identification }} {{ s.identification_number }}</td>
+                <td class="py-2 pr-4">
+                  <span class="px-2 py-0.5 rounded-md text-[11px] font-medium"
+                    [class.bg-emerald-50]="s.is_active !== false" [class.text-emerald-700]="s.is_active !== false"
+                    [class.bg-gray-100]="s.is_active === false" [class.text-gray-500]="s.is_active === false">
+                    {{ s.is_active === false ? 'Inactivo' : 'Activo' }}
+                  </span>
+                </td>
+                <td class="py-2 pr-4 text-right whitespace-nowrap">
+                  <button (click)="openEditSupervisorForm(s)" title="Editar"
+                    class="inline-flex p-1.5 rounded-lg text-sky-600 hover:bg-sky-50 hover:text-sky-800 mr-1 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                    </svg>
+                  </button>
+                  @if (s.is_active !== false) {
+                    <button (click)="deactivateSupervisor(s)" title="Desactivar"
+                      class="inline-flex p-1.5 rounded-lg text-red-500 hover:bg-red-50 hover:text-red-700 transition-colors">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.243M9.878 9.878L3 3m6.878 6.878L21 21"/>
+                      </svg>
+                    </button>
+                  } @else {
+                    <button (click)="activateSupervisor(s)" title="Activar"
+                      class="inline-flex p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:text-emerald-800 transition-colors">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                      </svg>
+                    </button>
+                  }
+                </td>
               </tr>
             }
           </tbody>
         </table>
       }
 
-      <!-- Sub-modal: nuevo supervisor -->
-      @if (showSupervisorForm()) {
-        <div class="mt-5 pt-4 border-t border-gray-100">
-          <h4 class="text-sm font-bold text-gray-900 mb-3">Nuevo supervisor aliado</h4>
-
-          @if (supervisorSaveError()) {
-            <div class="mb-3 p-2.5 rounded-lg bg-red-50 border border-red-100 text-xs text-red-600">{{ supervisorSaveError() }}</div>
-          }
-
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="text-xs font-semibold text-gray-600">Primer nombre</label>
-              <input [(ngModel)]="supervisorForm.first_name" type="text" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
-            </div>
-            <div>
-              <label class="text-xs font-semibold text-gray-600">Primer apellido</label>
-              <input [(ngModel)]="supervisorForm.first_surname" type="text" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
-            </div>
-            <div>
-              <label class="text-xs font-semibold text-gray-600">Segundo apellido</label>
-              <input [(ngModel)]="supervisorForm.second_surname" type="text" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
-            </div>
-            <div>
-              <label class="text-xs font-semibold text-gray-600">Tipo documento</label>
-              <select [(ngModel)]="supervisorForm.document_type" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm">
-                @for (d of docTypes; track d) { <option [value]="d">{{ d }}</option> }
-              </select>
-            </div>
-            <div>
-              <label class="text-xs font-semibold text-gray-600">N° documento</label>
-              <input [(ngModel)]="supervisorForm.identity_document_number" type="text" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
-            </div>
-            <div>
-              <label class="text-xs font-semibold text-gray-600">Fecha de nacimiento</label>
-              <input [(ngModel)]="supervisorForm.birthdate" type="date" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
-            </div>
-            <div>
-              <label class="text-xs font-semibold text-gray-600">Teléfono</label>
-              <input [(ngModel)]="supervisorForm.phone" type="tel" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
-            </div>
-            <div>
-              <label class="text-xs font-semibold text-gray-600">Correo</label>
-              <input [(ngModel)]="supervisorForm.email" type="email" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
-            </div>
-            <div>
-              <label class="text-xs font-semibold text-gray-600">Contraseña</label>
-              <input [(ngModel)]="supervisorForm.password" type="password" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
-            </div>
-          </div>
-
-          <div class="flex justify-end gap-2 mt-4">
-            <button (click)="cancelSupervisorForm()" class="px-4 py-2 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-100">Cancelar</button>
-            <button (click)="saveSupervisor()" [disabled]="supervisorSaving()"
-              class="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-700 disabled:opacity-50">
-              {{ supervisorSaving() ? 'Guardando...' : 'Guardar' }}
-            </button>
-          </div>
-        </div>
-      }
-
       <div class="flex justify-end mt-5">
         <button (click)="closeSupervisors()" class="px-4 py-2 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-100">Cerrar</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Dialog separado (sobrepasa al de Supervisores): nuevo/editar supervisor aliado -->
+@if (showSupervisorForm()) {
+  <div class="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 max-h-[85vh] overflow-y-auto">
+      <h4 class="text-base font-bold text-gray-900 mb-4">
+        {{ supervisorDialogMode === 'edit' ? 'Editar supervisor aliado' : 'Nuevo supervisor aliado' }}
+      </h4>
+
+      @if (supervisorSaveError()) {
+        <div class="mb-3 p-2.5 rounded-lg bg-red-50 border border-red-100 text-xs text-red-600">{{ supervisorSaveError() }}</div>
+      }
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs font-semibold text-gray-600">Primer nombre</label>
+          <input [(ngModel)]="supervisorForm.first_name" type="text" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-gray-600">Primer apellido</label>
+          <input [(ngModel)]="supervisorForm.first_surname" type="text" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-gray-600">Segundo apellido</label>
+          <input [(ngModel)]="supervisorForm.second_surname" type="text" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-gray-600">Tipo documento</label>
+          <select [(ngModel)]="supervisorForm.document_type" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm">
+            @for (d of docTypes; track d) { <option [value]="d">{{ d }}</option> }
+          </select>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-gray-600">N° documento</label>
+          <input [(ngModel)]="supervisorForm.identity_document_number" type="text" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-gray-600">Fecha de nacimiento</label>
+          <input [(ngModel)]="supervisorForm.birthdate" type="date" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-gray-600">Teléfono</label>
+          <input [(ngModel)]="supervisorForm.phone" type="tel" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-gray-600">Correo</label>
+          <input [(ngModel)]="supervisorForm.email" type="email" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-gray-600">
+            Contraseña @if (supervisorDialogMode === 'edit') { <span class="font-normal text-gray-400">(dejar vacío para no cambiar)</span> }
+          </label>
+          <input [(ngModel)]="supervisorForm.password" type="password" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 mt-5">
+        <button (click)="cancelSupervisorForm()" class="px-4 py-2 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-100">Cancelar</button>
+        <button (click)="saveSupervisor()" [disabled]="supervisorSaving()"
+          class="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-700 disabled:opacity-50">
+          {{ supervisorSaving() ? 'Guardando...' : 'Guardar' }}
+        </button>
       </div>
     </div>
   </div>

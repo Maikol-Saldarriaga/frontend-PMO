@@ -15,6 +15,7 @@ import {
 } from 'ng-apexcharts';
 import { ProjectService } from '../../../../services/project.service';
 import { CashFlowMonth, CashFlowReport, CashFlowRubro, FundingReceipt, BudgetEntry, BudgetItem } from '../../../../models/project.model';
+import { buildTooltip } from '../../../../../../shared/utils/chart-tooltip.util';
 
 const MONTH_NAMES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
@@ -134,12 +135,27 @@ export class TabFlujoCajaComponent implements OnInit {
       xaxis: { categories: data.map(m => this.monthLabel(m)) },
       yaxis: { labels: { formatter: (val: number) => this.formatCompact(val) } },
       dataLabels: { enabled: false },
-      legend: { position: 'top' },
-      tooltip: { shared: true, intersect: false, y: { formatter: (val: number) => this.formatCurrency(val) } },
+      legend: { show: false },
+      tooltip: {
+        shared: true,
+        intersect: false,
+        custom: ({ series, dataPointIndex, w }: any) =>
+          buildTooltip(this.monthLabel(data[dataPointIndex]), w.config.series.map((s: any, i: number) => ({
+            label: s.name, value: this.formatCurrency(series[i][dataPointIndex]), color: w.globals.colors[i],
+          }))),
+      },
       plotOptions: { bar: { columnWidth: '55%', borderRadius: 4 } },
       grid: { borderColor: '#e2e8f0' },
     };
   });
+
+  /** Leyenda propia del combo (no depende del render nativo de ApexCharts,
+   * que se ve vacío/roto por el mismo problema de CSS que el tooltip). */
+  chartLegend = [
+    { label: 'Egreso total', color: '#ef4444' },
+    { label: 'Ingreso', color: '#10b981' },
+    { label: 'Saldo acumulado', color: '#0ea5e9' },
+  ];
 
   monthLabel(m: CashFlowMonth): string {
     return `${MONTH_NAMES[m.month - 1] ?? m.month} ${m.year}`;

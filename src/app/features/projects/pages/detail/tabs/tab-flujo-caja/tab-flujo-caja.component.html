@@ -46,6 +46,14 @@
     @if (chartReady()) {
       <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
         <h3 class="text-sm font-bold text-gray-900 mb-2">Ingresos, egresos y saldo acumulado por mes</h3>
+        <div class="flex flex-wrap items-center gap-4 mb-3">
+          @for (item of chartLegend; track item.label) {
+            <div class="flex items-center gap-1.5 text-xs font-medium text-gray-500">
+              <span class="w-2.5 h-2.5 rounded-full inline-block" [style.background]="item.color"></span>
+              {{ item.label }}
+            </div>
+          }
+        </div>
         <apx-chart
           [series]="chartOptions().series" [chart]="chartOptions().chart"
           [xaxis]="chartOptions().xaxis" [yaxis]="chartOptions().yaxis"

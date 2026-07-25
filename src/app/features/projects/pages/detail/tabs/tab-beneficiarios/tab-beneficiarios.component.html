@@ -18,7 +18,7 @@
       </div>
       <div>
         <p class="text-sm font-bold text-gray-800">Beneficiarios</p>
-        <p class="text-xs text-gray-400">{{ total() }} registrado{{ total() !== 1 ? 's' : '' }}</p>
+        <p class="text-xs text-gray-400">{{ total() }} en esta página{{ search() ? '' : ' · página ' + currentPage() }}</p>
       </div>
     </div>
 
@@ -86,7 +86,7 @@
     </div>
   }
 
-  @if (importResults()) {
+  @if (importResults(); as res) {
     <div class="mb-4 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
       <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
         <p class="text-sm font-bold text-gray-700">Resultado de la importación</p>
@@ -94,20 +94,19 @@
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
       </div>
-      <div class="max-h-64 overflow-y-auto divide-y divide-gray-50">
-        @for (r of importResults(); track r.row) {
-          <div class="px-5 py-2 flex items-center gap-3 text-xs">
-            <span class="w-10 shrink-0 text-gray-400">Fila {{ r.row }}</span>
-            <span class="flex-1 text-gray-600">{{ r.identification }}</span>
-            <span class="px-2 py-0.5 rounded-full font-semibold shrink-0"
-              [class.bg-emerald-50]="r.status === 'created'" [class.text-emerald-600]="r.status === 'created'"
-              [class.bg-sky-50]="r.status === 'updated'" [class.text-sky-600]="r.status === 'updated'"
-              [class.bg-red-50]="r.status === 'error'" [class.text-red-600]="r.status === 'error'">
-              {{ r.status === 'created' ? 'Creado' : r.status === 'updated' ? 'Actualizado' : 'Error' }}
-            </span>
-            @if (r.message) { <span class="text-red-400 shrink-0">{{ r.message }}</span> }
-          </div>
-        }
+      <div class="px-5 py-4 grid grid-cols-3 gap-3 text-center">
+        <div class="p-3 rounded-xl bg-emerald-50">
+          <p class="text-xl font-black text-emerald-600">{{ res.inserted }}</p>
+          <p class="text-[11px] font-semibold text-emerald-600 uppercase tracking-wide">Creados</p>
+        </div>
+        <div class="p-3 rounded-xl bg-sky-50">
+          <p class="text-xl font-black text-sky-600">{{ res.updated }}</p>
+          <p class="text-[11px] font-semibold text-sky-600 uppercase tracking-wide">Actualizados</p>
+        </div>
+        <div class="p-3 rounded-xl bg-gray-50">
+          <p class="text-xl font-black text-gray-500">{{ res.skipped }}</p>
+          <p class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Sin cambios</p>
+        </div>
       </div>
     </div>
   }
@@ -336,14 +335,24 @@
       </table>
     </div>
 
-    @if (hasMore() && !search()) {
-      <div class="flex justify-center mt-4">
-        <button (click)="loadMore()" [disabled]="loadingMore()"
-          class="flex items-center gap-2 px-5 py-2 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-colors">
-          @if (loadingMore()) {
-            <div class="w-3.5 h-3.5 border-2 border-sky-400 border-t-transparent rounded-full animate-spin"></div>
+    @if (!search() && (currentPage() > 1 || hasMore())) {
+      <div class="flex items-center justify-center gap-3 mt-4">
+        <button (click)="goPrevPage()" [disabled]="currentPage() <= 1 || loadingPage()"
+          class="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+          Anterior
+        </button>
+        <span class="text-sm text-gray-500 font-medium min-w-[90px] text-center">
+          @if (loadingPage()) {
+            <div class="w-3.5 h-3.5 border-2 border-sky-400 border-t-transparent rounded-full animate-spin inline-block"></div>
+          } @else {
+            Página {{ currentPage() }}
           }
-          Cargar más
+        </span>
+        <button (click)="goNextPage()" [disabled]="!hasMore() || loadingPage()"
+          class="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+          Siguiente
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
         </button>
       </div>
     }

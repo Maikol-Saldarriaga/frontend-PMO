@@ -25,4 +25,5 @@ export interface AllySupervisor {
   full_name:             string;
   type_identification:   string;
   identification_number: string;
+  is_active?:            boolean;
 }

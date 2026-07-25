@@ -26,12 +26,14 @@ interface IndicatorRow {
   deleting:             boolean;
 }
 
+// Mismo catálogo que enums.IndicatorType en el backend (indicator_type.go).
 const INDICATOR_TYPES: { value: IndicatorType; label: string }[] = [
   { value: 'gestion',   label: 'Gestión'   },
   { value: 'proceso',   label: 'Proceso'   },
   { value: 'resultado', label: 'Resultado' },
   { value: 'efecto',    label: 'Efecto'    },
   { value: 'impacto',   label: 'Impacto'   },
+  { value: 'producto',  label: 'Producto'  },
 ];
 
 // Mismo catálogo que en Condiciones/Soportes — el backend reutiliza enums.SupportType.
