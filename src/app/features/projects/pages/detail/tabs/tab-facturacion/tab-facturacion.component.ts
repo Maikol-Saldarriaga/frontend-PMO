@@ -60,6 +60,66 @@ export class TabFacturacionComponent implements OnInit {
   private svc  = inject(ProjectService);
   private auth = inject(AuthStore);
 
+  // ── Reporte de presupuesto (planeado/ejecutado/facturación/desembolsos/flujo de caja) ──
+  reportPanelOpen = signal(false);
+  reportMode: 'month' | 'range' = 'month';
+  reportFormat: 'pdf' | 'xlsx' = 'pdf';
+  reportYear = new Date().getFullYear();
+  reportMonth = new Date().getMonth() + 1;
+  reportFromDate = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
+  reportToDate = new Date().toISOString().slice(0, 10);
+  reportGenerating = signal(false);
+  reportError = signal<string | null>(null);
+  readonly reportYearOptions = (() => {
+    const y = new Date().getFullYear();
+    const years: number[] = [];
+    for (let i = y - 3; i <= y + 1; i++) years.push(i);
+    return years;
+  })();
+  readonly reportMonthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+  openReportPanel(): void {
+    this.reportError.set(null);
+    this.reportPanelOpen.set(true);
+  }
+  closeReportPanel(): void {
+    this.reportPanelOpen.set(false);
+  }
+
+  generateReport(): void {
+    if (this.reportGenerating()) return;
+    if (this.reportMode === 'range' && this.reportFromDate > this.reportToDate) {
+      this.reportError.set('La fecha inicial no puede ser posterior a la final.');
+      return;
+    }
+    this.reportGenerating.set(true);
+    this.reportError.set(null);
+
+    const params = this.reportMode === 'month'
+      ? { format: this.reportFormat, year: this.reportYear, month: this.reportMonth }
+      : { format: this.reportFormat, from_date: this.reportFromDate, to_date: this.reportToDate };
+
+    this.svc.downloadBudgetReport(this.projectId, params).subscribe({
+      next: blob => {
+        this.reportGenerating.set(false);
+        const period = this.reportMode === 'month'
+          ? `${this.reportYear}-${String(this.reportMonth).padStart(2, '0')}`
+          : `${this.reportFromDate}_${this.reportToDate}`;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `reporte-presupuesto-${period}.${this.reportFormat}`;
+        a.click();
+        URL.revokeObjectURL(url);
+        this.closeReportPanel();
+      },
+      error: () => {
+        this.reportGenerating.set(false);
+        this.reportError.set('No se pudo generar el reporte. Verifica que haya datos en el período seleccionado.');
+      },
+    });
+  }
+
   loading  = signal(true);
   error    = signal<string | null>(null);
   sections: InvoiceSection[] = [];

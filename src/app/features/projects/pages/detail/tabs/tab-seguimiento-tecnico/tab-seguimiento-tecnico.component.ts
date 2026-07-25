@@ -6,6 +6,7 @@ import { ServerTimeService } from '../../../../../../core/services/server-time.s
 import {
   ProjectSnapshotItem, Snapshot, SnapshotRequest, ScopeSnapshotsResponse,
   ScopeComponent, ScopeActivity, CheckpointPeriodicity, GenerateSnapshotsRequest,
+  BudgetReportParams,
 } from '../../../../models/project.model';
 import { environment } from '../../../../../../../environments/environment';
 import { ConfirmDialogService } from '../../../../../../shared/components/confirm-dialog/confirm-dialog.service';
@@ -69,6 +70,66 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
 
   /** Hora real (internet, vía NTP en el backend / worldtimeapi en el front), no el reloj local. */
   nowDate = signal<Date>(new Date());
+
+  // ── Reporte de seguimiento técnico (mismo estilo/panel que el de Facturación) ──
+  reportPanelOpen = signal(false);
+  reportMode: 'month' | 'range' = 'month';
+  reportFormat: 'pdf' | 'xlsx' = 'pdf';
+  reportYear = new Date().getFullYear();
+  reportMonth = new Date().getMonth() + 1;
+  reportFromDate = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
+  reportToDate = new Date().toISOString().slice(0, 10);
+  reportGenerating = signal(false);
+  reportError = signal<string | null>(null);
+  readonly reportYearOptions = (() => {
+    const y = new Date().getFullYear();
+    const years: number[] = [];
+    for (let i = y - 3; i <= y + 1; i++) years.push(i);
+    return years;
+  })();
+  readonly reportMonthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+  openReportPanel(): void {
+    this.reportError.set(null);
+    this.reportPanelOpen.set(true);
+  }
+  closeReportPanel(): void {
+    this.reportPanelOpen.set(false);
+  }
+
+  generateReport(): void {
+    if (this.reportGenerating()) return;
+    if (this.reportMode === 'range' && this.reportFromDate > this.reportToDate) {
+      this.reportError.set('La fecha inicial no puede ser posterior a la final.');
+      return;
+    }
+    this.reportGenerating.set(true);
+    this.reportError.set(null);
+
+    const params: BudgetReportParams = this.reportMode === 'month'
+      ? { format: this.reportFormat, year: this.reportYear, month: this.reportMonth }
+      : { format: this.reportFormat, from_date: this.reportFromDate, to_date: this.reportToDate };
+
+    this.svc.downloadTrackingReportDoc(this.projectId, params).subscribe({
+      next: blob => {
+        this.reportGenerating.set(false);
+        const period = this.reportMode === 'month'
+          ? `${this.reportYear}-${String(this.reportMonth).padStart(2, '0')}`
+          : `${this.reportFromDate}_${this.reportToDate}`;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `reporte-seguimiento-${period}.${this.reportFormat}`;
+        a.click();
+        URL.revokeObjectURL(url);
+        this.closeReportPanel();
+      },
+      error: () => {
+        this.reportGenerating.set(false);
+        this.reportError.set('No se pudo generar el reporte. Verifica que haya datos en el período seleccionado.');
+      },
+    });
+  }
 
   allSnapshots    = signal<ProjectSnapshotItem[]>([]);
   countsByActivity = signal<Record<string, number>>({});

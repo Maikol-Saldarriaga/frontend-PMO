@@ -1301,6 +1301,16 @@ export interface CashFlowRubro {
   pagado_abastecimiento:         number;
 }
 
+/** Parámetros para /projects/:id/reports/budget — o bien year+month, o bien
+ * from_date+to_date (mutuamente excluyentes, igual que valida el backend). */
+export interface BudgetReportParams {
+  format:     'pdf' | 'xlsx';
+  year?:      number | null;
+  month?:     number | null;
+  from_date?: string | null; // YYYY-MM-DD
+  to_date?:   string | null; // YYYY-MM-DD
+}
+
 export interface CashFlowReport {
   contract_id:      string;
   months:           CashFlowMonth[];

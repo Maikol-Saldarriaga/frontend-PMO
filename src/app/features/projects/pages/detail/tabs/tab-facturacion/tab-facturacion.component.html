@@ -18,14 +18,23 @@
         <h2 class="text-base font-bold text-gray-900">Facturación</h2>
         <p class="text-xs text-gray-400 mt-0.5">Selecciona un ítem de presupuesto para ver y registrar sus facturas.</p>
       </div>
-      @if (!canCreate()) {
-        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-100 text-xs font-medium text-amber-700">
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+      <div class="flex items-center gap-3 flex-shrink-0">
+        @if (!canCreate()) {
+          <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-100 text-xs font-medium text-amber-700">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+            </svg>
+            Solo ADMIN, COORDINADOR o FINANCE pueden registrar facturas
+          </span>
+        }
+        <button type="button" (click)="openReportPanel()"
+          class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-neutral-50 text-primary-700 border border-neutral-200 text-sm font-semibold shadow-sm transition-all active:scale-95">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
           </svg>
-          Solo ADMIN, COORDINADOR o FINANCE pueden registrar facturas
-        </span>
-      }
+          Generar Reporte
+        </button>
+      </div>
     </div>
 
     @if (!hasAnyRows()) {
@@ -368,3 +377,105 @@
     }
   }
 </div>
+
+<!-- ══ PANEL: GENERAR REPORTE ═══════════════════════════════════════════════ -->
+@if (reportPanelOpen()) {
+  <div class="fixed inset-0 z-40 bg-black/30" (click)="closeReportPanel()"></div>
+
+  <div class="fixed top-0 right-0 z-50 h-full w-full sm:w-[480px] bg-white shadow-2xl overflow-y-auto">
+    <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
+      <div>
+        <h3 class="text-sm font-bold text-gray-900">Generar Reporte</h3>
+        <p class="text-[11px] text-gray-400 mt-0.5">Presupuesto, ejecución, facturación, desembolsos y flujo de caja.</p>
+      </div>
+      <button (click)="closeReportPanel()" class="text-gray-400 hover:text-gray-600 transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <div class="p-6 space-y-5">
+
+      <div>
+        <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Período</label>
+        <div class="flex items-center gap-2 mb-3">
+          <button type="button" (click)="reportMode = 'month'"
+            class="flex-1 px-3 py-2 rounded-xl text-xs font-semibold border transition-colors"
+            [class.bg-accent]="reportMode === 'month'" [class.text-white]="reportMode === 'month'" [class.border-accent]="reportMode === 'month'"
+            [class.bg-gray-50]="reportMode !== 'month'" [class.text-gray-600]="reportMode !== 'month'" [class.border-gray-200]="reportMode !== 'month'">
+            Mes específico
+          </button>
+          <button type="button" (click)="reportMode = 'range'"
+            class="flex-1 px-3 py-2 rounded-xl text-xs font-semibold border transition-colors"
+            [class.bg-accent]="reportMode === 'range'" [class.text-white]="reportMode === 'range'" [class.border-accent]="reportMode === 'range'"
+            [class.bg-gray-50]="reportMode !== 'range'" [class.text-gray-600]="reportMode !== 'range'" [class.border-gray-200]="reportMode !== 'range'">
+            Rango de fechas
+          </button>
+        </div>
+
+        @if (reportMode === 'month') {
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-[10px] font-semibold text-gray-500 mb-1">Mes</label>
+              <select [(ngModel)]="reportMonth"
+                class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300 cursor-pointer">
+                @for (m of reportMonthNames; track $index) { <option [ngValue]="$index + 1">{{ m }}</option> }
+              </select>
+            </div>
+            <div>
+              <label class="block text-[10px] font-semibold text-gray-500 mb-1">Año</label>
+              <select [(ngModel)]="reportYear"
+                class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300 cursor-pointer">
+                @for (y of reportYearOptions; track y) { <option [ngValue]="y">{{ y }}</option> }
+              </select>
+            </div>
+          </div>
+        } @else {
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-[10px] font-semibold text-gray-500 mb-1">Desde</label>
+              <input type="date" [(ngModel)]="reportFromDate"
+                class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300"/>
+            </div>
+            <div>
+              <label class="block text-[10px] font-semibold text-gray-500 mb-1">Hasta</label>
+              <input type="date" [(ngModel)]="reportToDate"
+                class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300"/>
+            </div>
+          </div>
+        }
+      </div>
+
+      <div>
+        <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Formato</label>
+        <div class="flex items-center gap-2">
+          <button type="button" (click)="reportFormat = 'pdf'"
+            class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-colors"
+            [class.bg-accent]="reportFormat === 'pdf'" [class.text-white]="reportFormat === 'pdf'" [class.border-accent]="reportFormat === 'pdf'"
+            [class.bg-gray-50]="reportFormat !== 'pdf'" [class.text-gray-600]="reportFormat !== 'pdf'" [class.border-gray-200]="reportFormat !== 'pdf'">
+            PDF
+          </button>
+          <button type="button" (click)="reportFormat = 'xlsx'"
+            class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-colors"
+            [class.bg-accent]="reportFormat === 'xlsx'" [class.text-white]="reportFormat === 'xlsx'" [class.border-accent]="reportFormat === 'xlsx'"
+            [class.bg-gray-50]="reportFormat !== 'xlsx'" [class.text-gray-600]="reportFormat !== 'xlsx'" [class.border-gray-200]="reportFormat !== 'xlsx'">
+            Excel
+          </button>
+        </div>
+      </div>
+
+      <p class="text-[11px] text-gray-400">Incluye presupuesto vs. ejecución por componente técnico y rubro, facturación, desembolsos recibidos y flujo de caja del período seleccionado.</p>
+
+      @if (reportError()) {
+        <p class="text-xs font-medium text-danger">{{ reportError() }}</p>
+      }
+
+      <div class="flex items-center gap-2 pt-2">
+        <button type="button" (click)="generateReport()" [disabled]="reportGenerating()"
+          class="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-accent to-accent-700 hover:from-accent-600 hover:to-accent-800 text-white text-sm font-semibold rounded-xl shadow-sm transition-all disabled:opacity-50">
+          @if (reportGenerating()) { <div class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Generando... } @else { Generar y descargar }
+        </button>
+        <button type="button" (click)="closeReportPanel()" class="px-4 py-2 text-sm text-neutral-500 hover:text-neutral-700 transition-colors">Cancelar</button>
+      </div>
+    </div>
+  </div>
+}

@@ -77,6 +77,7 @@ import {
   FundingReceipt,
   FundingReceiptRequest,
   CashFlowReport,
+  BudgetReportParams,
   Guarantee,
   GuaranteeRequest,
   ProjectSignatureInfo,
@@ -462,6 +463,34 @@ export class ProjectService {
 
   getCashFlowReport(id: string): Observable<CashFlowReport> {
     return this.http.get<CashFlowReport>(ENDPOINTS.projects.cashFlow(id));
+  }
+
+  // ── Reporte de Presupuesto (planeado/ejecutado/facturación/desembolsos/flujo de caja) ──
+
+  downloadBudgetReport(id: string, params: BudgetReportParams): Observable<Blob> {
+    const qp = new URLSearchParams();
+    qp.set('format', params.format);
+    if (params.year != null && params.month != null) {
+      qp.set('year', String(params.year));
+      qp.set('month', String(params.month));
+    } else if (params.from_date && params.to_date) {
+      qp.set('from_date', params.from_date);
+      qp.set('to_date', params.to_date);
+    }
+    return this.http.getBlob(`${ENDPOINTS.projects.budgetReport(id)}?${qp.toString()}`);
+  }
+
+  downloadTrackingReportDoc(id: string, params: BudgetReportParams): Observable<Blob> {
+    const qp = new URLSearchParams();
+    qp.set('format', params.format);
+    if (params.year != null && params.month != null) {
+      qp.set('year', String(params.year));
+      qp.set('month', String(params.month));
+    } else if (params.from_date && params.to_date) {
+      qp.set('from_date', params.from_date);
+      qp.set('to_date', params.to_date);
+    }
+    return this.http.getBlob(`${ENDPOINTS.projects.trackingReportDoc(id)}?${qp.toString()}`);
   }
 
   // ── Garantías ─────────────────────────────────────────────────────────────
