@@ -90,12 +90,16 @@
       <!-- Supervisor del Cliente (ally) -->
       <div>
         <label class="block text-xs font-bold text-neutral-600 mb-1.5 uppercase tracking-wide">
-          Supervisor Aliado <span class="text-danger">*</span>
+          Supervisor Aliado
+          @if (allyName) { <span class="normal-case font-medium text-neutral-400">— Alianza: {{ allyName }}</span> }
         </label>
+        @if (!allyId) {
+          <p class="mb-1.5 text-xs text-neutral-400">Este proyecto no tiene alianza asignada — asígnala en el paso 1 para elegir supervisor aliado.</p>
+        }
         <div class="flex gap-2">
           <div class="relative flex-1" data-supervisor-dropdown>
-            <button type="button" (click)="toggleCustomerDropdown()"
-              class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-sm text-left transition-colors"
+            <button type="button" (click)="toggleCustomerDropdown()" [disabled]="!allyId"
+              class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-sm text-left transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               [class.border-neutral-200]="!isInvalid('ally_supervisor')" [class.border-danger]="isInvalid('ally_supervisor')"
               [class.bg-neutral-50]="!isInvalid('ally_supervisor')" [class.bg-red-50]="isInvalid('ally_supervisor')">
               @if (selectedCustomer()) {
@@ -139,8 +143,8 @@
               </div>
             }
           </div>
-          <button type="button" (click)="openCustomerModal()" title="Crear supervisor aliado"
-            class="w-10 h-10 mt-0.5 rounded-xl border border-accent text-accent hover:bg-accent hover:text-white transition-colors flex items-center justify-center flex-shrink-0">
+          <button type="button" (click)="openCustomerModal()" [disabled]="!allyId" title="Crear supervisor aliado"
+            class="w-10 h-10 mt-0.5 rounded-xl border border-accent text-accent hover:bg-accent hover:text-white transition-colors flex items-center justify-center flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-accent">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
           </button>
         </div>
@@ -179,8 +183,8 @@
             @for (m of teamMembers(); track m.user_id) {
               <div class="flex items-center justify-between px-3 py-2 rounded-xl border border-neutral-100">
                 <div>
-                  <p class="text-sm font-semibold text-primary-700">{{ m.name }}</p>
-                  <p class="text-xs text-neutral-400">{{ m.email }}</p>
+                  <p class="text-sm font-semibold text-primary-700">{{ m.user_name }}</p>
+                  <p class="text-xs text-neutral-400">{{ m.user_email }}</p>
                 </div>
                 <div class="flex items-center gap-3">
                   <button type="button" (click)="openEditTeamForm(m)" class="text-xs font-semibold text-accent hover:text-accent-700">Editar</button>
@@ -476,30 +480,42 @@
           </div>
         }
 
-        <div class="flex items-center justify-between mb-1.5">
-          <label class="block text-xs font-bold text-neutral-600 uppercase tracking-wide">Permisos por sección</label>
-          <div class="flex items-center gap-6 pr-1">
-            <span class="w-16 text-center text-xs font-bold text-sky-600 uppercase tracking-wide">Lectura</span>
-            <span class="w-16 text-center text-xs font-bold text-emerald-600 uppercase tracking-wide">Escritura</span>
-          </div>
+        <div class="mb-4">
+          <label class="block text-xs font-bold text-neutral-600 mb-1.5 uppercase tracking-wide">Nivel de acceso</label>
+          <select [ngModel]="teamPermMode()" (ngModelChange)="onTeamPermModeChange($any($event))"
+            class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm bg-neutral-50">
+            <option value="read">Permitir Lectura Completa (Lectura)</option>
+            <option value="write">Permitir Acceso Completo (Lectura + Escritura)</option>
+            <option value="custom">Personalizado</option>
+          </select>
         </div>
-        <div class="space-y-1">
-          @for (s of sections; track s) {
-            <div class="flex items-center justify-between py-1.5 border-b border-neutral-50">
-              <span class="text-sm text-primary-700">{{ sectionLabels[s] }}</span>
-              <div class="flex items-center gap-6">
-                <div class="w-16 flex justify-center">
-                  <input type="checkbox" [checked]="isTeamRead(s)" (change)="onTeamReadChange(s, $any($event.target).checked)"
-                    class="rounded border-neutral-300 text-sky-600 focus:ring-sky-500">
-                </div>
-                <div class="w-16 flex justify-center">
-                  <input type="checkbox" [checked]="isTeamWrite(s)" (change)="onTeamWriteChange(s, $any($event.target).checked)"
-                    class="rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500">
+
+        @if (teamPermMode() === 'custom') {
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="block text-xs font-bold text-neutral-600 uppercase tracking-wide">Permisos por sección</label>
+            <div class="flex items-center gap-6 pr-1">
+              <span class="w-16 text-center text-xs font-bold text-sky-600 uppercase tracking-wide">Lectura</span>
+              <span class="w-16 text-center text-xs font-bold text-emerald-600 uppercase tracking-wide">Escritura</span>
+            </div>
+          </div>
+          <div class="space-y-1">
+            @for (s of sections; track s) {
+              <div class="flex items-center justify-between py-1.5 border-b border-neutral-50">
+                <span class="text-sm text-primary-700">{{ sectionLabels[s] }}</span>
+                <div class="flex items-center gap-6">
+                  <div class="w-16 flex justify-center">
+                    <input type="checkbox" [checked]="isTeamRead(s)" (change)="onTeamReadChange(s, $any($event.target).checked)"
+                      class="rounded border-neutral-300 text-sky-600 focus:ring-sky-500">
+                  </div>
+                  <div class="w-16 flex justify-center">
+                    <input type="checkbox" [checked]="isTeamWrite(s)" (change)="onTeamWriteChange(s, $any($event.target).checked)"
+                      class="rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500">
+                  </div>
                 </div>
               </div>
-            </div>
-          }
-        </div>
+            }
+          </div>
+        }
 
         <div class="flex justify-end gap-3 pt-5">
           <button type="button" (click)="cancelTeamForm()" class="px-4 py-2 text-sm font-semibold text-neutral-600 border border-neutral-200 rounded-xl hover:bg-neutral-50 transition-colors">Cancelar</button>

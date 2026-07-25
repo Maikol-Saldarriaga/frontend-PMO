@@ -14,14 +14,10 @@ interface ActRow {
   start_date:        string;
   end_date:          string;
   start_plan:        number | null;
-  actual_start_date: string;
-  actual_end_date:   string;
-  actual_start_plan: number | null;
   responsible:       string;
   objective:         string;
   percentage:        number;
-  plan_duration?:        number | null;
-  actual_plan_duration?: number | null;
+  plan_duration?:    number | null;
 }
 
 interface ComponentRow {
@@ -35,7 +31,6 @@ interface ComponentRow {
 const EMPTY_ACT = (): ActRow => ({
   act: 1, description: '', start_date: '', end_date: '',
   start_plan: null,
-  actual_start_date: '', actual_end_date: '', actual_start_plan: null,
   responsible: '', objective: '',
   percentage: 0,
 });
@@ -69,14 +64,10 @@ export class Step8ScopeComponent {
         start_date:          a.start_date?.split('T')[0]         ?? '',
         end_date:            a.end_date?.split('T')[0]           ?? '',
         start_plan:          a.start_plan          ?? null,
-        actual_start_date:   a.actual_start_date?.split('T')[0]  ?? '',
-        actual_end_date:     a.actual_end_date?.split('T')[0]    ?? '',
-        actual_start_plan:   a.actual_start_plan   ?? null,
         responsible:         a.responsible         ?? '',
         objective:           a.objective           ?? '',
         percentage:          a.percentage          ?? 0,
         plan_duration:       a.plan_duration,
-        actual_plan_duration: a.actual_plan_duration,
       } as ActRow)),
     })));
   }
@@ -181,10 +172,6 @@ export class Step8ScopeComponent {
     this.emit();
   }
 
-  hasActualData(act: ActRow): boolean {
-    return !!(act.actual_start_date || act.actual_end_date || act.actual_start_plan !== null);
-  }
-
   private dateToISO(d: string): string | null {
     return d ? `${d}T00:00:00Z` : null;
   }
@@ -196,27 +183,18 @@ export class Step8ScopeComponent {
         component:  comp.componentName,
         percentage: comp.percentage ?? null,
         budget:     comp.budget ?? null,
-        acts: comp.acts.map(a => {
-          const hasActual = this.hasActualData(a);
-          const act: ContractActItem = {
-            id:            a.id ?? null,
-            act:           a.act,
-            description:   a.description   || null,
-            start_date:    this.dateToISO(a.start_date),
-            end_date:      this.dateToISO(a.end_date),
-            start_plan:    a.start_plan     ?? null,
-            responsible:   a.responsible   || null,
-            objective:     a.objective     || null,
-            percentage:    a.percentage,
-            delete:        false,
-          };
-          if (hasActual) {
-            act.actual_start_date = this.dateToISO(a.actual_start_date);
-            act.actual_end_date   = this.dateToISO(a.actual_end_date);
-            act.actual_start_plan = a.actual_start_plan ?? null;
-          }
-          return act;
-        }),
+        acts: comp.acts.map(a => ({
+          id:            a.id ?? null,
+          act:           a.act,
+          description:   a.description   || null,
+          start_date:    this.dateToISO(a.start_date),
+          end_date:      this.dateToISO(a.end_date),
+          start_plan:    a.start_plan     ?? null,
+          responsible:   a.responsible   || null,
+          objective:     a.objective     || null,
+          percentage:    a.percentage,
+          delete:        false,
+        } as ContractActItem)),
         delete: false,
       };
       return item;
@@ -249,12 +227,6 @@ export class Step8ScopeComponent {
         if (!a.responsible.trim()) invalid.push(`${lbl}: responsable requerido`);
         if (!a.start_date)         invalid.push(`${lbl}: fecha inicio requerida`);
         if (!a.end_date)           invalid.push(`${lbl}: fecha fin requerida`);
-        const hasActual = this.hasActualData(a);
-        if (hasActual) {
-          if (!a.actual_start_date) invalid.push(`${lbl}: fecha inicio real requerida cuando hay datos de ejecución`);
-          if (!a.actual_end_date)   invalid.push(`${lbl}: fecha fin real requerida cuando hay datos de ejecución`);
-          if (a.actual_start_plan === null) invalid.push(`${lbl}: plan inicio real requerido cuando hay datos de ejecución`);
-        }
       });
     });
     if (this.contractBudget !== null && this.totalComponentBudget > this.contractBudget)

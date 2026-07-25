@@ -67,11 +67,16 @@
     <!-- Donut: distribución por proyecto -->
     <div class="pmo-card chart-card">
       <h3 class="chart-card__title">Distribución del presupuesto por proyecto</h3>
-      <apx-chart
-        [series]="projectDistributionDonut().series" [chart]="projectDistributionDonut().chart"
-        [labels]="projectDistributionDonut().labels" [colors]="projectDistributionDonut().colors"
-        [legend]="projectDistributionDonut().legend" [dataLabels]="projectDistributionDonut().dataLabels"
-        [tooltip]="projectDistributionDonut().tooltip" [plotOptions]="projectDistributionDonut().plotOptions"></apx-chart>
+      <highcharts-chart
+        [options]="projectDistributionDonutHc()"
+        style="display:block; width:100%; height:320px;"></highcharts-chart>
+      <div class="chart-card__legend">
+        <div class="legend-row" *ngFor="let p of fodcProjects()">
+          <span class="legend-dot" [style.background]="p.color"></span>
+          <span class="legend-row__label">{{ p.name }}</span>
+          <span class="legend-row__value">{{ formatCop(p.plannedTotal) }}</span>
+        </div>
+      </div>
     </div>
 
   </section>

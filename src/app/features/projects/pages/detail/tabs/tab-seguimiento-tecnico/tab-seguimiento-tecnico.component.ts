@@ -321,8 +321,14 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
   requiresObservation(): boolean {
     const original = this.editingSnap();
     if (!original) return false;
-    const originalEnd = toDateOnly(original.end_date);
-    return !!originalEnd && this.form.end_date > originalEnd;
+    const originalStart = toDateOnly(original.start_date);
+    const originalEnd   = toDateOnly(original.end_date);
+    if (!originalEnd) return false;
+    const extendedEnd = this.form.end_date > originalEnd;
+    const today = this.nowDate().toISOString().slice(0, 10);
+    const wasOverdue = originalEnd < today;
+    const datesChanged = this.form.start_date !== originalStart || this.form.end_date !== originalEnd;
+    return extendedEnd || (wasOverdue && datesChanged);
   }
 
   saveSnapshot(): void {

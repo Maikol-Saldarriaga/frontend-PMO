@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Router, ActivatedRoute } from '@angular/router';
 import { ProjectService } from '../../services/project.service';
+import { ContractService } from '../../services/contract.service';
 import { ProjectDetails, ProjectAccess, ProjectSection, ProjectExtensionRequest } from '../../models/project.model';
 import { AuthStore } from '../../../../../core/auth/store/auth.store';
 import { TabEquipoComponent } from './tabs/tab-equipo/tab-equipo.component';
@@ -23,6 +24,7 @@ import { TabObligacionesComponent } from './tabs/tab-obligaciones/tab-obligacion
 import { TabAbastecimientoComponent } from './tabs/tab-abastecimiento/tab-abastecimiento.component';
 import { TabFlujoCajaComponent } from './tabs/tab-flujo-caja/tab-flujo-caja.component';
 import { FormsModule } from '@angular/forms';
+import { MoneyMaskDirective } from '../../../../shared/directives/money-mask.directive';
 
 @Component({
   selector: 'app-project-detail',
@@ -47,6 +49,7 @@ import { FormsModule } from '@angular/forms';
     TabFlujoCajaComponent,
     TabEquipoComponent,
     FormsModule,
+    MoneyMaskDirective,
   ],
   templateUrl: './project-detail.component.html',
 })
@@ -54,6 +57,7 @@ export class ProjectDetailComponent implements OnInit {
   private router    = inject(Router);
   private route     = inject(ActivatedRoute);
   private service   = inject(ProjectService);
+  private contractService = inject(ContractService);
   private sanitizer = inject(DomSanitizer);
   private auth      = inject(AuthStore);
 
@@ -245,9 +249,60 @@ export class ProjectDetailComponent implements OnInit {
     this.showExtensionForm.set(true);
   }
 
+  onExtensionDateChange(): void {
+    const start = this.details()?.start_date;
+    const extDate = this.extensionForm.date;
+    if (start && extDate) {
+      const days = Math.ceil((new Date(extDate).getTime() - new Date(start).getTime()) / 86400000);
+      this.extensionForm.duration = days > 0 ? days : 0;
+    }
+  }
+
   cancelExtensionForm(): void {
     this.showExtensionForm.set(false);
     this.extensionError.set(null);
+  }
+
+  // ── Edición valor total del contrato (solo ADMIN, PATCH /projects/:id/value) ──
+
+  editingValue = signal(false);
+  valueSaving  = signal(false);
+  valueError   = signal<string | null>(null);
+  valueInput   = 0;
+
+  openValueEdit(): void {
+    this.valueInput = this.details()?.value ?? 0;
+    this.valueError.set(null);
+    this.editingValue.set(true);
+  }
+
+  cancelValueEdit(): void {
+    this.editingValue.set(false);
+    this.valueError.set(null);
+  }
+
+  saveValue(): void {
+    if (this.valueSaving()) return;
+    if (this.valueInput === null || this.valueInput <= 0) {
+      this.valueError.set('Ingresa un valor válido mayor a cero.');
+      return;
+    }
+    this.valueSaving.set(true);
+    this.valueError.set(null);
+    this.contractService.updateValue(this.projectId, this.valueInput).subscribe({
+      next: () => {
+        this.valueSaving.set(false);
+        this.editingValue.set(false);
+        this.refreshDetails();
+      },
+      error: err => {
+        this.valueSaving.set(false);
+        const msg = err?.status === 403
+          ? 'Solo un administrador puede editar el valor del contrato.'
+          : (err?.error?.error ?? err?.error?.message ?? 'Error al actualizar el valor.');
+        this.valueError.set(msg);
+      },
+    });
   }
 
   saveExtension(): void {

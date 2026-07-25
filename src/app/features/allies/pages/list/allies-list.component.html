@@ -1,0 +1,216 @@
+<div class="px-6 py-6">
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <h2 class="text-base font-bold text-gray-900">Alianzas</h2>
+        <p class="text-xs text-gray-500 mt-0.5">Organizaciones aliadas y sus supervisores.</p>
+      </div>
+      <button (click)="openAddForm()"
+        class="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold transition-colors">
+        Nuevo aliado
+      </button>
+    </div>
+
+    @if (loading()) {
+      <p class="text-sm text-gray-400 py-8 text-center">Cargando aliados...</p>
+    } @else if (error()) {
+      <div class="p-3 rounded-lg bg-red-50 border border-red-100 text-sm text-red-600">{{ error() }}</div>
+    } @else if (!allies().length) {
+      <p class="text-sm text-gray-400 py-8 text-center">Aún no hay aliados registrados.</p>
+    } @else {
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-left text-xs text-gray-400 uppercase border-b border-gray-100">
+              <th class="py-2 pr-4">Nombre</th>
+              <th class="py-2 pr-4">NIT</th>
+              <th class="py-2 pr-4">Contacto</th>
+              <th class="py-2 pr-4">Estado</th>
+              <th class="py-2 pr-4"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (a of allies(); track a.id) {
+              <tr class="border-b border-gray-50">
+                <td class="py-3 pr-4 font-semibold text-gray-800">{{ a.name }}</td>
+                <td class="py-3 pr-4 text-gray-500">{{ a.nit || '—' }}</td>
+                <td class="py-3 pr-4 text-gray-500">
+                  <div>{{ a.phone || '—' }}</div>
+                  <div class="text-xs text-gray-400">{{ a.email || '' }}</div>
+                </td>
+                <td class="py-3 pr-4">
+                  <span class="px-2 py-0.5 rounded-md text-[11px] font-medium"
+                    [class.bg-emerald-50]="a.is_active" [class.text-emerald-700]="a.is_active"
+                    [class.bg-gray-100]="!a.is_active" [class.text-gray-500]="!a.is_active">
+                    {{ a.is_active ? 'Activo' : 'Inactivo' }}
+                  </span>
+                </td>
+                <td class="py-3 pr-4 text-right whitespace-nowrap">
+                  <button (click)="openSupervisors(a)" class="text-xs font-semibold text-violet-600 hover:text-violet-800 mr-3">Supervisores</button>
+                  <button (click)="openEditForm(a)" class="text-xs font-semibold text-sky-600 hover:text-sky-800 mr-3">Editar</button>
+                  <button (click)="deactivate(a)" class="text-xs font-semibold text-red-500 hover:text-red-700">Desactivar</button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+
+  </div>
+</div>
+
+<!-- Modal: crear/editar aliado -->
+@if (showForm()) {
+  <div class="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[85vh] overflow-y-auto">
+      <h3 class="text-base font-bold text-gray-900 mb-4">
+        {{ editingAlly() ? 'Editar aliado' : 'Nuevo aliado' }}
+      </h3>
+
+      @if (saveError()) {
+        <div class="mb-3 p-2.5 rounded-lg bg-red-50 border border-red-100 text-xs text-red-600">{{ saveError() }}</div>
+      }
+
+      <div class="space-y-3">
+        <div>
+          <label class="text-xs font-semibold text-gray-600">Nombre *</label>
+          <input [(ngModel)]="form.name" type="text" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-gray-600">NIT</label>
+          <input [(ngModel)]="form.nit" type="text" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs font-semibold text-gray-600">Teléfono</label>
+            <input [(ngModel)]="form.phone" type="tel" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-gray-600">Correo</label>
+            <input [(ngModel)]="form.email" type="email" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+          </div>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-gray-600">Dirección</label>
+          <input [(ngModel)]="form.address" type="text" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 mt-5">
+        <button (click)="cancelForm()" class="px-4 py-2 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-100">Cancelar</button>
+        <button (click)="save()" [disabled]="saving()"
+          class="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-700 disabled:opacity-50">
+          {{ saving() ? 'Guardando...' : 'Guardar' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Modal: supervisores del aliado -->
+@if (showSupervisors()) {
+  <div class="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl p-6 max-h-[85vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-base font-bold text-gray-900">Supervisores de {{ activeAlly()?.name }}</h3>
+        <button (click)="openAddSupervisorForm()"
+          class="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold transition-colors">
+          Nuevo supervisor
+        </button>
+      </div>
+
+      @if (supervisorsError()) {
+        <div class="mb-3 p-2.5 rounded-lg bg-red-50 border border-red-100 text-xs text-red-600">{{ supervisorsError() }}</div>
+      }
+
+      @if (supervisorsLoading()) {
+        <p class="text-sm text-gray-400 py-6 text-center">Cargando supervisores...</p>
+      } @else if (!supervisors().length) {
+        <p class="text-sm text-gray-400 py-6 text-center">Este aliado aún no tiene supervisores.</p>
+      } @else {
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-left text-xs text-gray-400 uppercase border-b border-gray-100">
+              <th class="py-2 pr-4">Nombre</th>
+              <th class="py-2 pr-4">Documento</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (s of supervisors(); track s.id) {
+              <tr class="border-b border-gray-50">
+                <td class="py-2 pr-4 font-medium text-gray-800">{{ s.full_name }}</td>
+                <td class="py-2 pr-4 text-gray-500">{{ s.type_identification }} {{ s.identification_number }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+
+      <!-- Sub-modal: nuevo supervisor -->
+      @if (showSupervisorForm()) {
+        <div class="mt-5 pt-4 border-t border-gray-100">
+          <h4 class="text-sm font-bold text-gray-900 mb-3">Nuevo supervisor aliado</h4>
+
+          @if (supervisorSaveError()) {
+            <div class="mb-3 p-2.5 rounded-lg bg-red-50 border border-red-100 text-xs text-red-600">{{ supervisorSaveError() }}</div>
+          }
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-xs font-semibold text-gray-600">Primer nombre</label>
+              <input [(ngModel)]="supervisorForm.first_name" type="text" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+            </div>
+            <div>
+              <label class="text-xs font-semibold text-gray-600">Primer apellido</label>
+              <input [(ngModel)]="supervisorForm.first_surname" type="text" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+            </div>
+            <div>
+              <label class="text-xs font-semibold text-gray-600">Segundo apellido</label>
+              <input [(ngModel)]="supervisorForm.second_surname" type="text" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+            </div>
+            <div>
+              <label class="text-xs font-semibold text-gray-600">Tipo documento</label>
+              <select [(ngModel)]="supervisorForm.document_type" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm">
+                @for (d of docTypes; track d) { <option [value]="d">{{ d }}</option> }
+              </select>
+            </div>
+            <div>
+              <label class="text-xs font-semibold text-gray-600">N° documento</label>
+              <input [(ngModel)]="supervisorForm.identity_document_number" type="text" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+            </div>
+            <div>
+              <label class="text-xs font-semibold text-gray-600">Fecha de nacimiento</label>
+              <input [(ngModel)]="supervisorForm.birthdate" type="date" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+            </div>
+            <div>
+              <label class="text-xs font-semibold text-gray-600">Teléfono</label>
+              <input [(ngModel)]="supervisorForm.phone" type="tel" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+            </div>
+            <div>
+              <label class="text-xs font-semibold text-gray-600">Correo</label>
+              <input [(ngModel)]="supervisorForm.email" type="email" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+            </div>
+            <div>
+              <label class="text-xs font-semibold text-gray-600">Contraseña</label>
+              <input [(ngModel)]="supervisorForm.password" type="password" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+            </div>
+          </div>
+
+          <div class="flex justify-end gap-2 mt-4">
+            <button (click)="cancelSupervisorForm()" class="px-4 py-2 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-100">Cancelar</button>
+            <button (click)="saveSupervisor()" [disabled]="supervisorSaving()"
+              class="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-700 disabled:opacity-50">
+              {{ supervisorSaving() ? 'Guardando...' : 'Guardar' }}
+            </button>
+          </div>
+        </div>
+      }
+
+      <div class="flex justify-end mt-5">
+        <button (click)="closeSupervisors()" class="px-4 py-2 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-100">Cerrar</button>
+      </div>
+    </div>
+  </div>
+}

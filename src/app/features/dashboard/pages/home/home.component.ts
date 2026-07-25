@@ -14,6 +14,8 @@ import {
   ApexXAxis,
   ApexYAxis,
 } from 'ng-apexcharts';
+import { HighchartsChartComponent } from 'highcharts-angular';
+import type Highcharts from 'highcharts';
 import { AuthStore } from '../../../../../core/auth/store/auth.store';
 import {
   DashboardService,
@@ -77,6 +79,12 @@ interface ComboChartOptions {
 
 const PALETTE = ['#0ea5e9', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#14b8a6', '#f97316', '#6366f1'];
 
+function escapeHtml(value: string): string {
+  const div = document.createElement('div');
+  div.textContent = value;
+  return div.innerHTML;
+}
+
 const CATEGORY_LABELS: Record<AllyCategoryKey, string> = {
   por_gestionar: 'POR GESTIONAR',
   en_gestion:    'EN GESTIÓN',
@@ -92,7 +100,7 @@ const CATEGORY_COLORS: Record<AllyCategoryKey, string> = {
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [CommonModule, NgApexchartsModule],
+  imports: [CommonModule, NgApexchartsModule, HighchartsChartComponent],
   templateUrl: './home.component.html',
   styleUrl: './home.component.scss'
 })
@@ -225,16 +233,39 @@ export class HomeComponent implements OnInit {
   }));
 
   // Donut: distribución del presupuesto por proyecto (siempre todos los proyectos)
-  projectDistributionDonut = computed<DonutChartOptions>(() => ({
-    series: this.fodcProjects().map(p => p.plannedTotal),
-    chart: { type: 'donut', height: 280 },
-    labels: this.fodcProjects().map(p => p.name),
-    colors: this.fodcProjects().map(p => p.color),
-    legend: { position: 'bottom', fontSize: '12px' },
-    dataLabels: { enabled: true, formatter: (val: number) => `${val.toFixed(1)}%` },
-    tooltip: { y: { formatter: (val: number) => this.formatCop(val) } },
-    plotOptions: { pie: { donut: { size: '65%' } } },
-  }));
+  // Highcharts (no ApexCharts): trae labels afuera con línea conectora nativos.
+  projectDistributionDonutHc = computed<Highcharts.Options>(() => {
+    const projects = this.fodcProjects();
+    const total = projects.reduce((acc, p) => acc + p.plannedTotal, 0);
+    return {
+      chart: { type: 'pie', height: 320, backgroundColor: 'transparent' },
+      title: { text: undefined },
+      credits: { enabled: false },
+      tooltip: {
+        formatter(this: Highcharts.Point): string {
+          const pct = total > 0 ? ((this.y as number) / total * 100).toFixed(1) : '0.0';
+          return `<strong>${this.name}</strong><br/>${pct}%`;
+        },
+      },
+      plotOptions: {
+        pie: {
+          innerSize: '65%',
+          dataLabels: {
+            enabled: true,
+            distance: 20,
+            connectorShape: 'straight',
+            softConnector: false,
+            format: '{point.name}<br/>{point.percentage:.1f}%',
+            style: { fontSize: '11px', fontWeight: '500', textOutline: 'none', color: '#475569' },
+          },
+        },
+      },
+      series: [{
+        type: 'pie',
+        data: projects.map(p => ({ name: p.name, y: p.plannedTotal, color: p.color })),
+      }],
+    };
+  });
 
   invoicedVsPlanned = computed(() => {
     const id = this.selectedProjectId();

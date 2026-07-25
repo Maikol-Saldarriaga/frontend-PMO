@@ -9,8 +9,12 @@ import { ContractStep3Request } from '../../../../models/contract.model';
   templateUrl: './step3-alignment.component.html',
 })
 export class Step3AlignmentComponent {
+  // Evita reescribir el DOM (y saltar el cursor) cuando el dato que llega es el eco
+  // de lo que este mismo componente acaba de emitir por (dataChange).
+  private lastEmittedJson: string | null = null;
+
   @Input() set savedData(val: ContractStep3Request | undefined) {
-    if (val) this.form.patchValue(val);
+    if (val && JSON.stringify(val) !== this.lastEmittedJson) this.form.patchValue(val, { emitEvent: false });
   }
   @Input() submitting = false;
   @Output() submitted       = new EventEmitter<ContractStep3Request>();
@@ -34,7 +38,9 @@ export class Step3AlignmentComponent {
 
   constructor() {
     this.form.valueChanges.subscribe(() => {
-      if (this.form.valid) this.dataChange.emit(this.buildPayload());
+      const payload = this.buildPayload();
+      this.lastEmittedJson = JSON.stringify(payload);
+      this.dataChange.emit(payload);
     });
   }
 

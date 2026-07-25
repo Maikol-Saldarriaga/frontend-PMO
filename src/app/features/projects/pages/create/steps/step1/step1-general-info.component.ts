@@ -5,6 +5,8 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { ProjectStep1Request } from '../../../../models/project.model';
 import { MoneyMaskDirective } from '../../../../../../shared/directives/money-mask.directive';
+import { AllyService } from '../../../../../allies/services/ally.service';
+import { Ally } from '../../../../../allies/models/ally.model';
 
 /**
  * Meses "de calendario real" entre dos fechas: cuenta meses completos comparando el día del
@@ -56,6 +58,7 @@ export class Step1GeneralInfoComponent implements OnInit, OnChanges {
   };
 
   private fb = inject(FormBuilder);
+  private allySvc = inject(AllyService);
 
   readonly projectTypes = ['contrato', 'convenio'];
 
@@ -63,6 +66,7 @@ export class Step1GeneralInfoComponent implements OnInit, OnChanges {
   showWorkerOrder      = signal(false);
   durationMonths       = signal(0);
   serviceDurationDays  = signal(0);
+  allies               = signal<Ally[]>([]);
 
   form = this.fb.group({
     project_number:     ['', Validators.required],
@@ -83,27 +87,34 @@ export class Step1GeneralInfoComponent implements OnInit, OnChanges {
     other_type_if:      [false],
     ext_number:         [''],
     ext_date:           [''],
-    ext_duration:       [null as number | null],
+    ext_duration:       [{ value: null as number | null, disabled: true }],
+    ext_observation:    [''],
     antecedent:         [''],
+    ally_id:            [''],
   });
 
   ngOnInit(): void {
+    this.allySvc.list().subscribe({
+      next: allies => this.allies.set((allies ?? []).filter(a => a.is_active)),
+      error: () => this.allies.set([]),
+    });
+
     if (this.savedData) this.patchForm(this.savedData);
 
     this.form.get('start_date')?.valueChanges.subscribe(() => this.calculateDuration());
     this.form.get('end_date')?.valueChanges.subscribe(() => this.calculateDuration());
     this.form.get('service_start_date')?.valueChanges.subscribe(() => this.calculateServiceDuration());
     this.form.get('service_end_date')?.valueChanges.subscribe(() => this.calculateServiceDuration());
+    this.form.get('start_date')?.valueChanges.subscribe(() => this.calculateExtensionDuration());
+    this.form.get('ext_date')?.valueChanges.subscribe(() => this.calculateExtensionDuration());
 
     this.form.get('has_worker_order')?.valueChanges.subscribe(val => {
       this.showWorkerOrder.set(!!val);
       this.applyWorkerOrderValidator(!!val);
       if (!val) {
-        this.form.patchValue({ worker_order: '', project_code: '' }, { emitEvent: false });
-        ['worker_order', 'project_code'].forEach(f => {
-          this.form.get(f)?.markAsUntouched();
-          this.form.get(f)?.markAsPristine();
-        });
+        this.form.patchValue({ worker_order: '' }, { emitEvent: false });
+        this.form.get('worker_order')?.markAsUntouched();
+        this.form.get('worker_order')?.markAsPristine();
       }
     });
 
@@ -111,17 +122,27 @@ export class Step1GeneralInfoComponent implements OnInit, OnChanges {
       this.showExtensionFields.set(!!val);
       this.applyExtensionValidators(!!val);
       if (!val) {
-        this.form.patchValue({ ext_number: '', ext_date: '', ext_duration: null }, { emitEvent: false });
+        this.form.patchValue({ ext_number: '', ext_date: '', ext_duration: null, ext_observation: '' }, { emitEvent: false });
       }
     });
 
-    this.form.valueChanges.subscribe(() => this.dataChange.emit(this.buildPayload()));
+    this.form.valueChanges.subscribe(() => {
+      const payload = this.buildPayload();
+      this.lastEmittedJson = JSON.stringify(payload);
+      this.dataChange.emit(payload);
+    });
   }
 
+  // Evita el eco: el padre guarda lo que este componente emite y se lo devuelve por
+  // [savedData] en el siguiente ciclo. Si es el mismo dato que acabamos de emitir, no
+  // hay que volver a hacer patchValue — eso reescribe el <input type="date"> en el DOM
+  // y le borra al usuario los segmentos (dd/mm) que todavía estaba escribiendo.
+  private lastEmittedJson: string | null = null;
+
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['savedData'] && !changes['savedData'].firstChange && this.savedData) {
-      this.patchForm(this.savedData);
-    }
+    if (!changes['savedData'] || changes['savedData'].firstChange || !this.savedData) return;
+    if (JSON.stringify(this.savedData) === this.lastEmittedJson) return;
+    this.patchForm(this.savedData);
   }
 
   private patchForm(data: ProjectStep1Request): void {
@@ -132,7 +153,8 @@ export class Step1GeneralInfoComponent implements OnInit, OnChanges {
       service_start_date: data.service_start_date?.split('T')[0] ?? '',
       service_end_date:   data.service_end_date?.split('T')[0]   ?? '',
       ext_date:           data.ext_date?.split('T')[0]           ?? '',
-    });
+      ally_id:            data.ally_id ?? '',
+    }, { emitEvent: false });
     this.showExtensionFields.set(data.other_type_if);
     this.showWorkerOrder.set(data.has_worker_order);
     if (data.other_type_if)    this.applyExtensionValidators(true);
@@ -169,6 +191,16 @@ export class Step1GeneralInfoComponent implements OnInit, OnChanges {
     }
   }
 
+  private calculateExtensionDuration(): void {
+    const start = this.form.get('start_date')?.value;
+    const extDate = this.form.get('ext_date')?.value;
+    if (start && extDate) {
+      const days = Math.ceil((new Date(extDate).getTime() - new Date(start).getTime()) / 86400000);
+      const months = days > 0 ? Math.ceil(days / 30) : 0;
+      this.form.get('ext_duration')?.setValue(months, { emitEvent: false });
+    }
+  }
+
   private applyWorkerOrderValidator(active: boolean): void {
     const ctrl = this.form.get('worker_order');
     if (active) {
@@ -182,7 +214,7 @@ export class Step1GeneralInfoComponent implements OnInit, OnChanges {
   }
 
   private applyExtensionValidators(active: boolean): void {
-    ['ext_number', 'ext_date', 'ext_duration'].forEach(f => {
+    ['ext_number', 'ext_date', 'ext_duration', 'ext_observation'].forEach(f => {
       const ctrl = this.form.get(f);
       if (active) {
         if (f !== 'ext_duration') ctrl?.setValidators(Validators.required);
@@ -214,15 +246,17 @@ export class Step1GeneralInfoComponent implements OnInit, OnChanges {
       service_start_date: v.service_start_date ? `${v.service_start_date}T00:00:00Z` : '',
       service_end_date:   v.service_end_date   ? `${v.service_end_date}T00:00:00Z`   : '',
       service_duration:   (v.service_duration as number | null) ?? 0,
+      ally_id:            v.ally_id || null,
     };
 
     if (v.has_worker_order) {
       payload.worker_order = v.worker_order ?? '';
     }
     if (v.other_type_if) {
-      payload.ext_number   = v.ext_number   ?? '';
-      payload.ext_date     = v.ext_date ? `${v.ext_date}T00:00:00Z` : '';
-      payload.ext_duration = v.ext_duration ?? undefined;
+      payload.ext_number      = v.ext_number      ?? '';
+      payload.ext_date        = v.ext_date ? `${v.ext_date}T00:00:00Z` : '';
+      payload.ext_duration    = v.ext_duration    ?? undefined;
+      payload.ext_observation = v.ext_observation ?? '';
     }
     return payload;
   }

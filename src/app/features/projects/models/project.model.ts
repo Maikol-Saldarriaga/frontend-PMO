@@ -31,7 +31,10 @@ export interface ProjectStep1Request {
   ext_number?:          string;
   ext_date?:            string;
   ext_duration?:        number;
+  ext_observation?:     string;
   antecedent:           string;
+  /** Alianza (organización aliada) opcional del proyecto. */
+  ally_id?:             string | null;
 }
 
 export interface ProjectResponsible {
@@ -94,6 +97,7 @@ export interface ProjectWizardStep1 {
   other_type_if:        boolean;
   extension_number?:    string;
   extension_date?:      string;
+  extension_observation?: string;
   antecedent?:          string;
   description?:         string | null;
 }
@@ -561,6 +565,10 @@ export interface ProjectDetails {
   type:                     string;
   start_date:               string | null;
   end_date:                 string | null;
+  /** Fecha de la extensión más reciente registrada; null si el proyecto nunca se extendió. */
+  extended_end_date:        string | null;
+  /** Fecha fin que la extensión más reciente reemplazó (la extensión anterior, o el end_date original si solo hubo una). */
+  previous_end_date:        string | null;
   duration:                 number;
   value:                    number | null;
   status:                   string;
@@ -1095,9 +1103,10 @@ export interface ProjectAccess {
 // ── Equipo de apoyo (team members con permisos por sección) ────────────────
 
 export interface TeamMember {
+  team_id?:    string;
   user_id:     string;
-  name:        string;
-  email:       string;
+  user_name:   string;
+  user_email:  string;
   permissions: Record<ProjectSection, SectionPermission>;
 }
 

@@ -103,16 +103,23 @@ export class Step5ConditionsComponent {
   @Input() serviceId = '';
   @Input() set savedData(val: WizardCondition[] | undefined) {
     if (!val?.length) return;
-    this.rows.set(val.map(v => ({
-      id:               v.id,
-      condition:        (v.condition as ConditionType) ?? 'requisito_minimo',
-      type_compliance:  (v.type_compliance as ComplianceType) ?? 'fecha_especifica',
-      compliance_value: v.compliance_value ?? '',
-      description:      v.description ?? '',
-      hasSupports:      !!(v.supports?.length),
-      supports:         v.supports ?? [],
-      upload:           emptyUpload(),
-    })));
+    this.rows.set(val.map(v => {
+      const type_compliance = (v.type_compliance as ComplianceType) ?? 'fecha_especifica';
+      // <input type="date"> solo acepta "YYYY-MM-DD"; el backend puede devolver la fecha con hora/zona.
+      const compliance_value = type_compliance === 'fecha_especifica'
+        ? (v.compliance_value?.split('T')[0] ?? '')
+        : (v.compliance_value ?? '');
+      return {
+        id:               v.id,
+        condition:        (v.condition as ConditionType) ?? 'requisito_minimo',
+        type_compliance,
+        compliance_value,
+        description:      v.description ?? '',
+        hasSupports:      !!(v.supports?.length),
+        supports:         v.supports ?? [],
+        upload:           emptyUpload(),
+      };
+    }));
   }
   @Input() submitting = false;
   @Output() submitted       = new EventEmitter<Step5SubmitPayload>();
@@ -204,10 +211,16 @@ export class Step5ConditionsComponent {
         ...(r.id ? { id: r.id } : {}),
         condition:        r.condition,
         type_compliance:  r.type_compliance,
-        compliance_value: r.type_compliance === 'permanente' ? null : (r.compliance_value || null),
+        compliance_value: this.formatComplianceValue(r),
         description:      r.description || null,
       } as ContractConditionItem)),
     };
+  }
+
+  private formatComplianceValue(r: ConditionRow): string | null {
+    if (r.type_compliance === 'permanente') return null;
+    // El backend valida compliance_value como "YYYY-MM-DD" puro para fecha_especifica (sin hora/zona).
+    return r.compliance_value || null;
   }
 
   onSubmit(): void {
