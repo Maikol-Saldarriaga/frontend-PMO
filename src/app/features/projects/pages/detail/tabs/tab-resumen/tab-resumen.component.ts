@@ -12,6 +12,7 @@ const PALETTE = ['#0EA5E9','#10B981','#F59E0B','#EF4444','#8B5CF6','#EC4899','#1
 })
 export class TabResumenComponent {
   @Input() details!: ProjectDetails;
+  @Input() locked = false;
   @Output() switchTab = new EventEmitter<string>();
 
   readonly MONTHS_SHORT = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
@@ -95,7 +96,7 @@ export class TabResumenComponent {
     if (v >= 1_000_000_000) return `$${(v / 1_000_000_000).toFixed(1)}B`;
     if (v >= 1_000_000)     return `$${(v / 1_000_000).toFixed(1)}M`;
     if (v >= 1_000)         return `$${(v / 1_000).toFixed(0)}K`;
-    return `$${v}`;
+    return `$${v.toFixed(2)}`;
   }
 
   color(i: number): string { return PALETTE[i % PALETTE.length]; }

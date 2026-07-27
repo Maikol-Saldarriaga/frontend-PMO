@@ -35,8 +35,12 @@ export const BENEFICIARY_TYPES: { value: BeneficiaryType; label: string }[] = [
   templateUrl: './step6-beneficiaries.component.html',
 })
 export class Step6BeneficiariesComponent {
+  private savedDataLoaded = false;
+  // El padre reenvía este mismo dato tras cada (dataChange) emitido por este componente;
+  // sin esta guarda, cada tecleo reescribe rows entero y borra lo que el usuario escribe.
   @Input() set savedData(val: ContractBeneficiaryItem[] | undefined) {
-    if (!val?.length) return;
+    if (this.savedDataLoaded || !val?.length) return;
+    this.savedDataLoaded = true;
     this.rows.set(val.map(v => ({
       id:          v.id,
       beneficiary: v.beneficiary,

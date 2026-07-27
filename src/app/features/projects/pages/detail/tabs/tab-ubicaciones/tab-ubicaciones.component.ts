@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, signal, WritableSignal, inject, HostListener } from '@angular/core';
+import { Component, Input, OnInit, OnChanges, SimpleChanges, signal, WritableSignal, inject, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormArray, FormGroup, Validators } from '@angular/forms';
 import { DivipolaGeoService, LocationResult, DivipolaDept, DivipolaMunicipio } from '../../../../../../core/services/divipola-geo.service';
@@ -52,8 +52,9 @@ const emptyManual = (): ManualState => ({
   imports: [CommonModule, ReactiveFormsModule],
   templateUrl: './tab-ubicaciones.component.html',
 })
-export class TabUbicacionesComponent implements OnInit {
+export class TabUbicacionesComponent implements OnInit, OnChanges {
   @Input() projectId!: string;
+  @Input() locked = false;
 
   private fb  = inject(FormBuilder);
   private geo = inject(DivipolaGeoService);
@@ -74,6 +75,12 @@ export class TabUbicacionesComponent implements OnInit {
   form = this.fb.group({ locations: this.fb.array<FormGroup>([]) });
   get locationsArray(): FormArray { return this.form.get('locations') as FormArray; }
 
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['locked'] && !changes['locked'].firstChange) {
+      this.locked ? this.form.disable({ emitEvent: false }) : this.form.enable({ emitEvent: false });
+    }
+  }
+
   ngOnInit(): void {
     this.contractSvc.getLocations(this.projectId).subscribe({
       next: saved => {
@@ -82,6 +89,7 @@ export class TabUbicacionesComponent implements OnInit {
         } else {
           this.addRow();
         }
+        if (this.locked) this.form.disable({ emitEvent: false });
         this.loading.set(false);
       },
       error: () => {

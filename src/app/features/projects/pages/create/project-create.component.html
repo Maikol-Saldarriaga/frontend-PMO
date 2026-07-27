@@ -298,6 +298,10 @@
           }
           @case (11) {
             <app-step10-guarantees
+              [contractStartDate]="getStep1SavedData()?.start_date ?? null"
+              [contractEndDate]="getStep1SavedData()?.end_date ?? null"
+              [hasExtension]="getStep1SavedData()?.other_type_if ?? false"
+              [extDate]="getStep1SavedData()?.ext_date ?? null"
               [savedData]="getStep10SavedData()"
               [submitting]="submitting()"
               (submitted)="onStep10Submit($event)"

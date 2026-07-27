@@ -3,8 +3,8 @@
   <!-- Toolbar -->
   <div class="flex items-center justify-between gap-3 flex-wrap">
     <h2 class="text-base font-bold text-gray-900">Alcance del Proyecto</h2>
-    <button (click)="addingComponent.set(true)"
-      class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-600 text-white text-sm font-semibold shadow-sm shadow-sky-200 transition-all active:scale-95 shrink-0">
+    <button (click)="addingComponent.set(true)" [disabled]="locked"
+      class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-600 text-white text-sm font-semibold shadow-sm shadow-sky-200 transition-all active:scale-95 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
       </svg>
@@ -138,7 +138,7 @@
             class="px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-sm text-gray-500 transition-colors">
             Cancelar
           </button>
-          <button (click)="saveNewComponent()" [disabled]="scopeSaving() || !newComponentName().trim()"
+          <button (click)="saveNewComponent()" [disabled]="locked || scopeSaving() || !newComponentName().trim()"
             class="flex items-center gap-2 px-4 py-2 rounded-lg bg-sky-500 hover:bg-sky-600 disabled:opacity-50 text-white text-sm font-semibold transition-colors">
             @if (scopeSaving()) { <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> }
             Guardar componente
@@ -185,7 +185,7 @@
             @if (saveError()) {
               <span class="text-xs text-red-500">{{ saveError() }}</span>
             }
-            <button (click)="saveEditComp(comp)" [disabled]="scopeSaving()"
+            <button (click)="saveEditComp(comp)" [disabled]="locked || scopeSaving()"
               class="px-3 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-600 text-white text-xs font-semibold transition-colors disabled:opacity-50">
               Guardar
             </button>
@@ -212,7 +212,7 @@
                   transform="rotate(-90 22 22)"/>
                 <text x="22" y="26" text-anchor="middle" fill="#7C3AED" font-size="9" font-weight="700">{{ comp.percentage | number:'1.0-1' }}%</text>
               </svg>
-              <span class="text-[9px] text-gray-400 font-medium leading-none">Asignado</span>
+              <span class="text-[9px] text-gray-400 font-medium leading-none">Peso</span>
             </div>
 
             <!-- Círculo: Avance -->
@@ -232,22 +232,22 @@
               <span class="text-[9px] text-gray-400 font-medium leading-none">Avance</span>
             </div>
             <!-- Editar componente -->
-            <button (click)="startEditComp(comp)" title="Editar componente"
-              class="w-9 h-9 rounded-lg border border-gray-200 hover:bg-gray-50 flex items-center justify-center text-gray-500 hover:text-gray-600 transition-colors">
+            <button (click)="startEditComp(comp)" title="Editar componente" [disabled]="locked"
+              class="w-9 h-9 rounded-lg border border-gray-200 hover:bg-gray-50 flex items-center justify-center text-gray-500 hover:text-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
               </svg>
             </button>
             <!-- Eliminar componente -->
-            <button (click)="deleteComponent(comp)" title="Eliminar componente"
-              class="w-9 h-9 rounded-lg border border-gray-200 hover:border-red-300 hover:bg-red-50 flex items-center justify-center text-gray-500 hover:text-red-500 transition-colors">
+            <button (click)="deleteComponent(comp)" title="Eliminar componente" [disabled]="locked"
+              class="w-9 h-9 rounded-lg border border-gray-200 hover:border-red-300 hover:bg-red-50 flex items-center justify-center text-gray-500 hover:text-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
               </svg>
             </button>
             <!-- Agregar actividad -->
-            <button (click)="startAddActivity(comp.id)"
-              class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 text-xs font-semibold transition-colors">
+            <button (click)="startAddActivity(comp.id)" [disabled]="locked"
+              class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 text-xs font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
               </svg>
@@ -350,7 +350,7 @@
                             class="px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-sm text-gray-500 transition-colors">
                             Cancelar
                           </button>
-                          <button (click)="saveEditActivity(comp)" [disabled]="scopeSaving()"
+                          <button (click)="saveEditActivity(comp)" [disabled]="locked || scopeSaving()"
                             class="flex items-center gap-2 px-4 py-2 rounded-lg bg-sky-500 hover:bg-sky-600 text-white text-sm font-semibold transition-colors disabled:opacity-50">
                             @if (scopeSaving()) { <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> }
                             Guardar cambios
@@ -422,14 +422,14 @@
                       </td>
                       <td class="px-3 py-3 text-center">
                         <div class="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button (click)="startEditActivity(act, comp.id)" title="Editar"
-                            class="w-8 h-8 rounded-lg border border-gray-200 hover:border-sky-300 hover:bg-sky-50 flex items-center justify-center text-gray-500 hover:text-sky-500 transition-colors">
+                          <button (click)="startEditActivity(act, comp.id)" title="Editar" [disabled]="locked"
+                            class="w-8 h-8 rounded-lg border border-gray-200 hover:border-sky-300 hover:bg-sky-50 flex items-center justify-center text-gray-500 hover:text-sky-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                               <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
                             </svg>
                           </button>
-                          <button (click)="deleteActivity(comp, act.id)" title="Eliminar"
-                            class="w-8 h-8 rounded-lg border border-gray-200 hover:border-red-300 hover:bg-red-50 flex items-center justify-center text-gray-500 hover:text-red-500 transition-colors">
+                          <button (click)="deleteActivity(comp, act.id)" title="Eliminar" [disabled]="locked"
+                            class="w-8 h-8 rounded-lg border border-gray-200 hover:border-red-300 hover:bg-red-50 flex items-center justify-center text-gray-500 hover:text-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                               <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                             </svg>
@@ -511,7 +511,7 @@
                           Cancelar
                         </button>
                         <button (click)="saveNewActivity(comp)"
-                          [disabled]="scopeSaving() || !newActivityForm.description.trim() || !newActivityForm.start_date || !newActivityForm.end_date || !newActivityForm.objective.trim() || !newActivityForm.responsible.trim()"
+                          [disabled]="locked || scopeSaving() || !newActivityForm.description.trim() || !newActivityForm.start_date || !newActivityForm.end_date || !newActivityForm.objective.trim() || !newActivityForm.responsible.trim()"
                           class="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold transition-colors disabled:opacity-50">
                           @if (scopeSaving()) { <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> }
                           Agregar actividad
@@ -525,8 +525,8 @@
                   <tr>
                     <td colspan="9" class="px-5 py-10 text-center">
                       <p class="text-sm text-gray-400">Este componente no tiene actividades.</p>
-                      <button (click)="startAddActivity(comp.id)"
-                        class="mt-2 text-xs text-sky-500 hover:text-sky-600 font-semibold underline underline-offset-2">
+                      <button (click)="startAddActivity(comp.id)" [disabled]="locked"
+                        class="mt-2 text-xs text-sky-500 hover:text-sky-600 font-semibold underline underline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed">
                         Agregar la primera actividad
                       </button>
                     </td>
@@ -555,7 +555,12 @@
           <div>
             <h3 class="text-sm font-bold text-gray-800">Ya llegaste al límite de {{ rebalanceMode() === 'component' ? 'peso asignado en el proyecto' : 'peso asignado en este componente' }}</h3>
             <p class="text-xs text-gray-400 mt-0.5">
-              Modifica los porcentajes para que sumen exactamente 100% y así encaje el nuevo {{ rebalanceMode() === 'component' ? 'componente' : 'actividad' }}.
+              Modifica los porcentajes para que sumen exactamente 100% y así encaje
+              @if (rebalanceEditId()) {
+                el cambio en {{ rebalanceMode() === 'component' ? 'este componente' : 'esta actividad' }}.
+              } @else {
+                el nuevo {{ rebalanceMode() === 'component' ? 'componente' : 'actividad' }}.
+              }
             </p>
           </div>
         </div>
@@ -594,7 +599,7 @@
             class="px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-sm text-gray-500 transition-colors">
             Cancelar
           </button>
-          <button (click)="confirmRebalance()" [disabled]="rebalanceSaving() || rebalanceSum() !== 100"
+          <button (click)="confirmRebalance()" [disabled]="locked || rebalanceSaving() || rebalanceSum() !== 100"
             class="flex items-center gap-2 px-4 py-2 rounded-lg bg-sky-500 hover:bg-sky-600 disabled:opacity-50 text-white text-sm font-semibold transition-colors">
             @if (rebalanceSaving()) { <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> }
             Guardar y ajustar

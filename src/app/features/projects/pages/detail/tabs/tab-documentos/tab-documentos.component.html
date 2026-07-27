@@ -22,7 +22,7 @@
         <svg class="w-4 h-4 text-neutral-300 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
           <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
         </svg>
-        <input type="text" [(ngModel)]="search" placeholder="Buscar por nombre o sección..."
+        <input type="text" [ngModel]="search()" (ngModelChange)="search.set($event)" placeholder="Buscar por nombre o sección..."
           class="w-full pl-9 pr-3 py-2.5 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-300 bg-white outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
       </div>
     </div>
@@ -32,13 +32,13 @@
       @for (f of SOURCE_FILTERS; track f.value) {
         <button type="button" (click)="setSource(f.value)"
           class="px-4 py-2 rounded-xl text-xs font-semibold border transition-colors"
-          [class.bg-primary-700]="activeSource === f.value"
-          [class.text-white]="activeSource === f.value"
-          [class.border-primary-700]="activeSource === f.value"
-          [class.bg-white]="activeSource !== f.value"
-          [class.text-neutral-500]="activeSource !== f.value"
-          [class.border-neutral-200]="activeSource !== f.value"
-          [class.hover:bg-neutral-50]="activeSource !== f.value">
+          [class.bg-primary-700]="activeSource() === f.value"
+          [class.text-white]="activeSource() === f.value"
+          [class.border-primary-700]="activeSource() === f.value"
+          [class.bg-white]="activeSource() !== f.value"
+          [class.text-neutral-500]="activeSource() !== f.value"
+          [class.border-neutral-200]="activeSource() !== f.value"
+          [class.hover:bg-neutral-50]="activeSource() !== f.value">
           {{ f.label }}
           @if (f.value !== 'todos') {
             <span class="ml-1 opacity-70">({{ countFor(f.value) }})</span>

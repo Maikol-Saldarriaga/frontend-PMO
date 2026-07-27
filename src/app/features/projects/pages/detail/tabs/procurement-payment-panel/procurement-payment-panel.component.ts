@@ -8,6 +8,7 @@ import {
 } from '../../../../models/contract.model';
 import { MoneyMaskDirective } from '../../../../../../shared/directives/money-mask.directive';
 import { AuthStore } from '../../../../../../../core/auth/store/auth.store';
+import { ConfirmDialogService } from '../../../../../../shared/components/confirm-dialog/confirm-dialog.service';
 
 const FINANCE_ROLES = ['ADMIN', 'COORDINADOR', 'FINANCE'];
 const AMOUNT_EPSILON = 0.01;
@@ -45,6 +46,7 @@ export class ProcurementPaymentPanelComponent implements OnChanges {
 
   private svc  = inject(ContractService);
   private auth = inject(AuthStore);
+  private confirmDialog = inject(ConfirmDialogService);
 
   readonly canWrite = computed(() => FINANCE_ROLES.includes(this.auth.user()?.role ?? ''));
 
@@ -213,9 +215,9 @@ export class ProcurementPaymentPanelComponent implements OnChanges {
     });
   }
 
-  deletePayment(p: ProcurementPayment): void {
+  async deletePayment(p: ProcurementPayment): Promise<void> {
     if (!this.item) return;
-    if (!confirm('¿Eliminar este pago registrado?')) return;
+    if (!(await this.confirmDialog.confirm({ message: '¿Eliminar este pago registrado?', variant: 'danger' }))) return;
     this.deletingId.set(p.id);
     this.svc.deleteProcurementPayment(this.projectId, this.item.id, p.id).subscribe({
       next: () => {

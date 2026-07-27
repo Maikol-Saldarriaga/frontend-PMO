@@ -105,7 +105,7 @@ export class Step1GeneralInfoComponent implements OnInit, OnChanges {
     this.form.get('end_date')?.valueChanges.subscribe(() => this.calculateDuration());
     this.form.get('service_start_date')?.valueChanges.subscribe(() => this.calculateServiceDuration());
     this.form.get('service_end_date')?.valueChanges.subscribe(() => this.calculateServiceDuration());
-    this.form.get('start_date')?.valueChanges.subscribe(() => this.calculateExtensionDuration());
+    this.form.get('end_date')?.valueChanges.subscribe(() => this.calculateExtensionDuration());
     this.form.get('ext_date')?.valueChanges.subscribe(() => this.calculateExtensionDuration());
 
     this.form.get('has_worker_order')?.valueChanges.subscribe(val => {
@@ -191,13 +191,13 @@ export class Step1GeneralInfoComponent implements OnInit, OnChanges {
     }
   }
 
+  /** Meses que la extensión suma sobre la fecha fin actual (no desde start_date). */
   private calculateExtensionDuration(): void {
-    const start = this.form.get('start_date')?.value;
+    const end = this.form.get('end_date')?.value;
     const extDate = this.form.get('ext_date')?.value;
-    if (start && extDate) {
-      const days = Math.ceil((new Date(extDate).getTime() - new Date(start).getTime()) / 86400000);
-      const months = days > 0 ? Math.ceil(days / 30) : 0;
-      this.form.get('ext_duration')?.setValue(months, { emitEvent: false });
+    if (end && extDate) {
+      const months = monthsBetweenDates(new Date(end), new Date(extDate));
+      this.form.get('ext_duration')?.setValue(months > 0 ? months : 0, { emitEvent: false });
     }
   }
 

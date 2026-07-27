@@ -1,6 +1,8 @@
 import { Routes } from '@angular/router';
 import { WelcomeComponent } from './layouts/welcome/welcome.component';
 import { LoginComponent } from './features/auth/pages/login/login.component';
+import { ForgotPasswordComponent } from './features/auth/pages/forgot-password/forgot-password.component';
+import { ResetPasswordComponent } from './features/auth/pages/reset-password/reset-password.component';
 import { DashboardComponent } from './layouts/dashboard/dashboard.component';
 import { HomeComponent } from './features/dashboard/pages/home/home.component';
 import { ProfileComponent } from './features/profile/pages/profile/profile.component';
@@ -22,6 +24,8 @@ import { authGuard, rootRedirectGuard, canCreateProjectGuard, adminGuard } from 
 export const routes: Routes = [
   { path: '', pathMatch: 'full', canActivate: [rootRedirectGuard], children: [] },
   { path: 'login',   component: LoginComponent },
+  { path: 'forgot-password', component: ForgotPasswordComponent },
+  { path: 'reset-password',  component: ResetPasswordComponent },
   { path: 'welcome', component: WelcomeComponent },
   {
     path: '',

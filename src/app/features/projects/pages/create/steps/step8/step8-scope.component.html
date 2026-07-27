@@ -126,14 +126,24 @@
                     <div>
                       <label class="block text-[10px] text-neutral-400 mb-1">Inicio <span class="text-danger">*</span></label>
                       <input type="date" [value]="act.start_date"
+                        (input)="onDateInput(ci, ai, 'start_date', $event)"
                         (change)="updateAct(ci, ai, 'start_date', $any($event.target).value)"
+                        [class.border-danger]="act.startDateInvalid"
                         class="w-full px-2 py-1.5 rounded-lg border border-neutral-200 bg-white text-sm text-primary-700 outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 transition-colors"/>
+                      @if (act.startDateInvalid) {
+                        <p class="text-[10px] text-danger mt-1">Esa fecha no existe en el calendario. Revisa el día.</p>
+                      }
                     </div>
                     <div>
                       <label class="block text-[10px] text-neutral-400 mb-1">Fin <span class="text-danger">*</span></label>
                       <input type="date" [value]="act.end_date"
+                        (input)="onDateInput(ci, ai, 'end_date', $event)"
                         (change)="updateAct(ci, ai, 'end_date', $any($event.target).value)"
+                        [class.border-danger]="act.endDateInvalid"
                         class="w-full px-2 py-1.5 rounded-lg border border-neutral-200 bg-white text-sm text-primary-700 outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 transition-colors"/>
+                      @if (act.endDateInvalid) {
+                        <p class="text-[10px] text-danger mt-1">Esa fecha no existe en el calendario. Revisa el día.</p>
+                      }
                     </div>
                   </div>
                   @if (act.plan_duration !== null && act.plan_duration !== undefined) {

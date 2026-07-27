@@ -46,6 +46,7 @@ function emptyPermissions(): Record<ProjectSection, SectionPermission> {
 })
 export class TabEquipoComponent implements OnInit {
   @Input() projectId!: string;
+  @Input() locked = false;
 
   private svc         = inject(ProjectService);
   private contractSvc = inject(ContractService);
@@ -90,16 +91,16 @@ export class TabEquipoComponent implements OnInit {
   });
 
   // Alianza, coordinador principal y supervisor aliado: solo ADMIN puede editar.
-  canEditAssignments = computed(() => this.isAdmin());
+  canEditAssignments = computed(() => !this.locked && this.isAdmin());
 
-  // Equipo de apoyo: además del ADMIN, el coordinador principal y el supervisor aliado pueden administrarlo.
-  canEditTeam = computed(() => this.isAdmin() || this.isPrincipalSupervisor() || this.isAllySupervisorUser());
+  // Equipo: además del ADMIN, el coordinador principal y el supervisor aliado pueden administrarlo.
+  canEditTeam = computed(() => !this.locked && (this.isAdmin() || this.isPrincipalSupervisor() || this.isAllySupervisorUser()));
 
   allyName = computed(() => this.allies().find(a => a.id === this.allyId())?.name ?? null);
   principalSupervisorName = computed(() => this.supervisors().find(s => s.id === this.principalSupervisorId())?.full_name ?? null);
   allySupervisorName = computed(() => this.affiliates().find(a => a.id === this.allySupervisorId())?.full_name ?? null);
 
-  // ── Equipo de apoyo ──────────────────────────────────────────────────────────
+  // ── Equipo ──────────────────────────────────────────────────────────
 
   members     = signal<TeamMember[]>([]);
   users       = signal<UserListItem[]>([]);
@@ -216,7 +217,7 @@ export class TabEquipoComponent implements OnInit {
   // step 1 completo, así que no exige fechas de servicio ni el resto de campos
   // del contrato (varios proyectos legados no las tienen guardadas).
   saveAssignments(): void {
-    if (this.savingAssignments()) return;
+    if (this.locked || this.savingAssignments()) return;
     this.savingAssignments.set(true);
     this.assignmentSaveError.set(null);
 
@@ -373,6 +374,7 @@ export class TabEquipoComponent implements OnInit {
   }
 
   createApoyo(): void {
+    if (this.locked) return;
     const f = this.apoyoForm;
     if (!f.first_name || !f.first_surname || !f.second_surname || !f.identity_document_number
       || !f.birthdate || !f.email || !f.phone || !f.password) {

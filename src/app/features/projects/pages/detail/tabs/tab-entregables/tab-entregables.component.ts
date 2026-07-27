@@ -5,6 +5,7 @@ import { RouterLink } from '@angular/router';
 import { forkJoin, of, Observable } from 'rxjs';
 import { ProjectService } from '../../../../services/project.service';
 import { ServerTimeService } from '../../../../../../core/services/server-time.service';
+import { AuthStore } from '../../../../../../../core/auth/store/auth.store';
 import {
   ProjectSnapshotItem, Delivery, DeliveryVerification, ScopeComponent,
 } from '../../../../models/project.model';
@@ -53,9 +54,15 @@ const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'o
 })
 export class TabEntregablesComponent implements OnInit {
   @Input() projectId!: string;
+  @Input() locked = false;
   @ViewChild('scrollContainer') scrollContainerRef?: ElementRef<HTMLElement>;
 
-  constructor(private svc: ProjectService, private timeSvc: ServerTimeService, private confirmDialog: ConfirmDialogService) {}
+  constructor(
+    private svc: ProjectService,
+    private timeSvc: ServerTimeService,
+    private confirmDialog: ConfirmDialogService,
+    private auth: AuthStore,
+  ) {}
 
   /** Hora real (internet), no el reloj local del equipo — se usa para decidir si un entregable venció. */
   nowDate = signal<Date>(new Date());
@@ -250,12 +257,14 @@ export class TabEntregablesComponent implements OnInit {
 
   /**
    * Una vez vencida la fecha fin, el entregable queda en solo lectura sin importar si ya tenía avance registrado.
-   * `environment.enforceDeliveryDateLocks` permite desactivar esta restricción temporalmente (ej. pruebas).
+   * `environment.allowPastEdits` (espejo de ALLOW_PAST_EDITS del backend) permite que un ADMIN
+   * siga editando pasada la fecha; para cualquier otro rol el bloqueo aplica siempre.
    */
   isDeliveryLocked(): boolean {
-    if (!environment.enforceDeliveryDateLocks) return false;
+    if (this.locked) return true;
     const item = this.selectedDelivery();
-    return !!item && this.isPastDue(item);
+    if (!item || !this.isPastDue(item)) return false;
+    return !(environment.allowPastEdits && this.auth.user()?.role === 'ADMIN');
   }
 
   closeDelivery(): void {

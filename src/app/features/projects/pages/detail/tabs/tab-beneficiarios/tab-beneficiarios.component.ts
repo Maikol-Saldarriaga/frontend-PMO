@@ -5,7 +5,10 @@ import { from, Observable } from 'rxjs';
 import { concatMap, toArray } from 'rxjs/operators';
 import * as XLSX from 'xlsx';
 import { ProjectService } from '../../../../services/project.service';
+import { ContractService } from '../../../../services/contract.service';
 import { TemplateService } from '../../../../../../core/services/template.service';
+import { BENEFICIARY_TYPES } from '../../../create/steps/step6/step6-beneficiaries.component';
+import { ContractBeneficiaryItem, BeneficiaryType } from '../../../../models/contract.model';
 
 const BENEFICIARIOS_TEMPLATE = 'beneficiarios_template.xlsx';
 // El backend acepta hasta 5000 filas por request de /beneficiaries/bulk;
@@ -15,6 +18,18 @@ import {
   Beneficiary, BeneficiaryRequest, BeneficiaryDocumentType, BeneficiaryGender, BeneficiaryZoneType,
   BeneficiaryBulkResponse,
 } from '../../../../models/project.model';
+
+interface BeneficiaryTypeRow {
+  id?:         string;
+  beneficiary: BeneficiaryType;
+  is_direct:   boolean;
+  amount:      number | null;
+  description: string;
+}
+
+const EMPTY_TYPE_ROW = (): BeneficiaryTypeRow => ({
+  beneficiary: 'personas', is_direct: true, amount: null, description: '',
+});
 
 interface BeneficiaryForm {
   first_name:             string;
@@ -56,8 +71,13 @@ const emptyForm = (): BeneficiaryForm => ({
 })
 export class TabBeneficiariosComponent implements OnInit {
   @Input() projectId!: string;
+  @Input() locked = false;
 
-  constructor(private svc: ProjectService, private templateSvc: TemplateService) {}
+  constructor(
+    private svc: ProjectService,
+    private contractSvc: ContractService,
+    private templateSvc: TemplateService,
+  ) {}
 
   downloadingTemplate = signal(false);
   templateError       = signal<string | null>(null);
@@ -455,4 +475,77 @@ export class TabBeneficiariosComponent implements OnInit {
   }
 
   closeImportResults(): void { this.importResults.set(null); }
+
+  // ── Vista "Tipos de Beneficiarios" (grupos poblacionales del wizard, step 6) ─────
+
+  readonly typeOptions = BENEFICIARY_TYPES;
+
+  showTypesView   = signal(false);
+  typesLoaded     = signal(false);
+  typesLoading    = signal(false);
+  typesError      = signal<string | null>(null);
+  typesSaving     = signal(false);
+  typesSaveError  = signal<string | null>(null);
+  typeRows        = signal<BeneficiaryTypeRow[]>([EMPTY_TYPE_ROW()]);
+
+  toggleTypesView(): void {
+    const next = !this.showTypesView();
+    this.showTypesView.set(next);
+    if (next && !this.typesLoaded()) this.loadTypes();
+  }
+
+  private loadTypes(): void {
+    this.typesLoading.set(true);
+    this.typesError.set(null);
+    this.contractSvc.getWizard(this.projectId).subscribe({
+      next: wizard => {
+        const step6 = wizard.step6 ?? [];
+        this.typeRows.set(step6.length
+          ? step6.map(v => ({
+              id: v.id, beneficiary: v.beneficiary, is_direct: v.is_direct,
+              amount: v.amount, description: v.description ?? '',
+            }))
+          : [EMPTY_TYPE_ROW()]);
+        this.typesLoaded.set(true);
+        this.typesLoading.set(false);
+      },
+      error: () => {
+        this.typesError.set('No se pudieron cargar los tipos de beneficiarios.');
+        this.typesLoading.set(false);
+      },
+    });
+  }
+
+  addTypeRow(): void { this.typeRows.update(r => [...r, EMPTY_TYPE_ROW()]); }
+
+  removeTypeRow(i: number): void { this.typeRows.update(r => r.filter((_, idx) => idx !== i)); }
+
+  updateTypeField(i: number, field: keyof BeneficiaryTypeRow, value: string | boolean | number): void {
+    this.typeRows.update(rows => rows.map((row, idx) => idx === i ? { ...row, [field]: value } : row));
+  }
+
+  saveTypes(): void {
+    if (this.locked) return;
+    this.typesSaveError.set(null);
+
+    const invalid = this.typeRows().some(r => !r.amount || r.amount <= 0);
+    if (invalid) { this.typesSaveError.set('Todas las filas requieren una cantidad mayor a 0.'); return; }
+
+    const payload: ContractBeneficiaryItem[] = this.typeRows().map(r => ({
+      ...(r.id ? { id: r.id } : {}),
+      beneficiary: r.beneficiary,
+      is_direct:   r.is_direct,
+      amount:      r.amount ?? 0,
+      description: r.description || null,
+    } as ContractBeneficiaryItem));
+
+    this.typesSaving.set(true);
+    this.contractSvc.updateStep6(this.projectId, { beneficiaries: payload }).subscribe({
+      next: () => { this.typesSaving.set(false); },
+      error: err => {
+        this.typesSaveError.set(err?.error?.message ?? 'No se pudieron guardar los tipos de beneficiarios.');
+        this.typesSaving.set(false);
+      },
+    });
+  }
 }

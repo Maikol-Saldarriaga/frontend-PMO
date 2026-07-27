@@ -96,7 +96,7 @@ export interface ProjectFilters {
 export class ProjectService {
   private http = inject(ApiHttpClient);
 
-  getProjects(limit = 20, cursor = 0, filters: ProjectFilters = {}): Observable<ProjectsPageResponse> {
+  getProjects(limit = 20, cursor: string | number = 0, filters: ProjectFilters = {}): Observable<ProjectsPageResponse> {
     const params = new URLSearchParams({ limit: String(limit), cursor: String(cursor) });
     if (filters.name)      params.set('name',      filters.name);
     if (filters.type)      params.set('type',      filters.type);
@@ -224,6 +224,10 @@ export class ProjectService {
 
   createInvoice(id: string, bid: string, data: InvoiceRequest): Observable<Invoice> {
     return this.http.post<Invoice>(ENDPOINTS.projects.invoices(id, bid), data);
+  }
+
+  updateInvoice(id: string, bid: string, iid: string, data: InvoiceRequest): Observable<Invoice> {
+    return this.http.put<Invoice>(ENDPOINTS.projects.invoiceById(id, bid, iid), data);
   }
 
   getGantt(id: string, filters: GanttFilters = {}): Observable<GanttResponse> {

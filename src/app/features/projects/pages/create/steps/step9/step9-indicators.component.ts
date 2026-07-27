@@ -27,13 +27,18 @@ export interface Step9SubmitPayload {
 
 interface IndicatorRow {
   id?:          string;
-  component_id: string;
   type:         string;
   name:         string;
   line:         string;
   goal:         string;
   verifications: IndicatorVerification[];
   upload:        PendingUpload;
+}
+
+interface ComponentGroup {
+  component_id:  string;
+  componentName: string;
+  indicators:    IndicatorRow[];
 }
 
 // Mismo catálogo que en Condiciones/Soportes — el backend reutiliza enums.SupportType.
@@ -67,8 +72,8 @@ const emptyUpload = (): PendingUpload => ({
   verification_type: '', name: '', files: [],
 });
 
-const EMPTY = (): IndicatorRow => ({
-  component_id: '', type: 'producto', name: '', line: '', goal: '',
+const EMPTY_INDICATOR = (): IndicatorRow => ({
+  type: 'producto', name: '', line: '', goal: '',
   verifications: [], upload: emptyUpload(),
 });
 
@@ -90,46 +95,29 @@ export const INDICATOR_TYPES = [
 })
 export class Step9IndicatorsComponent {
   @Input() projectId = '';
+
+  private rawIndicators: WizardIndicator[] = [];
+  private savedDataLoaded = false;
+  // Igual que en Alcance (step8): el padre reenvía este mismo dato tras cada (dataChange), así
+  // que solo se hidrata la primera vez que llega con datos; ediciones locales posteriores no se
+  // vuelven a pisar con el eco del padre.
   @Input() set savedData(val: WizardIndicator[] | undefined) {
-    if (!val?.length) return;
-
-    // El padre reenvía este mismo `savedData` en cada `dataChange` (incluido el simple
-    // cambio del <select> de tipo), así que si reconstruyéramos `rows` entero cada vez se
-    // perdería lo que solo vive en el componente: verificaciones ya cargadas y el borrador
-    // de "medio de verificación" que el usuario esté llenando (tipo/nombre/archivos) sin
-    // haber subido aún. Si las filas (por id, en el mismo orden) son las mismas de antes,
-    // es un eco de una edición local — solo mezclamos los campos que sí vienen del padre,
-    // sin tocar `verifications` ni `upload`. Solo se reconstruye todo (y se recargan las
-    // verificaciones del backend) cuando de verdad cambia el conjunto de filas: carga
-    // inicial del wizard, o tras guardar cuando el backend asigna ids nuevos.
-    const current = this.rows();
-    const isEcho = current.length === val.length && current.every((r, i) => r.id === val[i].id);
-    if (isEcho) {
-      this.rows.update(rows => rows.map((r, i) => ({
-        ...r,
-        component_id: val[i].component_id,
-        type:         val[i].type ?? r.type,
-        name:         val[i].name ?? r.name,
-        line:         val[i].line ?? r.line,
-        goal:         val[i].goal ?? r.goal,
-      })));
-      return;
-    }
-
-    this.rows.set(val.map(v => ({
-      id:           v.id,
-      component_id: v.component_id,
-      type:         v.type  ?? 'producto',
-      name:         v.name  ?? '',
-      line:         v.line  ?? '',
-      goal:         v.goal  ?? '',
-      verifications: [],
-      upload:        emptyUpload(),
-    })));
+    if (this.savedDataLoaded || !val?.length) return;
+    this.savedDataLoaded = true;
+    this.rawIndicators = val;
+    this.syncGroups();
     this.loadVerifications();
   }
-  // Components list loaded from step8 to get component_id → name mapping
-  @Input() components: { id: string; name: string }[] = [];
+
+  // Los componentes ya existen (vienen de Alcance / step8) — aquí solo se agregan indicadores
+  // "hijos" a cada uno. El padre reenvía un array nuevo en cada detección de cambios; syncGroups
+  // preserva los indicadores ya cargados/editados de cada grupo existente.
+  private _components: { id: string; name: string }[] = [];
+  @Input() set components(list: { id: string; name: string }[] | undefined) {
+    this._components = list ?? [];
+    this.syncGroups();
+  }
+
   @Input() submitting = false;
   @Output() submitted       = new EventEmitter<Step9SubmitPayload>();
   @Output() dataChange      = new EventEmitter<ContractStep9Request>();
@@ -143,55 +131,111 @@ export class Step9IndicatorsComponent {
   readonly verificationTypeLabels = VERIFICATION_TYPE_LABELS;
   readonly verificationTypes      = VERIFICATION_TYPES;
 
-  rows: WritableSignal<IndicatorRow[]> = signal([EMPTY()]);
+  groups: WritableSignal<ComponentGroup[]> = signal([]);
+
+  private toRow(v: WizardIndicator): IndicatorRow {
+    return {
+      id:   v.id,
+      type: v.type ?? 'producto',
+      name: v.name ?? '',
+      line: v.line ?? '',
+      goal: v.goal ?? '',
+      verifications: [], upload: emptyUpload(),
+    };
+  }
+
+  private syncGroups(): void {
+    const byComp = new Map<string, WizardIndicator[]>();
+    this.rawIndicators.forEach(v => {
+      const arr = byComp.get(v.component_id) ?? [];
+      arr.push(v);
+      byComp.set(v.component_id, arr);
+    });
+    const current = this.groups();
+    this.groups.set(this._components.map(c => {
+      const existing = current.find(g => g.component_id === c.id);
+      const indicators = existing?.indicators.length
+        ? existing.indicators
+        : (byComp.get(c.id) ?? []).map(v => this.toRow(v));
+      return { component_id: c.id, componentName: c.name, indicators };
+    }));
+  }
 
   private loadVerifications(): void {
-    this.rows().forEach((row, i) => {
-      if (!row.id || !this.projectId) return;
-      this.projectSvc.getIndicatorVerifications(this.projectId, row.id).subscribe({
-        next: verifications => {
-          this.rows.update(rows => rows.map((r, idx) => idx === i ? { ...r, verifications } : r));
-        },
+    this.groups().forEach((g, gi) => {
+      g.indicators.forEach((row, ri) => {
+        if (!row.id || !this.projectId) return;
+        this.projectSvc.getIndicatorVerifications(this.projectId, row.id).subscribe({
+          next: verifications => {
+            this.groups.update(groups => groups.map((grp, i) =>
+              i === gi
+                ? { ...grp, indicators: grp.indicators.map((r, j) => j === ri ? { ...r, verifications } : r) }
+                : grp));
+          },
+        });
       });
     });
   }
 
-  addRow(): void             { this.rows.update(r => [...r, EMPTY()]); }
-  removeRow(i: number): void { this.rows.update(r => r.filter((_, idx) => idx !== i)); }
-
-  update(i: number, field: keyof IndicatorRow, v: string): void {
-    this.rows.update(rows => rows.map((row, idx) => idx === i ? { ...row, [field]: v } : row));
-    this.dataChange.emit(this.buildPayload());
+  addIndicator(gi: number): void {
+    this.groups.update(gs => gs.map((g, i) => i === gi ? { ...g, indicators: [...g.indicators, EMPTY_INDICATOR()] } : g));
   }
 
-  updateUploadField(i: number, field: keyof PendingUpload, value: string): void {
-    this.rows.update(rows => rows.map((row, idx) => {
-      if (idx !== i) return row;
-      const upload = { ...row.upload, [field]: value };
-      if (field === 'verification_type') upload.name = '';
-      return { ...row, upload };
+  removeIndicator(gi: number, ri: number): void {
+    this.groups.update(gs => gs.map((g, i) =>
+      i === gi ? { ...g, indicators: g.indicators.filter((_, j) => j !== ri) } : g));
+    this.emit();
+  }
+
+  update(gi: number, ri: number, field: keyof IndicatorRow, v: string): void {
+    this.groups.update(gs => gs.map((g, i) =>
+      i === gi
+        ? { ...g, indicators: g.indicators.map((row, j) => j === ri ? { ...row, [field]: v } : row) }
+        : g));
+    this.emit();
+  }
+
+  updateUploadField(gi: number, ri: number, field: keyof PendingUpload, value: string): void {
+    this.groups.update(gs => gs.map((g, i) => {
+      if (i !== gi) return g;
+      return {
+        ...g,
+        indicators: g.indicators.map((row, j) => {
+          if (j !== ri) return row;
+          const upload = { ...row.upload, [field]: value };
+          if (field === 'verification_type') upload.name = '';
+          return { ...row, upload };
+        }),
+      };
     }));
   }
 
-  onFilesSelected(i: number, event: Event): void {
+  onFilesSelected(gi: number, ri: number, event: Event): void {
     const input = event.target as HTMLInputElement;
-    if (!this.canSelectFiles(this.rows()[i])) { input.value = ''; return; }
+    if (!this.canSelectFiles(this.groups()[gi].indicators[ri])) { input.value = ''; return; }
     const files = Array.from(input.files ?? []);
-    this.rows.update(rows => rows.map((row, idx) =>
-      idx === i ? { ...row, upload: { ...row.upload, files } } : row
-    ));
-  }
-
-  removeFile(rowIdx: number, fileIdx: number): void {
-    this.rows.update(rows => rows.map((row, idx) => {
-      if (idx !== rowIdx) return row;
-      const files = row.upload.files.filter((_, fi) => fi !== fileIdx);
-      return { ...row, upload: { ...row.upload, files } };
+    this.groups.update(gs => gs.map((g, i) => {
+      if (i !== gi) return g;
+      return { ...g, indicators: g.indicators.map((row, j) => j === ri ? { ...row, upload: { ...row.upload, files } } : row) };
     }));
   }
 
-  getVerificationNames(i: number): string[] {
-    const key = this.rows()[i].upload.verification_type as VerificationTypeKey;
+  removeFile(gi: number, ri: number, fileIdx: number): void {
+    this.groups.update(gs => gs.map((g, i) => {
+      if (i !== gi) return g;
+      return {
+        ...g,
+        indicators: g.indicators.map((row, j) => {
+          if (j !== ri) return row;
+          const files = row.upload.files.filter((_, fi) => fi !== fileIdx);
+          return { ...row, upload: { ...row.upload, files } };
+        }),
+      };
+    }));
+  }
+
+  getVerificationNames(gi: number, ri: number): string[] {
+    const key = this.groups()[gi].indicators[ri].upload.verification_type as VerificationTypeKey;
     return key ? VERIFICATION_TYPES[key] : [];
   }
 
@@ -199,20 +243,23 @@ export class Step9IndicatorsComponent {
     return !!(row.upload.verification_type && row.upload.name);
   }
 
-  previewFileName(i: number, fi: number): string {
-    const row = this.rows()[i];
+  previewFileName(gi: number, ri: number, fi: number): string {
+    const row = this.groups()[gi].indicators[ri];
     return renameFileForUpload(row.upload.files[fi], row.upload.name, fi, row.upload.files.length).name;
   }
 
-  deleteVerification(rowIdx: number, v: IndicatorVerification): void {
+  deleteVerification(gi: number, ri: number, v: IndicatorVerification): void {
     if (!this.projectId) return;
     this.projectSvc.deleteIndicatorVerification(this.projectId, v.indicator_id, v.id).subscribe({
       next: () => {
-        this.rows.update(rows => rows.map((r, idx) =>
-          idx === rowIdx
-            ? { ...r, verifications: r.verifications.filter(x => x.id !== v.id) }
-            : r
-        ));
+        this.groups.update(gs => gs.map((g, i) => {
+          if (i !== gi) return g;
+          return {
+            ...g,
+            indicators: g.indicators.map((row, j) =>
+              j === ri ? { ...row, verifications: row.verifications.filter(x => x.id !== v.id) } : row),
+          };
+        }));
       },
     });
   }
@@ -227,35 +274,54 @@ export class Step9IndicatorsComponent {
 
   private buildPayload(): ContractStep9Request {
     return {
-      indicators: this.rows().map(r => ({
+      indicators: this.groups().flatMap(g => g.indicators.map(r => ({
         ...(r.id ? { id: r.id } : {}),
-        component_id: r.component_id,
-        type:         r.type  || null,
-        name:         r.name  || null,
-        line:         r.line  || null,
-        goal:         r.goal  || null,
-      } as ContractIndicatorItem)),
+        component_id: g.component_id,
+        type:         r.type || null,
+        name:         r.name || null,
+        line:         r.line || null,
+        goal:         r.goal || null,
+      } as ContractIndicatorItem))),
     };
   }
 
+  private emit(): void { this.dataChange.emit(this.buildPayload()); }
+
   onSubmit(): void {
     const invalid: string[] = [];
-    this.rows().forEach((r, i) => {
-      if (!r.component_id) invalid.push(`Indicador ${i + 1}: Componente`);
-      if (!r.name.trim())  invalid.push(`Indicador ${i + 1}: Nombre`);
+    this.groups().forEach(g => {
+      g.indicators.forEach((r, ri) => {
+        if (!r.name.trim()) invalid.push(`${g.componentName} — Indicador ${ri + 1}: Nombre requerido`);
+      });
     });
     if (invalid.length) { this.validationError.emit(invalid); return; }
 
-    const uploads: PendingIndicatorUpload[] = this.rows()
-      .map((r, rowIndex) => ({
-        rowIndex,
-        verification_type: r.upload.verification_type as VerificationTypeKey,
-        name:               r.upload.name,
-        files:              r.upload.files,
-      }))
-      .filter(u => u.verification_type && u.name && u.files.length > 0);
+    const uploads: PendingIndicatorUpload[] = [];
+    this.groups().forEach(g => {
+      g.indicators.forEach((r, ri) => {
+        if (r.upload.verification_type && r.upload.name && r.upload.files.length > 0) {
+          uploads.push({
+            rowIndex: this.flatIndexOffset(g, ri),
+            verification_type: r.upload.verification_type as VerificationTypeKey,
+            name: r.upload.name,
+            files: r.upload.files,
+          });
+        }
+      });
+    });
 
     this.submitted.emit({ request: this.buildPayload(), uploads });
+  }
+
+  // Índice plano (mismo orden que buildPayload) para que el padre pueda mapear cada upload
+  // pendiente al indicador ya guardado por el backend (sin id hasta esa recarga).
+  private flatIndexOffset(target: ComponentGroup, targetRi: number): number {
+    let idx = 0;
+    for (const g of this.groups()) {
+      if (g === target) return idx + targetRi;
+      idx += g.indicators.length;
+    }
+    return idx + targetRi;
   }
 
   fileName(file: File): string { return file.name; }

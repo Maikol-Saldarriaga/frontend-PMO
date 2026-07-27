@@ -44,6 +44,7 @@ const emptyTrackingForm = (): TrackingForm => ({
 })
 export class TabRiesgosComponent implements OnInit {
   @Input() projectId!: string;
+  @Input() locked = false;
 
   constructor(private svc: ProjectService) {}
 

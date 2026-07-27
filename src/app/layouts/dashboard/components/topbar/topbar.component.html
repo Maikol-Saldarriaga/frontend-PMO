@@ -29,8 +29,8 @@
       </button>
 
       <!-- Dropdown notificaciones -->
-      <div id="notif-dropdown"
-           class="z-50 hidden w-80 bg-white divide-y divide-neutral-100 rounded-xl shadow-lg border border-neutral-200">
+      <div id="notif-dropdown" appPortalToBody
+           class="z-[9999] hidden w-80 bg-white divide-y divide-neutral-100 rounded-xl shadow-lg border border-neutral-200">
         <div class="px-4 py-3 flex items-center justify-between">
           <span class="text-sm font-semibold text-primary-800">Notificaciones</span>
           <span class="notif-count">{{ notifications }} nuevas</span>
@@ -91,8 +91,8 @@
       </button>
 
       <!-- Dropdown usuario -->
-      <div id="user-dropdown"
-           class="z-50 hidden w-52 bg-white divide-y divide-neutral-100 rounded-xl shadow-lg border border-neutral-200">
+      <div id="user-dropdown" appPortalToBody
+           class="z-[9999] hidden w-52 bg-white divide-y divide-neutral-100 rounded-xl shadow-lg border border-neutral-200">
         <div class="px-4 py-3">
           <p class="text-sm font-semibold text-neutral-900">{{ user?.name }}</p>
           <p class="text-xs text-neutral-500 truncate">{{ user?.email }}</p>

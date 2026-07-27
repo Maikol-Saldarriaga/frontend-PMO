@@ -45,6 +45,7 @@ export interface ComponentSection {
 })
 export class TabPresupuestoComponent implements OnInit {
   @Input() projectId!: string;
+  @Input() locked = false;
 
   constructor(private svc: ProjectService, private rtr: Router, private confirmDialog: ConfirmDialogService) {}
 
@@ -439,7 +440,7 @@ export class TabPresupuestoComponent implements OnInit {
     if (v >= 1_000_000_000) return `$${(v / 1_000_000_000).toFixed(1)}B`;
     if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`;
     if (v >= 1_000) return `$${(v / 1_000).toFixed(0)}K`;
-    return `$${v}`;
+    return `$${v.toFixed(2)}`;
   }
 
   trackByComp(_: number, s: ComponentSection)  { return s.component_id; }

@@ -6,6 +6,7 @@ import { ProjectService } from '../../services/project.service';
 import { ContractService } from '../../services/contract.service';
 import { ProjectDetails, ProjectAccess, ProjectSection, ProjectExtensionRequest } from '../../models/project.model';
 import { AuthStore } from '../../../../../core/auth/store/auth.store';
+import { environment } from '../../../../../environments/environment';
 import { TabEquipoComponent } from './tabs/tab-equipo/tab-equipo.component';
 import { TabResumenComponent }    from './tabs/tab-resumen/tab-resumen.component';
 import { TabAlcanceComponent }    from './tabs/tab-alcance/tab-alcance.component';
@@ -77,6 +78,26 @@ export class ProjectDetailComponent implements OnInit {
   access     = signal<ProjectAccess | null>(null);
 
   isAdmin = computed(() => this.auth.user()?.role === 'ADMIN');
+
+  /**
+   * Espejo de service.IsProjectFinished en el backend: la fecha efectiva es la
+   * extensión más reciente si existe, si no el end_date del contrato. Un proyecto
+   * Cancelado nunca se considera "terminado" para efectos de bloqueo.
+   */
+  isProjectFinished = computed(() => {
+    const d = this.details();
+    if (!d) return false;
+    if (this.sk(d.status) === 'cancelado') return false;
+    const effectiveEnd = d.extended_end_date ?? d.end_date;
+    if (!effectiveEnd) return false;
+    return new Date(effectiveEnd).getTime() < Date.now();
+  });
+
+  /** true = todo el detalle del proyecto queda en solo lectura (ver isProjectFinished). Admin bypassea solo si ALLOW_PAST_EDITS=true en backend. */
+  isProjectLocked = computed(() => {
+    if (!this.isProjectFinished()) return false;
+    return !(environment.allowPastEdits && this.isAdmin());
+  });
 
   visibleTabs = computed(() => {
     const acc = this.access();
@@ -241,7 +262,7 @@ export class ProjectDetailComponent implements OnInit {
     if (v >= 1_000_000_000) return `$${(v / 1_000_000_000).toFixed(1)}B`;
     if (v >= 1_000_000)     return `$${(v / 1_000_000).toFixed(1)}M`;
     if (v >= 1_000)         return `$${(v / 1_000).toFixed(0)}K`;
-    return `$${v}`;
+    return `$${v.toFixed(2)}`;
   }
 
   // ── Extensión de proyecto (solo ADMIN, endpoint dedicado /projects/:id/extensions) ──

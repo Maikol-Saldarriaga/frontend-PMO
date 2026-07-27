@@ -325,7 +325,7 @@
                   </svg>
                   <div>
                     <p class="text-[10px] text-neutral-400 leading-none mb-0.5">Duración</p>
-                    <p class="text-xs font-medium text-primary-700">{{ project.duration }} meses</p>
+                    <p class="text-xs font-medium text-primary-700">{{ project.duration }} días</p>
                   </div>
                 </div>
               </div>
@@ -400,6 +400,25 @@
           </div>
 
         }
+      </div>
+
+      <!-- Paginación -->
+      <div class="flex items-center justify-center gap-4 mt-6">
+        <button
+          type="button"
+          [disabled]="!hasPrevPage"
+          (click)="goToPrevPage()"
+          class="px-4 py-2 text-xs font-medium rounded-lg border border-neutral-200 text-neutral-500 hover:bg-neutral-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+          ← Anterior
+        </button>
+        <span class="text-xs text-neutral-400">Página {{ pageIndex() + 1 }}</span>
+        <button
+          type="button"
+          [disabled]="!nextCursor()"
+          (click)="goToNextPage()"
+          class="px-4 py-2 text-xs font-medium rounded-lg border border-neutral-200 text-neutral-500 hover:bg-neutral-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+          Siguiente →
+        </button>
       </div>
     }
 

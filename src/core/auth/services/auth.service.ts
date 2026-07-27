@@ -48,4 +48,12 @@ export class AuthService {
   isLoggedIn(): boolean {
     return this.authStore.isLoggedIn();
   }
+
+  forgotPassword(email: string): Observable<void> {
+    return this.http.post<void>(ENDPOINTS.auth.forgotPassword, { email });
+  }
+
+  resetPassword(token: string, newPassword: string): Observable<void> {
+    return this.http.post<void>(ENDPOINTS.auth.resetPassword, { token, new_password: newPassword });
+  }
 }

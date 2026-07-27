@@ -24,8 +24,12 @@ export const ACTOR_TYPES: { value: ActorType; label: string }[] = [
   templateUrl: './step7-actors.component.html',
 })
 export class Step7ActorsComponent {
+  private savedDataLoaded = false;
+  // El padre reenvía este mismo dato tras cada (dataChange) emitido por este componente;
+  // sin esta guarda, cada tecleo reescribe rows entero y borra lo que el usuario escribe.
   @Input() set savedData(val: WizardActor[] | undefined) {
-    if (!val?.length) return;
+    if (this.savedDataLoaded || !val?.length) return;
+    this.savedDataLoaded = true;
     this.rows.set(val.map(v => ({
       id:        v.id,
       name:      v.name,

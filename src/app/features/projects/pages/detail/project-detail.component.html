@@ -67,16 +67,16 @@
           } @else {
             @if (details()!.value) {
               <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-violet-50 border border-violet-200 text-xs text-violet-700 font-semibold"
-                [class.cursor-pointer]="isAdmin()" [class.hover:bg-violet-100]="isAdmin()"
-                (click)="isAdmin() && openValueEdit()" [title]="isAdmin() ? 'Editar valor del contrato' : ''">
+                [class.cursor-pointer]="isAdmin() && !isProjectLocked()" [class.hover:bg-violet-100]="isAdmin() && !isProjectLocked()"
+                (click)="isAdmin() && !isProjectLocked() && openValueEdit()" [title]="isAdmin() && !isProjectLocked() ? 'Editar valor del contrato' : ''">
                 {{ formatCompact(details()!.value!) }}
-                @if (isAdmin()) {
+                @if (isAdmin() && !isProjectLocked()) {
                   <svg class="w-3 h-3 text-violet-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.5-9.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 8.5-8.5z"/>
                   </svg>
                 }
               </span>
-            } @else if (isAdmin()) {
+            } @else if (isAdmin() && !isProjectLocked()) {
               <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-violet-50 border border-dashed border-violet-300 text-xs text-violet-500 font-semibold cursor-pointer hover:bg-violet-100"
                 (click)="openValueEdit()" title="Asignar valor del contrato">
                 + Asignar valor
@@ -93,8 +93,9 @@
 
       <div class="shrink-0 hidden md:flex items-stretch gap-3">
         @if (isAdmin()) {
-          <button (click)="openExtensionForm()"
-            class="self-center mt-4 px-3 py-1.5 rounded-lg bg-violet-50 hover:bg-violet-100 border border-violet-200 text-xs font-semibold text-violet-700 transition-colors">
+          <button (click)="openExtensionForm()" [disabled]="isProjectLocked()"
+            [title]="isProjectLocked() ? 'Proyecto terminado: no se puede extender.' : ''"
+            class="self-center mt-4 px-3 py-1.5 rounded-lg bg-violet-50 hover:bg-violet-100 border border-violet-200 text-xs font-semibold text-violet-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-violet-50">
             Extender proyecto
           </button>
         }
@@ -174,79 +175,79 @@
 ══════════════════════════════════════════════════════════════════ -->
 
 @if (activeTab() === 'resumen') {
-  <app-tab-resumen [details]="details()!" (switchTab)="onTabClick($event)" />
+  <app-tab-resumen [details]="details()!" [locked]="isProjectLocked()" (switchTab)="onTabClick($event)" />
 }
 
 @if (activeTab() === 'alcance') {
-  <app-tab-alcance [projectId]="projectId" />
+  <app-tab-alcance [projectId]="projectId" [locked]="isProjectLocked()" />
 }
 
 @if (activeTab() === 'ubicaciones') {
-  <app-tab-ubicaciones [projectId]="projectId" />
+  <app-tab-ubicaciones [projectId]="projectId" [locked]="isProjectLocked()" />
 }
 
 @if (activeTab() === 'condiciones') {
-  <app-tab-condiciones [projectId]="projectId" />
+  <app-tab-condiciones [projectId]="projectId" [locked]="isProjectLocked()" />
 }
 
 @if (activeTab() === 'cronograma') {
-  <app-tab-cronograma [projectId]="projectId" />
+  <app-tab-cronograma [projectId]="projectId" [locked]="isProjectLocked()" />
 }
 
 @if (activeTab() === 'presupuesto') {
-  <app-tab-presupuesto [projectId]="projectId" />
+  <app-tab-presupuesto [projectId]="projectId" [locked]="isProjectLocked()" />
 }
 
 @if (activeTab() === 'facturacion') {
-  <app-tab-facturacion [projectId]="projectId" />
+  <app-tab-facturacion [projectId]="projectId" [locked]="isProjectLocked()" />
 }
 
 @if (activeTab() === 'beneficiarios') {
-  <app-tab-beneficiarios [projectId]="projectId" />
+  <app-tab-beneficiarios [projectId]="projectId" [locked]="isProjectLocked()" />
 }
 
 @if (activeTab() === 'seguimiento') {
-  <app-tab-seguimiento-tecnico [projectId]="projectId" />
+  <app-tab-seguimiento-tecnico [projectId]="projectId" [locked]="isProjectLocked()" />
 }
 
 @if (activeTab() === 'riesgos') {
-  <app-tab-riesgos [projectId]="projectId" />
+  <app-tab-riesgos [projectId]="projectId" [locked]="isProjectLocked()" />
 }
 
 @if (activeTab() === 'entregables') {
-  <app-tab-entregables [projectId]="projectId" />
+  <app-tab-entregables [projectId]="projectId" [locked]="isProjectLocked()" />
 }
 
 @if (activeTab() === 'indicadores') {
-  <app-tab-indicadores [projectId]="projectId" />
+  <app-tab-indicadores [projectId]="projectId" [locked]="isProjectLocked()" />
 }
 
 @if (activeTab() === 'documentos') {
-  <app-tab-documentos [projectId]="projectId" />
+  <app-tab-documentos [projectId]="projectId" [locked]="isProjectLocked()" />
 }
 
 @if (activeTab() === 'obligaciones') {
-  <app-tab-obligaciones [projectId]="projectId" />
+  <app-tab-obligaciones [projectId]="projectId" [locked]="isProjectLocked()" />
 }
 
 @if (activeTab() === 'abastecimiento') {
-  <app-tab-abastecimiento [projectId]="projectId" />
+  <app-tab-abastecimiento [projectId]="projectId" [locked]="isProjectLocked()" />
 }
 
 @if (activeTab() === 'flujo-caja') {
-  <app-tab-flujo-caja [projectId]="projectId" />
+  <app-tab-flujo-caja [projectId]="projectId" [locked]="isProjectLocked()" />
 }
 
 @if (activeTab() === 'equipo') {
-  <app-tab-equipo [projectId]="projectId" />
+  <app-tab-equipo [projectId]="projectId" [locked]="isProjectLocked()" />
 }
 
 @if (activeTab() === 'garantias') {
-  <app-tab-garantias [projectId]="projectId" />
+  <app-tab-garantias [projectId]="projectId" [locked]="isProjectLocked()" />
 }
 
 @if (activeTab() === 'firmas') {
-  <app-tab-firmas [projectId]="projectId" />
+  <app-tab-firmas [projectId]="projectId" [locked]="isProjectLocked()" />
 }
 
 @if (activeTab() !== 'resumen' && activeTab() !== 'alcance' && activeTab() !== 'ubicaciones' && activeTab() !== 'condiciones' && activeTab() !== 'cronograma' && activeTab() !== 'presupuesto' && activeTab() !== 'facturacion' && activeTab() !== 'beneficiarios' && activeTab() !== 'seguimiento' && activeTab() !== 'riesgos' && activeTab() !== 'entregables' && activeTab() !== 'indicadores' && activeTab() !== 'documentos' && activeTab() !== 'obligaciones' && activeTab() !== 'abastecimiento' && activeTab() !== 'flujo-caja' && activeTab() !== 'equipo' && activeTab() !== 'garantias' && activeTab() !== 'firmas') {

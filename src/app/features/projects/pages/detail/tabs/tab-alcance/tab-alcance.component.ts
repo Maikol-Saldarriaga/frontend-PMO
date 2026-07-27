@@ -29,6 +29,7 @@ const EMPTY_ACTIVITY_FORM = (): ActivityFormData => ({
 })
 export class TabAlcanceComponent implements OnInit {
   @Input() projectId!: string;
+  @Input() locked = false;
 
   constructor(private svc: ProjectService, private confirmDialog: ConfirmDialogService) {}
 
@@ -61,6 +62,10 @@ export class TabAlcanceComponent implements OnInit {
   rebalanceRows    = signal<RebalanceRow[]>([]);
   rebalanceSaving  = signal(false);
   rebalanceError   = signal<string | null>(null);
+  // Si no es null, el rebalanceo viene de EDITAR un elemento existente (no de crear uno nuevo):
+  // todas las filas ya tienen id, incluida la editada, así que al confirmar solo se actualiza,
+  // sin crear nada.
+  rebalanceEditId  = signal<string | null>(null);
 
   ngOnInit(): void { this.load(); }
 
@@ -157,6 +162,11 @@ export class TabAlcanceComponent implements OnInit {
     const name = this.editingCompName().trim();
     const pct  = this.editingCompPct() ?? comp.percentage;
     if (!name) return;
+    const othersSum = this.usedComponentPct() - (comp.percentage ?? 0);
+    if (othersSum + pct > 100) {
+      this.openComponentEditRebalance(comp, name, pct);
+      return;
+    }
     this.scopeSaving.set(true);
     this.saveError.set(null);
     this.svc.updateComponent(this.projectId, comp.id, { name, percentage: pct }).subscribe({
@@ -210,6 +220,12 @@ export class TabAlcanceComponent implements OnInit {
   saveEditActivity(comp: ScopeComponent): void {
     const f   = this.editActivityForm;
     const sid = this.editingActivityId()!;
+    const currentAct = comp.scopes.find(a => a.id === sid);
+    const othersSum = this.usedScopePct(comp) - (currentAct?.percentage ?? 0);
+    if (othersSum + (f.percentage ?? 0) > 100) {
+      this.openActivityEditRebalance(comp, sid, f.percentage ?? 0);
+      return;
+    }
     const req = this.buildActivityRequest(f);
     if (!req) return;
     this.scopeSaving.set(true);
@@ -348,6 +364,7 @@ export class TabAlcanceComponent implements OnInit {
     this.rebalanceRows.set(rows);
     this.rebalanceMode.set('component');
     this.rebalanceCompId.set(null);
+    this.rebalanceEditId.set(null);
     this.rebalanceError.set(null);
   }
 
@@ -357,6 +374,33 @@ export class TabAlcanceComponent implements OnInit {
     this.rebalanceRows.set(rows);
     this.rebalanceMode.set('activity');
     this.rebalanceCompId.set(comp.id);
+    this.rebalanceEditId.set(null);
+    this.rebalanceError.set(null);
+  }
+
+  /** Editar un componente existente cuyo nuevo % lo haría superar el 100% junto al resto. Todas
+   * las filas ya tienen id (incluida la editada, que muestra ya el % nuevo propuesto). */
+  openComponentEditRebalance(comp: ScopeComponent, newName: string, newPct: number): void {
+    const rows: RebalanceRow[] = this.scopeComponents().map(c => ({
+      id: c.id, name: c.id === comp.id ? newName : c.name, percentage: c.id === comp.id ? newPct : (c.percentage ?? 0),
+    }));
+    this.rebalanceRows.set(rows);
+    this.rebalanceMode.set('component');
+    this.rebalanceCompId.set(null);
+    this.rebalanceEditId.set(comp.id);
+    this.rebalanceError.set(null);
+  }
+
+  /** Igual que arriba pero para editar una actividad existente dentro de un componente. */
+  openActivityEditRebalance(comp: ScopeComponent, actId: string, newPct: number): void {
+    const rows: RebalanceRow[] = comp.scopes.map(a => ({
+      id: a.id, name: a.id === actId ? (this.editActivityForm.description.trim() || a.description) : a.description,
+      percentage: a.id === actId ? newPct : (a.percentage ?? 0),
+    }));
+    this.rebalanceRows.set(rows);
+    this.rebalanceMode.set('activity');
+    this.rebalanceCompId.set(comp.id);
+    this.rebalanceEditId.set(actId);
     this.rebalanceError.set(null);
   }
 
@@ -372,6 +416,7 @@ export class TabAlcanceComponent implements OnInit {
   closeRebalance(): void {
     this.rebalanceMode.set(null);
     this.rebalanceCompId.set(null);
+    this.rebalanceEditId.set(null);
     this.rebalanceRows.set([]);
     this.rebalanceError.set(null);
     this.rebalanceSaving.set(false);
@@ -385,16 +430,33 @@ export class TabAlcanceComponent implements OnInit {
     }
     const mode = this.rebalanceMode();
     const rows = this.rebalanceRows();
+    const editId = this.rebalanceEditId();
     this.rebalanceSaving.set(true);
     this.rebalanceError.set(null);
 
     if (mode === 'component') {
-      const existing = rows.filter(r => r.id);
-      const newRow = rows.find(r => !r.id)!;
-      const updates = existing.map(r => this.svc.updateComponent(this.projectId, r.id!, { name: r.name, percentage: r.percentage }));
+      const updates = rows.filter(r => r.id).map(r => this.svc.updateComponent(this.projectId, r.id!, { name: r.name, percentage: r.percentage }));
+      const newRow = rows.find(r => !r.id);
+
+      if (editId) {
+        // Edición de un componente existente: todas las filas ya tienen id, solo se actualiza.
+        forkJoin(updates.length ? updates : [of(null)]).subscribe({
+          next: () => {
+            this.closeRebalance();
+            this.editingCompId.set(null);
+            this.load();
+          },
+          error: err => {
+            this.rebalanceError.set(err?.error?.message ?? 'Error al ajustar los componentes.');
+            this.rebalanceSaving.set(false);
+          },
+        });
+        return;
+      }
+
       forkJoin(updates.length ? updates : [of(null)]).subscribe({
         next: () => {
-          this.svc.createComponent(this.projectId, { name: newRow.name, percentage: newRow.percentage }).subscribe({
+          this.svc.createComponent(this.projectId, { name: newRow!.name, percentage: newRow!.percentage }).subscribe({
             next: () => {
               this.closeRebalance();
               this.addingComponent.set(false);
@@ -417,16 +479,35 @@ export class TabAlcanceComponent implements OnInit {
       const compId = this.rebalanceCompId()!;
       const comp = this.scopeComponents().find(c => c.id === compId)!;
       const existing = rows.filter(r => r.id);
-      const newRow = rows.find(r => !r.id)!;
+      const newRow = rows.find(r => !r.id);
       const updates = existing.map(r => {
         const act = comp.scopes.find(a => a.id === r.id)!;
-        const req = this.buildActivityRequest({ ...this.activityToForm(act), percentage: r.percentage });
+        const base = r.id === editId ? this.editActivityForm : this.activityToForm(act);
+        const req = this.buildActivityRequest({ ...base, description: r.name, percentage: r.percentage });
         return this.svc.updateScope(this.projectId, compId, r.id!, req!);
       });
+
+      if (editId) {
+        // Edición de una actividad existente: todas las filas ya tienen id, solo se actualiza.
+        forkJoin(updates.length ? updates : [of(null)]).subscribe({
+          next: () => {
+            this.closeRebalance();
+            this.editingActivityId.set(null);
+            this.editActivityCompId.set(null);
+            this.load();
+          },
+          error: err => {
+            this.rebalanceError.set(err?.error?.message ?? 'Error al ajustar las actividades.');
+            this.rebalanceSaving.set(false);
+          },
+        });
+        return;
+      }
+
       forkJoin(updates.length ? updates : [of(null)]).subscribe({
         next: () => {
           const nextAct = comp.scopes.reduce((max, a) => Math.max(max, a.act ?? 0), 0) + 1;
-          const f = { ...this.newActivityForm, percentage: newRow.percentage, act: nextAct };
+          const f = { ...this.newActivityForm, percentage: newRow!.percentage, act: nextAct };
           const req = this.buildActivityRequest(f);
           if (!req) { this.rebalanceSaving.set(false); return; }
           this.svc.createScope(this.projectId, compId, req).subscribe({

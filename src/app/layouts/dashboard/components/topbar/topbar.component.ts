@@ -5,11 +5,12 @@ import { AuthStore } from '../../../../../core/auth/store/auth.store';
 import { AuthService } from '../../../../../core/auth/services/auth.service';
 import { API_BASE_URL } from '../../../../../core/config/api.config';
 import { UserService } from '../../../../../core/users/services/user.service';
+import { PortalToBodyDirective } from '../../../../shared/directives/portal-to-body.directive';
 
 @Component({
   selector: 'app-topbar',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, PortalToBodyDirective],
   templateUrl: './topbar.component.html',
   styleUrl: './topbar.component.scss'
 })

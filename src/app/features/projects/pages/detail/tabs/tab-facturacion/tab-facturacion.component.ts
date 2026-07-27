@@ -8,8 +8,10 @@ import {
   FundingReceipt, FundingReceiptRequest, FundingReceiptStatus,
 } from '../../../../models/project.model';
 import { MoneyMaskDirective } from '../../../../../../shared/directives/money-mask.directive';
+import { PortalToBodyDirective } from '../../../../../../shared/directives/portal-to-body.directive';
 import { AuthStore } from '../../../../../../../core/auth/store/auth.store';
 import { BudgetPeriodStatusComponent } from '../../../../components/budget-period-status/budget-period-status.component';
+import { ConfirmDialogService } from '../../../../../../shared/components/confirm-dialog/confirm-dialog.service';
 
 const INVOICE_ROLES = ['ADMIN', 'COORDINADOR', 'FINANCE'];
 const AMOUNT_EPSILON = 0.01;
@@ -51,14 +53,16 @@ export interface InvoiceSection {
 @Component({
   selector: 'app-tab-facturacion',
   standalone: true,
-  imports: [CommonModule, FormsModule, MoneyMaskDirective, BudgetPeriodStatusComponent],
+  imports: [CommonModule, FormsModule, MoneyMaskDirective, BudgetPeriodStatusComponent, PortalToBodyDirective],
   templateUrl: './tab-facturacion.component.html',
 })
 export class TabFacturacionComponent implements OnInit {
   @Input() projectId!: string;
+  @Input() locked = false;
 
   private svc  = inject(ProjectService);
   private auth = inject(AuthStore);
+  private confirmDialog = inject(ConfirmDialogService);
 
   // ── Reporte de presupuesto (planeado/ejecutado/facturación/desembolsos/flujo de caja) ──
   reportPanelOpen = signal(false);
@@ -133,6 +137,7 @@ export class TabFacturacionComponent implements OnInit {
   showForm    = signal(false);
   formSaving  = signal(false);
   formError   = signal<string | null>(null);
+  editingInvoiceId = signal<string | null>(null);
 
   form: {
     value:                  number | null;
@@ -198,6 +203,7 @@ export class TabFacturacionComponent implements OnInit {
 
   selectItem(row: InvoiceItemRow): void {
     this.selectedItem.set(row);
+    this.editingInvoiceId.set(null);
     this.cancelForm();
     this.expandedInvoiceId.set(null);
     this.receiptsByInvoice.set({});
@@ -276,6 +282,17 @@ export class TabFacturacionComponent implements OnInit {
     return `${yyyy}-${mm}-${dd}`;
   }
 
+  /** Convierte fecha ISO UTC (ej. "2025-12-01T00:00:00Z") a "YYYY-MM-DD" usando los
+   * componentes UTC, no locales — evita el corrimiento de un día al restar el offset
+   * de Bogotá (UTC-5) sobre una medianoche UTC. */
+  private isoToDateInput(iso: string): string {
+    const d = new Date(iso);
+    const yyyy = d.getUTCFullYear();
+    const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(d.getUTCDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
   periodValue(dist: BudgetMonthlyDistribution): string {
     return `${dist.year}-${dist.month}`;
   }
@@ -292,9 +309,10 @@ export class TabFacturacionComponent implements OnInit {
   availableMonths = computed(() => {
     const item = this.selectedItem();
     if (!item) return [];
+    const editingId = this.editingInvoiceId();
     const billedByPeriod = new Map<string, number>();
     for (const inv of this.invoices()) {
-      if (inv.year == null || inv.month == null) continue;
+      if (inv.year == null || inv.month == null || inv.id === editingId) continue;
       const key = `${inv.year}-${inv.month}`;
       billedByPeriod.set(key, (billedByPeriod.get(key) ?? 0) + inv.value);
     }
@@ -306,14 +324,43 @@ export class TabFacturacionComponent implements OnInit {
     });
   });
 
+  /** Valor antes de IVA = valor / 1.19 (se le quita el 19% de IVA) — se recalcula
+   * solo cada vez que cambia el valor de la factura, no es editable. */
+  onFormValueChange(value: number | null): void {
+    this.form.value = value;
+    this.form.value_before_tax = value ? Math.round((value / 1.19) * 100) / 100 : null;
+  }
+
   startForm(): void {
+    this.editingInvoiceId.set(null);
     this.form = this.emptyForm();
     this.formError.set(null);
     this.showForm.set(true);
   }
 
+  /** Edición solo permitida para facturas sin ningún cobro registrado (ver [canEditInvoice]). */
+  startEditInvoice(inv: Invoice): void {
+    this.editingInvoiceId.set(inv.id);
+    this.form = {
+      value: inv.value,
+      value_before_tax: inv.value_before_tax,
+      collection_act_number: inv.collection_act_number ?? '',
+      status: inv.status,
+      period: inv.year != null && inv.month != null ? `${inv.year}-${inv.month}` : '',
+      date: this.isoToDateInput(inv.date),
+      description: inv.description ?? '',
+    };
+    this.formError.set(null);
+    this.showForm.set(true);
+  }
+
+  canEditInvoice(inv: Invoice): boolean {
+    return this.collectedFor(inv.id) <= 0;
+  }
+
   cancelForm(): void {
     this.showForm.set(false);
+    this.editingInvoiceId.set(null);
     this.formError.set(null);
     this.form = this.emptyForm();
   }
@@ -352,7 +399,12 @@ export class TabFacturacionComponent implements OnInit {
       date: this.form.date ? `${this.form.date}T00:00:00Z` : undefined,
     };
 
-    this.svc.createInvoice(this.projectId, item.budget_item_id, payload).subscribe({
+    const editingId = this.editingInvoiceId();
+    const request$ = editingId
+      ? this.svc.updateInvoice(this.projectId, item.budget_item_id, editingId, payload)
+      : this.svc.createInvoice(this.projectId, item.budget_item_id, payload);
+
+    request$.subscribe({
       next: () => {
         this.formSaving.set(false);
         this.cancelForm();
@@ -367,16 +419,17 @@ export class TabFacturacionComponent implements OnInit {
 
   // ── Cobros reales recibidos (por factura) ───────────────────────────────
 
-  toggleInvoiceReceipts(invoice: Invoice): void {
-    if (this.expandedInvoiceId() === invoice.id) {
-      this.expandedInvoiceId.set(null);
-      return;
-    }
+  openReceiptsModal(invoice: Invoice): void {
     this.expandedInvoiceId.set(invoice.id);
     this.cancelReceiptForm();
     if (!this.receiptsByInvoice()[invoice.id]) {
       this.loadReceipts(invoice);
     }
+  }
+
+  closeReceiptsModal(): void {
+    this.expandedInvoiceId.set(null);
+    this.cancelReceiptForm();
   }
 
   private loadReceipts(invoice: Invoice): void {
@@ -390,6 +443,11 @@ export class TabFacturacionComponent implements OnInit {
       },
       error: () => this.receiptsLoadingId.set(null),
     });
+  }
+
+  expandedInvoice(): Invoice | null {
+    const id = this.expandedInvoiceId();
+    return id ? this.invoices().find(i => i.id === id) ?? null : null;
   }
 
   receiptsFor(invoiceId: string): FundingReceipt[] {
@@ -414,6 +472,12 @@ export class TabFacturacionComponent implements OnInit {
     this.receiptError.set(null);
   }
 
+  /** Antes de IVA = valor / 1.19, igual que en factura — no editable a mano. */
+  onReceiptValueChange(value: number | null): void {
+    this.receiptForm.value = value;
+    this.receiptForm.value_before_tax = value ? Math.round((value / 1.19) * 100) / 100 : null;
+  }
+
   cancelReceiptForm(): void {
     this.receiptFormInvoiceId.set(null);
     this.receiptError.set(null);
@@ -426,6 +490,13 @@ export class TabFacturacionComponent implements OnInit {
 
     if (!this.receiptForm.value || this.receiptForm.value <= 0) {
       this.receiptError.set('El valor del cobro es requerido y debe ser mayor a 0.');
+      return;
+    }
+
+    const alreadyCollected = this.collectedFor(invoice.id);
+    if (alreadyCollected + this.receiptForm.value > invoice.value + AMOUNT_EPSILON) {
+      const remaining = Math.max(0, invoice.value - alreadyCollected);
+      this.receiptError.set(`El cobro supera lo facturado. Máximo disponible: ${this.formatCurrency(remaining)}.`);
       return;
     }
 
@@ -454,10 +525,10 @@ export class TabFacturacionComponent implements OnInit {
     });
   }
 
-  deleteReceipt(invoice: Invoice, receipt: FundingReceipt): void {
+  async deleteReceipt(invoice: Invoice, receipt: FundingReceipt): Promise<void> {
     const item = this.selectedItem();
     if (!item) return;
-    if (!confirm('¿Eliminar este cobro registrado?')) return;
+    if (!(await this.confirmDialog.confirm({ message: '¿Eliminar este cobro registrado?', variant: 'danger' }))) return;
     this.deletingReceiptId.set(receipt.id);
     this.svc.deleteFundingReceipt(this.projectId, item.budget_item_id, invoice.id, receipt.id).subscribe({
       next: () => {
@@ -484,7 +555,7 @@ export class TabFacturacionComponent implements OnInit {
     if (v >= 1_000_000_000) return `$${(v / 1_000_000_000).toFixed(1)}B`;
     if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`;
     if (v >= 1_000) return `$${(v / 1_000).toFixed(0)}K`;
-    return `$${v}`;
+    return `$${v.toFixed(2)}`;
   }
 
   trackByComp(_: number, s: InvoiceSection)   { return s.component_id; }

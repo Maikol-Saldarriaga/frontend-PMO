@@ -59,12 +59,27 @@
                 class="w-full px-4 py-2.5 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-400 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
             </div>
 
+            <div class="md:col-span-2">
+              <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Vigencia del contrato</label>
+              <div class="w-full px-4 py-2.5 rounded-xl border border-neutral-200 text-sm text-neutral-600 bg-neutral-100">
+                {{ vigenciaLabel() }} <span class="text-neutral-400">({{ vigenciaMonths() }} {{ vigenciaMonths() === 1 ? 'mes' : 'meses' }})</span>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Extensión (meses)</label>
+              <input type="number" min="0"
+                [value]="row.extensionMonths ?? ''" (input)="update(i, 'extensionMonths', $any($event.target).value ? +$any($event.target).value : null)"
+                placeholder="Ej: 2"
+                class="w-full px-4 py-2.5 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-400 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+              <p class="text-[10px] text-neutral-400 mt-1">Meses adicionales que cubre esta póliza más allá de la vigencia del contrato</p>
+            </div>
+
             <div>
               <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Duración (meses)</label>
-              <input type="number" min="1"
-                [value]="row.duration ?? ''" (input)="update(i, 'duration', $any($event.target).value ? +$any($event.target).value : null)"
-                placeholder="Ej: 12"
-                class="w-full px-4 py-2.5 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-400 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+              <input type="number" [value]="durationTotal(i)" disabled
+                class="w-full px-4 py-2.5 rounded-xl border border-neutral-200 text-sm text-primary-700 bg-neutral-100 cursor-not-allowed"/>
+              <p class="text-[10px] text-neutral-400 mt-1">Vigencia del contrato + extensión. Esto es lo que se envía al guardar.</p>
             </div>
 
           </div>

@@ -31,6 +31,8 @@ export class ProjectsListComponent implements OnInit, OnDestroy {
   error      = signal<string | null>(null);
   nextCursor = signal<string | null>(null);
   showFilters = signal(false);
+  pageIndex  = signal(0);
+  private cursorHistory: (string | null)[] = [null];
 
   filters = signal<Required<ProjectFilters>>({
     name: '', type: '', status: '', date_from: '', date_to: '',
@@ -74,7 +76,7 @@ export class ProjectsListComponent implements OnInit, OnDestroy {
     activo: 'active', completado: 'completed', cancelado: 'cancelled',
   };
 
-  fetchProjects(): void {
+  fetchProjects(resetPagination = true): void {
     this.loading.set(true);
     this.error.set(null);
     const f = this.filters();
@@ -82,7 +84,12 @@ export class ProjectsListComponent implements OnInit, OnDestroy {
       ...f,
       status: this.statusToBackend[f.status] ?? f.status,
     };
-    this.projectService.getProjects(20, 0, backendFilters).subscribe({
+    if (resetPagination) {
+      this.cursorHistory = [null];
+      this.pageIndex.set(0);
+    }
+    const cursor = this.cursorHistory[this.pageIndex()] ?? 0;
+    this.projectService.getProjects(20, cursor, backendFilters).subscribe({
       next: (res) => {
         this.projects.set(res.data ?? []);
         this.summary.set(res.summary ?? null);
@@ -94,6 +101,26 @@ export class ProjectsListComponent implements OnInit, OnDestroy {
         this.loading.set(false);
       },
     });
+  }
+
+  goToNextPage(): void {
+    const cursor = this.nextCursor();
+    if (!cursor) return;
+    if (this.pageIndex() === this.cursorHistory.length - 1) {
+      this.cursorHistory.push(cursor);
+    }
+    this.pageIndex.update(i => i + 1);
+    this.fetchProjects(false);
+  }
+
+  goToPrevPage(): void {
+    if (this.pageIndex() === 0) return;
+    this.pageIndex.update(i => i - 1);
+    this.fetchProjects(false);
+  }
+
+  get hasPrevPage(): boolean {
+    return this.pageIndex() > 0;
   }
 
   onNameInput(value: string): void {
@@ -119,14 +146,17 @@ export class ProjectsListComponent implements OnInit, OnDestroy {
   setDateFrom(value: string): void { this.filters.update(f => ({ ...f, date_from: value })); this.fetchProjects(); }
   setDateTo(value: string):   void { this.filters.update(f => ({ ...f, date_to: value }));   this.fetchProjects(); }
 
-  /** activo/completado usan real_progress ponderado; borrador sigue con percent_done de pasos. */
+  /** activo/completado usan real_progress ponderado; borrador sigue con percent_done de pasos.
+   * Si real_progress aún no existe (sin cronograma/checkpoints cargados), se muestra como 0%
+   * en vez de caer al conteo de fases del wizard — el proyecto ya terminó el wizard, así que
+   * volver a mostrar "fases" ahí confunde. */
   usesRealProgress(project: ProjectCreateResponse): boolean {
     const s = (project.status ?? '').toLowerCase();
-    return (s === 'activo' || s === 'active' || s === 'completado' || s === 'completed') && project.real_progress != null;
+    return s === 'activo' || s === 'active' || s === 'completado' || s === 'completed';
   }
 
   progressValue(project: ProjectCreateResponse): number {
-    return this.usesRealProgress(project) ? project.real_progress! : project.percent_done;
+    return this.usesRealProgress(project) ? (project.real_progress ?? 0) : project.percent_done;
   }
 
   /** Igual criterio que el dashboard: bajo 5% muestra 2 decimales para que no se vea "0%"

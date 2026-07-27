@@ -83,6 +83,7 @@ type ImportMode = 'add' | 'replace';
 })
 export class TabObligacionesComponent implements OnInit {
   @Input() projectId!: string;
+  @Input() locked = false;
 
   constructor(private svc: ContractService, private confirmDialog: ConfirmDialogService) {}
 

@@ -125,6 +125,7 @@ export interface RubroBreakdown {
 })
 export class TabAbastecimientoComponent implements OnInit {
   @Input() projectId!: string;
+  @Input() locked = false;
 
   constructor(private svc: ContractService, private projectSvc: ProjectService, private confirmDialog: ConfirmDialogService) {}
 

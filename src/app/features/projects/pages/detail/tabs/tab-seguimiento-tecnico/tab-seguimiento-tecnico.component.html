@@ -178,8 +178,8 @@
             </div>
             <!-- Botón generar automático -->
             @if (!showForm() && !showAutoForm()) {
-              <button (click)="openAutoForm()"
-                class="flex items-center gap-2 px-4 py-2 rounded-xl bg-violet-50 hover:bg-violet-100 border border-violet-100 text-violet-600 text-sm font-semibold transition-colors">
+              <button (click)="openAutoForm()" [disabled]="locked"
+                class="flex items-center gap-2 px-4 py-2 rounded-xl bg-violet-50 hover:bg-violet-100 border border-violet-100 text-violet-600 text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
                 </svg>
@@ -188,8 +188,8 @@
             }
             <!-- Botón registrar -->
             @if (!showForm() && !showAutoForm()) {
-              <button (click)="openNewForm()"
-                class="flex items-center gap-2 px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-600 text-white text-sm font-semibold transition-colors shadow-sm shadow-sky-200">
+              <button (click)="openNewForm()" [disabled]="locked"
+                class="flex items-center gap-2 px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-600 text-white text-sm font-semibold transition-colors shadow-sm shadow-sky-200 disabled:opacity-50 disabled:cursor-not-allowed">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
                 </svg>
@@ -276,7 +276,7 @@
           }
 
           @if (!autoPreviewList()) {
-            <button (click)="previewAutoGenerate()" [disabled]="autoLoading()"
+            <button (click)="previewAutoGenerate()" [disabled]="locked || autoLoading()"
               class="flex items-center gap-2 px-5 py-2 rounded-xl bg-violet-500 hover:bg-violet-600 disabled:opacity-50 text-white text-sm font-semibold transition-colors">
               @if (autoLoading()) {
                 <div class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -315,7 +315,7 @@
             }
 
             <div class="flex items-center gap-2">
-              <button (click)="confirmAutoGenerate()" [disabled]="autoLoading()"
+              <button (click)="confirmAutoGenerate()" [disabled]="locked || autoLoading()"
                 class="flex items-center gap-2 px-5 py-2 rounded-xl bg-violet-500 hover:bg-violet-600 disabled:opacity-50 text-white text-sm font-semibold transition-colors">
                 @if (autoLoading()) {
                   <div class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -385,7 +385,7 @@
           }
 
           <div class="flex items-center gap-2">
-            <button (click)="saveSnapshot()" [disabled]="saving()"
+            <button (click)="saveSnapshot()" [disabled]="locked || saving()"
               class="flex items-center gap-2 px-5 py-2 rounded-xl bg-sky-500 hover:bg-sky-600 disabled:opacity-50 text-white text-sm font-semibold transition-colors">
               @if (saving()) {
                 <div class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -516,7 +516,7 @@
                   </div>
 
                   <!-- Editar -->
-                  @if (isSnapshotLocked(snap)) {
+                  @if (isSnapshotLocked(snap) || locked) {
                     <span class="shrink-0 p-1.5 rounded-lg text-gray-300" title="Ya venció y tiene avance registrado: las fechas no se pueden editar">
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 11c0-1.105.672-2 1.5-2s1.5.895 1.5 2m-7 4h11a2 2 0 002-2v-3a2 2 0 00-2-2H6a2 2 0 00-2 2v3a2 2 0 002 2zm9-8V7a4 4 0 10-8 0v2"/>

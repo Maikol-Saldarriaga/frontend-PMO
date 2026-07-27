@@ -77,6 +77,7 @@ const EMPTY = (): ConditionRow => ({
 })
 export class TabCondicionesComponent implements OnInit {
   @Input() projectId!: string;
+  @Input() locked = false;
 
   private contractSvc = inject(ContractService);
 

@@ -357,7 +357,7 @@
             </p>
           }
 
-          <button (click)="saveAll()" [disabled]="saving() || (!isDirty() && stagedFiles().length === 0) || (stagedFiles().length > 0 && !canSaveStagedFiles())"
+          <button (click)="saveAll()" [disabled]="locked || saving() || (!isDirty() && stagedFiles().length === 0) || (stagedFiles().length > 0 && !canSaveStagedFiles())"
             class="flex items-center gap-2 px-5 py-2 rounded-xl bg-sky-500 hover:bg-sky-600 disabled:opacity-50 text-white text-sm font-semibold transition-colors">
             @if (saving()) {
               <div class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>

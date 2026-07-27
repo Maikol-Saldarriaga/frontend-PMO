@@ -20,7 +20,6 @@ export interface UserDetail {
 export interface UpdateUserRequest {
   first_name:               string;
   first_surname:            string;
-  role:                     string;
   phone:                    string;
   birthdate:                string;
   document_type:            string;

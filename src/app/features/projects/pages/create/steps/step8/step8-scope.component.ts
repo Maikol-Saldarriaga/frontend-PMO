@@ -18,6 +18,8 @@ interface ActRow {
   objective:         string;
   percentage:        number;
   plan_duration?:    number | null;
+  startDateInvalid?: boolean;
+  endDateInvalid?:   boolean;
 }
 
 interface ComponentRow {
@@ -50,8 +52,13 @@ export class Step8ScopeComponent {
 
   @Input() projectId: string | null = null;
 
+  private savedDataLoaded = false;
+  // El padre reenvía este mismo dato tras cada (dataChange) emitido por este componente;
+  // sin esta guarda, cada tecleo (p.ej. en las fechas de las actas) reescribe rows entero
+  // y borra lo que el usuario está escribiendo.
   @Input() set savedData(val: WizardStep8ComponentResponse[] | undefined) {
-    if (!val?.length) return;
+    if (this.savedDataLoaded || !val?.length) return;
+    this.savedDataLoaded = true;
     this.rows.set(val.map(comp => ({
       id:            comp.id,
       componentName: comp.component,
@@ -170,6 +177,21 @@ export class Step8ScopeComponent {
         ? { ...comp, acts: comp.acts.map((a, j) => j === ai ? { ...a, [field]: value } : a) }
         : comp));
     this.emit();
+  }
+
+  // El <input type="date"> nativo se autolimpia (value = '') cuando el usuario termina de
+  // escribir una fecha imposible (ej. 30/02/2026). Sin esto el usuario solo ve "fecha
+  // requerida" al final, sin saber que sí escribió algo pero el navegador lo rechazó.
+  // validity.badInput detecta ese caso mientras aún se está tecleando, antes de que el
+  // valor se pierda silenciosamente.
+  onDateInput(ci: number, ai: number, field: 'start_date' | 'end_date', event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const invalid = input.validity.badInput;
+    const flagField = field === 'start_date' ? 'startDateInvalid' : 'endDateInvalid';
+    this.rows.update(r => r.map((comp, i) =>
+      i === ci
+        ? { ...comp, acts: comp.acts.map((a, j) => j === ai ? { ...a, [flagField]: invalid } : a) }
+        : comp));
   }
 
   private dateToISO(d: string): string | null {

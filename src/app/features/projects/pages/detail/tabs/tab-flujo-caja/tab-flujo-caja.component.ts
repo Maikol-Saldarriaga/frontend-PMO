@@ -54,6 +54,7 @@ interface RubroName {
 })
 export class TabFlujoCajaComponent implements OnInit {
   @Input() projectId!: string;
+  @Input() locked = false;
 
   constructor(private service: ProjectService) {}
 

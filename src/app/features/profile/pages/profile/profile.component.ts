@@ -5,8 +5,6 @@ import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { AuthStore } from '../../../../../core/auth/store/auth.store';
 import { UserService } from '../../../../../core/users/services/user.service';
 import { UserDetail } from '../../../../../core/users/models/user.model';
-import { API_BASE_URL } from '../../../../../core/config/api.config';
-import { ROLE_LABELS, UserRole } from '../../../../../core/auth/models/role.model';
 
 @Component({
   selector: 'app-profile',
@@ -21,8 +19,6 @@ export class ProfileComponent implements OnInit {
   private userService = inject(UserService);
 
   documentTypes = ['CC', 'CE', 'TI', 'PASAPORTE', 'NIT'];
-  roles: UserRole[] = ['ADMIN', 'COORDINADOR', 'DILIGENCIADOR', 'LAWYER', 'FINANCE', 'USER'];
-  roleLabels = ROLE_LABELS;
 
   loadingProfile = signal(true);
   saving         = signal(false);
@@ -35,7 +31,6 @@ export class ProfileComponent implements OnInit {
   profileForm = this.fb.group({
     first_name:               ['', Validators.required],
     first_surname:            ['', Validators.required],
-    role:                     ['', Validators.required],
     phone:                    [''],
     birthdate:                [''],
     document_type:            ['CC'],
@@ -63,15 +58,13 @@ export class ProfileComponent implements OnInit {
     this.profileForm.patchValue({
       first_name:               d.first_name,
       first_surname:            d.first_surname,
-      role:                     d.role,
       phone:                    d.phone ?? '',
       birthdate,
       document_type:            d.document_type ?? 'CC',
       identity_document_number: d.identity_document_number ?? '',
     });
     if (d.image_url) {
-      const host = new URL(API_BASE_URL).hostname;
-      this.avatarPreview.set(d.image_url.replace('localhost', host));
+      this.avatarPreview.set(this.userService.resolveImageUrl(d.image_url));
     }
     this.loadingProfile.set(false);
   }
@@ -99,18 +92,15 @@ export class ProfileComponent implements OnInit {
 
   onSubmit(): void {
     if (this.profileForm.invalid || this.saving()) return;
-    const userId = this.user?.id;
-    if (!userId) return;
 
     this.saving.set(true);
     this.saveSuccess.set(false);
     this.saveError.set(null);
 
     const v = this.profileForm.getRawValue();
-    this.userService.updateProfile(userId, {
+    this.userService.updateProfile({
       first_name:               v.first_name!,
       first_surname:            v.first_surname!,
-      role:                     v.role!,
       phone:                    v.phone ?? '',
       birthdate:                v.birthdate ?? '',
       document_type:            v.document_type ?? 'CC',
@@ -118,6 +108,10 @@ export class ProfileComponent implements OnInit {
       image_url:                this.selectedFile(),
     }).subscribe({
       next: () => {
+        this.authStore.updateUser({
+          name:      `${v.first_name} ${v.first_surname}`,
+          image_url: this.avatarPreview() ?? this.authStore.user()?.image_url ?? null,
+        });
         this.saving.set(false);
         this.saveSuccess.set(true);
         setTimeout(() => this.saveSuccess.set(false), 3000);

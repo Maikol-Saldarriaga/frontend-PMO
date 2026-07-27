@@ -62,33 +62,23 @@
 
         <div class="profile-row">
           <div class="profile-field">
-            <label class="pmo-label">Rol <span class="required-star">*</span></label>
-            <select formControlName="role"
-              [class]="'pmo-input mt-1' + (profileForm.get('role')?.invalid && profileForm.get('role')?.touched ? ' input--error' : '')">
-              <option *ngFor="let r of roles" [value]="r">{{ roleLabels[r] }}</option>
-            </select>
-          </div>
-          <div class="profile-field">
             <label class="pmo-label">Teléfono</label>
             <input type="tel" formControlName="phone" class="pmo-input mt-1" placeholder="+57 300 000 0000"/>
           </div>
-        </div>
-
-        <div class="profile-row">
           <div class="profile-field">
             <label class="pmo-label">Fecha de nacimiento</label>
             <input type="date" formControlName="birthdate" class="pmo-input mt-1"/>
           </div>
+        </div>
+
+        <div class="profile-row">
           <div class="profile-field">
             <label class="pmo-label">Tipo de documento</label>
             <select formControlName="document_type" class="pmo-input mt-1">
               <option *ngFor="let d of documentTypes" [value]="d">{{ d }}</option>
             </select>
           </div>
-        </div>
-
-        <div class="profile-row">
-          <div class="profile-field profile-field--full">
+          <div class="profile-field">
             <label class="pmo-label">Número de documento</label>
             <input type="text" formControlName="identity_document_number" class="pmo-input mt-1" placeholder="1234567890"/>
           </div>

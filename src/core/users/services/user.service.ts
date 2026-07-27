@@ -13,11 +13,14 @@ export class UserService {
   private http      = inject(ApiHttpClient);
   private authStore = inject(AuthStore);
 
-  /** La imagen de perfil se guarda en MinIO con URL firmada temporal; el backend la devuelve apuntando a "localhost" y aquí se reemplaza por el host real de la API. */
+  /**
+   * La imagen de perfil se guarda en MinIO con URL firmada temporal; el backend la devuelve apuntando a "localhost" y aquí se reemplaza por el host real de la API.
+   * Se agrega un fragmento `#` con timestamp (no viaja al servidor, no rompe la firma) para forzar al navegador a no servir la imagen vieja desde caché tras subir una nueva.
+   */
   resolveImageUrl(raw: string | null): string | null {
     if (!raw) return null;
     const host = new URL(API_BASE_URL).hostname;
-    return raw.replace('localhost', host);
+    return raw.replace('localhost', host) + `#${Date.now()}`;
   }
 
   /**
@@ -50,11 +53,10 @@ export class UserService {
     );
   }
 
-  updateProfile(userId: string, data: UpdateUserRequest): Observable<UpdateUserResponse> {
+  updateProfile(data: UpdateUserRequest): Observable<UpdateUserResponse> {
     const form = new FormData();
     form.append('first_name',               data.first_name);
     form.append('first_surname',            data.first_surname);
-    form.append('role',                     data.role);
     form.append('phone',                    data.phone);
     form.append('birthdate',                data.birthdate);
     form.append('document_type',            data.document_type);
@@ -63,14 +65,6 @@ export class UserService {
       form.append('image_url', data.image_url, data.image_url.name);
     }
 
-    return this.http.put<UpdateUserResponse>(ENDPOINTS.users.update(userId), form).pipe(
-      tap(res => {
-        this.authStore.updateUser({
-          name:      res.name,
-          role:      res.role as UserRole,
-          image_url: this.resolveImageUrl(res.image_url),
-        });
-      })
-    );
+    return this.http.put<UpdateUserResponse>(ENDPOINTS.users.updateMe, form);
   }
 }

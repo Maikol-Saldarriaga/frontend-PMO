@@ -162,7 +162,7 @@
 
       <div class="flex justify-end gap-2 mt-5">
         <button (click)="cancelAssignmentForm()" class="px-4 py-2 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-100">Cancelar</button>
-        <button (click)="saveAssignments()" [disabled]="savingAssignments()"
+        <button (click)="saveAssignments()" [disabled]="locked || savingAssignments()"
           class="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-700 disabled:opacity-50">
           {{ savingAssignments() ? 'Guardando...' : 'Guardar' }}
         </button>
@@ -238,7 +238,7 @@
 
       <div class="flex justify-end gap-2 mt-5">
         <button (click)="cancelForm()" class="px-4 py-2 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-100">Cancelar</button>
-        <button (click)="save()" [disabled]="saving()"
+        <button (click)="save()" [disabled]="locked || saving()"
           class="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-700 disabled:opacity-50">
           {{ saving() ? 'Guardando...' : 'Guardar' }}
         </button>
@@ -317,7 +317,7 @@
 
       <div class="flex justify-end gap-2 mt-5">
         <button (click)="closeApoyoModal()" class="px-4 py-2 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-100">Cancelar</button>
-        <button (click)="createApoyo()" [disabled]="savingApoyo()"
+        <button (click)="createApoyo()" [disabled]="locked || savingApoyo()"
           class="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-700 disabled:opacity-50">
           {{ savingApoyo() ? 'Creando...' : 'Crear' }}
         </button>

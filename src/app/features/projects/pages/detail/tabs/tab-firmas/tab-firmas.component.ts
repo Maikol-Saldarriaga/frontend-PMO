@@ -20,6 +20,7 @@ const emptyForm = (): SignatureForm => ({ name: '', position: '', date: '' });
 })
 export class TabFirmasComponent implements OnInit {
   @Input() projectId!: string;
+  @Input() locked = false;
 
   constructor(private svc: ProjectService) {}
 
@@ -64,7 +65,7 @@ export class TabFirmasComponent implements OnInit {
   }
 
   save(): void {
-    if (this.saving()) return;
+    if (this.locked || this.saving()) return;
     this.saving.set(true);
     this.error.set(null);
     this.saveMsg.set(null);
@@ -93,7 +94,7 @@ export class TabFirmasComponent implements OnInit {
   onImageSelected(kind: 'prepared' | 'approved', event: Event): void {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
-    if (!file) return;
+    if (this.locked || !file) return;
 
     const uploading = kind === 'prepared' ? this.preparedUploading : this.approvedUploading;
     uploading.set(true);

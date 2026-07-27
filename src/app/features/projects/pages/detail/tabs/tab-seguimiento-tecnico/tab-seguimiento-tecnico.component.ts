@@ -9,6 +9,7 @@ import {
   BudgetReportParams,
 } from '../../../../models/project.model';
 import { environment } from '../../../../../../../environments/environment';
+import { AuthStore } from '../../../../../../../core/auth/store/auth.store';
 import { ConfirmDialogService } from '../../../../../../shared/components/confirm-dialog/confirm-dialog.service';
 
 interface FlatActivity {
@@ -65,8 +66,14 @@ const emptyAutoForm = (): AutoForm => ({
 })
 export class TabSeguimientoTecnicoComponent implements OnInit {
   @Input() projectId!: string;
+  @Input() locked = false;
 
-  constructor(private svc: ProjectService, private timeSvc: ServerTimeService, private confirmDialog: ConfirmDialogService) {}
+  constructor(
+    private svc: ProjectService,
+    private timeSvc: ServerTimeService,
+    private confirmDialog: ConfirmDialogService,
+    private auth: AuthStore,
+  ) {}
 
   /** Hora real (internet, vía NTP en el backend / worldtimeapi en el front), no el reloj local. */
   nowDate = signal<Date>(new Date());
@@ -213,15 +220,16 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
 
   /**
    * Igual que en Entregables: si ya pasó el end_date y ya tiene actual_pct registrado, el backend rechaza la edición de fechas.
-   * `environment.enforceDeliveryDateLocks` permite desactivar esta restricción temporalmente (ej. pruebas).
+   * `environment.allowPastEdits` (espejo de ALLOW_PAST_EDITS del backend) permite que un ADMIN
+   * siga editando pasada la fecha; para cualquier otro rol el bloqueo aplica siempre.
    */
   isSnapshotLocked(snap: Snapshot): boolean {
-    if (!environment.enforceDeliveryDateLocks) return false;
     if (snap.actual_pct === null || snap.actual_pct === undefined) return false;
     const end = toDateOnly(snap.end_date);
     if (!end) return false;
     const today = this.nowDate().toISOString().slice(0, 10);
-    return end < today;
+    if (end >= today) return false;
+    return !(environment.allowPastEdits && this.auth.user()?.role === 'ADMIN');
   }
 
   load(): void {

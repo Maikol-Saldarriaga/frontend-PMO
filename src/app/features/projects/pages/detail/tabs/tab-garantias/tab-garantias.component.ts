@@ -29,6 +29,7 @@ const EMPTY = (): GuaranteeRow => ({
 })
 export class TabGarantiasComponent implements OnInit {
   @Input() projectId!: string;
+  @Input() locked = false;
 
   constructor(private svc: ProjectService, private confirmDialog: ConfirmDialogService) {}
 
@@ -70,6 +71,7 @@ export class TabGarantiasComponent implements OnInit {
   }
 
   startAdd(): void {
+    if (this.locked) return;
     this.newRow = EMPTY();
     this.adding.set(true);
   }
@@ -77,7 +79,7 @@ export class TabGarantiasComponent implements OnInit {
   cancelAdd(): void { this.adding.set(false); }
 
   saveAdd(): void {
-    if (this.newRow.saving) return;
+    if (this.locked || this.newRow.saving) return;
     this.newRow.saving = true;
     this.newRow.error = null;
     const payload: GuaranteeRequest = {
@@ -98,7 +100,10 @@ export class TabGarantiasComponent implements OnInit {
     });
   }
 
-  startEdit(row: GuaranteeRow): void { row.editing = true; row.error = null; }
+  startEdit(row: GuaranteeRow): void {
+    if (this.locked) return;
+    row.editing = true; row.error = null;
+  }
 
   /** Descarta cambios sin guardar recargando la lista completa desde el servidor —
    * el dataset es pequeño (unas pocas garantías por proyecto), así que no vale la pena
@@ -106,7 +111,7 @@ export class TabGarantiasComponent implements OnInit {
   cancelEdit(): void { this.load(); }
 
   saveEdit(row: GuaranteeRow): void {
-    if (!row.id || row.saving) return;
+    if (this.locked || !row.id || row.saving) return;
     row.saving = true;
     row.error = null;
     const payload: GuaranteeRequest = {
@@ -127,7 +132,7 @@ export class TabGarantiasComponent implements OnInit {
   }
 
   async deleteRow(row: GuaranteeRow): Promise<void> {
-    if (!row.id) return;
+    if (this.locked || !row.id) return;
     if (!(await this.confirmDialog.confirm({ message: `¿Eliminar la garantía "${this.typeLabel(row.type)}"?` }))) return;
     this.svc.deleteGuarantee(this.projectId, row.id).subscribe({
       next: () => this.rows.update(rows => rows.filter(r => r.id !== row.id)),

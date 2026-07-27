@@ -17,6 +17,7 @@ interface SourceFilter {
 })
 export class TabDocumentosComponent implements OnChanges {
   @Input() projectId!: string;
+  @Input() locked = false;
 
   private service = inject(ProjectService);
 
@@ -24,8 +25,8 @@ export class TabDocumentosComponent implements OnChanges {
   error    = signal<string | null>(null);
   response = signal<ProjectDocumentsResponse | null>(null);
 
-  search        = '';
-  activeSource: ProjectDocumentSource | 'todos' = 'todos';
+  search        = signal('');
+  activeSource  = signal<ProjectDocumentSource | 'todos'>('todos');
 
   readonly SOURCE_FILTERS: SourceFilter[] = [
     { value: 'todos',      label: 'Todos' },
@@ -37,9 +38,10 @@ export class TabDocumentosComponent implements OnChanges {
   filteredDocuments = computed(() => {
     const res = this.response();
     if (!res) return [];
-    const term = this.search.trim().toLowerCase();
+    const term = this.search().trim().toLowerCase();
+    const source = this.activeSource();
     return res.documents.filter(doc => {
-      const matchesSource = this.activeSource === 'todos' || doc.source === this.activeSource;
+      const matchesSource = source === 'todos' || doc.source === source;
       const matchesSearch = !term
         || doc.name.toLowerCase().includes(term)
         || doc.parent.label.toLowerCase().includes(term);
@@ -61,7 +63,7 @@ export class TabDocumentosComponent implements OnChanges {
   }
 
   setSource(value: ProjectDocumentSource | 'todos'): void {
-    this.activeSource = value;
+    this.activeSource.set(value);
   }
 
   countFor(source: ProjectDocumentSource): number {

@@ -506,11 +506,17 @@ export class ProjectCreateComponent implements OnInit, OnDestroy {
     this.stepData.update(d => ({ ...d, step10: data.guarantees }));
     this.draftChange$.next();
     this.contractSvc.updateStep10(id, data).subscribe({
-      next: () => {
+      next: (res) => {
+        console.log('[step10] respuesta del backend', res);
         localStorage.removeItem(this.draftKey);
         this.submitting.set(false);
-        this.showToast('success', 'Garantías guardadas correctamente. Proyecto creado.');
-        this.router.navigate(['/projects', id]);
+        if (res.percent_done >= 100) {
+          this.showToast('success', 'Garantías guardadas correctamente. Proyecto creado.');
+          this.router.navigate(['/projects', id]);
+        } else {
+          this.applyProgress(res);
+          this.showToast('error', `El backend reporta ${res.completed_steps}/${res.total_steps} pasos (${res.percent_done}%) — aún no marca el proyecto como completo.`);
+        }
       },
       error: (err) => this.handleError(err, 'Error al guardar las garantías.'),
     });
@@ -541,7 +547,7 @@ export class ProjectCreateComponent implements OnInit, OnDestroy {
     this.stepData.update(d => ({ ...d, step7: data.actors }));
     this.draftChange$.next();
     this.contractSvc.updateStep7(id, data).subscribe({
-      next: (res) => this.handleProgress(res, 9, 'Actores interesados guardados correctamente.'),
+      next: (res) => this.handleProgress(res, 9, 'Actores involucrados guardados correctamente.'),
       error: (err) => this.handleError(err, 'Error al guardar los actores.'),
     });
   }
@@ -778,7 +784,15 @@ export class ProjectCreateComponent implements OnInit, OnDestroy {
     }
   }
 
+  private step8Refreshed = false;
+
+  // Solo se refresca una vez desde el servidor: al volver a Paso 8 tras navegar a otro
+  // paso, @switch destruye y recrea Step8ScopeComponent; si esto se repitiera cada vez,
+  // pisaría con datos del servidor los componentes/actividades que el usuario agregó
+  // localmente y aún no ha guardado (submit), perdiendo lo tecleado (p.ej. fechas fin).
   private refreshStep8Data(): void {
+    if (this.step8Refreshed) return;
+    this.step8Refreshed = true;
     const id = this.projectId();
     if (!id) return;
     this.contractSvc.getWizard(id).subscribe({

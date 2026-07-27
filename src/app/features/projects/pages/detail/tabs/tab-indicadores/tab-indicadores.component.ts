@@ -15,7 +15,6 @@ interface PendingUpload {
 
 interface IndicatorRow {
   id?:           string;
-  component_id:  string;
   type:          IndicatorType;
   name:          string;
   line:          string;
@@ -24,6 +23,12 @@ interface IndicatorRow {
   verificationsLoading: boolean;
   upload:               PendingUpload;
   deleting:             boolean;
+}
+
+interface ComponentGroup {
+  component_id:  string;
+  componentName: string;
+  indicators:    IndicatorRow[];
 }
 
 // Mismo catálogo que enums.IndicatorType en el backend (indicator_type.go).
@@ -58,8 +63,8 @@ const VERIFICATION_TYPE_LABELS: Record<VerificationTypeKey, string> = {
 
 const emptyUpload = (): PendingUpload => ({ verification_type: '', name: '', files: [] });
 
-const EMPTY = (): IndicatorRow => ({
-  component_id: '', type: 'gestion', name: '', line: '', goal: '',
+const EMPTY_INDICATOR = (): IndicatorRow => ({
+  type: 'gestion', name: '', line: '', goal: '',
   verifications: [], verificationsLoading: false, upload: emptyUpload(), deleting: false,
 });
 
@@ -71,6 +76,7 @@ const EMPTY = (): IndicatorRow => ({
 })
 export class TabIndicadoresComponent implements OnInit {
   @Input() projectId!: string;
+  @Input() locked = false;
 
   private svc = inject(ProjectService);
 
@@ -85,8 +91,7 @@ export class TabIndicadoresComponent implements OnInit {
   readonly verificationTypeLabels = VERIFICATION_TYPE_LABELS;
   readonly verificationTypes      = VERIFICATION_TYPES;
 
-  components: { id: string; name: string }[] = [];
-  rows: WritableSignal<IndicatorRow[]> = signal([]);
+  groups: WritableSignal<ComponentGroup[]> = signal([]);
 
   ngOnInit(): void {
     forkJoin({
@@ -94,8 +99,17 @@ export class TabIndicadoresComponent implements OnInit {
       indicators: this.svc.getIndicators(this.projectId),
     }).subscribe({
       next: ({ components, indicators }) => {
-        this.components = components.components.map(c => ({ id: c.id, name: c.name }));
-        this.rows.set(indicators.length ? indicators.map(v => this.toRow(v)) : [EMPTY()]);
+        const byComp = new Map<string, Indicator[]>();
+        indicators.forEach(v => {
+          const arr = byComp.get(v.component_id) ?? [];
+          arr.push(v);
+          byComp.set(v.component_id, arr);
+        });
+        this.groups.set(components.components.map(c => ({
+          component_id:  c.id,
+          componentName: c.name,
+          indicators:    (byComp.get(c.id) ?? []).map(v => this.toRow(v)),
+        })));
         this.loading.set(false);
         if (indicators.length) this.loadVerifications();
       },
@@ -108,12 +122,11 @@ export class TabIndicadoresComponent implements OnInit {
 
   private toRow(v: Indicator): IndicatorRow {
     return {
-      id:           v.id,
-      component_id: v.component_id,
-      type:         v.type,
-      name:         v.name,
-      line:         v.line ?? '',
-      goal:         v.goal ?? '',
+      id:   v.id,
+      type: v.type,
+      name: v.name,
+      line: v.line ?? '',
+      goal: v.goal ?? '',
       verifications: [],
       verificationsLoading: false,
       upload: emptyUpload(),
@@ -122,92 +135,127 @@ export class TabIndicadoresComponent implements OnInit {
   }
 
   private loadVerifications(): void {
-    this.rows().forEach((row, i) => {
-      if (!row.id) return;
-      this.svc.getIndicatorVerifications(this.projectId, row.id).subscribe({
-        next: verifications => {
-          this.rows.update(rows => rows.map((r, idx) => idx === i ? { ...r, verifications } : r));
-        },
+    this.groups().forEach((g, gi) => {
+      g.indicators.forEach((row, ri) => {
+        if (!row.id) return;
+        this.svc.getIndicatorVerifications(this.projectId, row.id).subscribe({
+          next: verifications => {
+            this.groups.update(groups => groups.map((grp, i) =>
+              i === gi
+                ? { ...grp, indicators: grp.indicators.map((r, j) => j === ri ? { ...r, verifications } : r) }
+                : grp));
+          },
+        });
       });
     });
   }
 
-  addRow(): void { this.rows.update(r => [...r, EMPTY()]); }
+  addIndicator(gi: number): void {
+    this.groups.update(gs => gs.map((g, i) => i === gi ? { ...g, indicators: [...g.indicators, EMPTY_INDICATOR()] } : g));
+  }
 
-  removeRow(i: number): void {
-    const row = this.rows()[i];
+  removeIndicator(gi: number, ri: number): void {
+    const g = this.groups()[gi];
+    const row = g.indicators[ri];
     this.saveError.set(null);
 
     if (!row.id) {
-      this.rows.update(r => r.filter((_, idx) => idx !== i));
+      this.groups.update(gs => gs.map((grp, i) =>
+        i === gi ? { ...grp, indicators: grp.indicators.filter((_, j) => j !== ri) } : grp));
       return;
     }
 
-    this.rows.update(rows => rows.map((r, idx) => idx === i ? { ...r, deleting: true } : r));
+    this.groups.update(gs => gs.map((grp, i) =>
+      i === gi
+        ? { ...grp, indicators: grp.indicators.map((r, j) => j === ri ? { ...r, deleting: true } : r) }
+        : grp));
 
     this.svc.deleteIndicator(this.projectId, row.id).subscribe({
       next: () => {
-        this.rows.update(rows => rows.filter((_, idx) => idx !== i));
+        this.groups.update(gs => gs.map((grp, i) =>
+          i === gi ? { ...grp, indicators: grp.indicators.filter((_, j) => j !== ri) } : grp));
       },
       error: err => {
-        this.rows.update(rows => rows.map((r, idx) => idx === i ? { ...r, deleting: false } : r));
+        this.groups.update(gs => gs.map((grp, i) =>
+          i === gi
+            ? { ...grp, indicators: grp.indicators.map((r, j) => j === ri ? { ...r, deleting: false } : r) }
+            : grp));
         this.saveError.set(err?.error?.error ?? err?.error?.message ?? 'No se pudo eliminar el indicador en el servidor.');
       },
     });
   }
 
-  updateField(i: number, field: 'component_id' | 'type' | 'name' | 'line' | 'goal', value: string): void {
-    this.rows.update(rows => rows.map((row, idx) => idx === i ? { ...row, [field]: value } : row));
+  updateField(gi: number, ri: number, field: 'type' | 'name' | 'line' | 'goal', value: string): void {
+    this.groups.update(gs => gs.map((g, i) =>
+      i === gi
+        ? { ...g, indicators: g.indicators.map((row, j) => j === ri ? { ...row, [field]: value } : row) }
+        : g));
   }
 
-  updateUploadField(i: number, field: keyof PendingUpload, value: string): void {
-    this.rows.update(rows => rows.map((row, idx) => {
-      if (idx !== i) return row;
-      const upload = { ...row.upload, [field]: value };
-      if (field === 'verification_type') upload.name = '';
-      return { ...row, upload };
+  updateUploadField(gi: number, ri: number, field: keyof PendingUpload, value: string): void {
+    this.groups.update(gs => gs.map((g, i) => {
+      if (i !== gi) return g;
+      return {
+        ...g,
+        indicators: g.indicators.map((row, j) => {
+          if (j !== ri) return row;
+          const upload = { ...row.upload, [field]: value };
+          if (field === 'verification_type') upload.name = '';
+          return { ...row, upload };
+        }),
+      };
     }));
   }
 
-  onFilesSelected(i: number, event: Event): void {
+  onFilesSelected(gi: number, ri: number, event: Event): void {
     const input = event.target as HTMLInputElement;
-    if (!this.canSelectFiles(this.rows()[i])) { input.value = ''; return; }
+    if (!this.canSelectFiles(this.groups()[gi].indicators[ri])) { input.value = ''; return; }
     const files = Array.from(input.files ?? []);
-    this.rows.update(rows => rows.map((row, idx) =>
-      idx === i ? { ...row, upload: { ...row.upload, files } } : row
-    ));
-  }
-
-  removeFile(rowIdx: number, fileIdx: number): void {
-    this.rows.update(rows => rows.map((row, idx) => {
-      if (idx !== rowIdx) return row;
-      const files = row.upload.files.filter((_, fi) => fi !== fileIdx);
-      return { ...row, upload: { ...row.upload, files } };
+    this.groups.update(gs => gs.map((g, i) => {
+      if (i !== gi) return g;
+      return { ...g, indicators: g.indicators.map((row, j) => j === ri ? { ...row, upload: { ...row.upload, files } } : row) };
     }));
   }
 
-  getVerificationNames(i: number): string[] {
-    const key = this.rows()[i].upload.verification_type as VerificationTypeKey;
+  removeFile(gi: number, ri: number, fileIdx: number): void {
+    this.groups.update(gs => gs.map((g, i) => {
+      if (i !== gi) return g;
+      return {
+        ...g,
+        indicators: g.indicators.map((row, j) => {
+          if (j !== ri) return row;
+          const files = row.upload.files.filter((_, fi) => fi !== fileIdx);
+          return { ...row, upload: { ...row.upload, files } };
+        }),
+      };
+    }));
+  }
+
+  getVerificationNames(gi: number, ri: number): string[] {
+    const key = this.groups()[gi].indicators[ri].upload.verification_type as VerificationTypeKey;
     return key ? VERIFICATION_TYPES[key] : [];
   }
 
   canSelectFiles(row: IndicatorRow): boolean {
-    return !!(row.upload.verification_type && row.upload.name);
+    return !this.locked && !!(row.upload.verification_type && row.upload.name);
   }
 
-  previewFileName(i: number, fi: number): string {
-    const row = this.rows()[i];
+  previewFileName(gi: number, ri: number, fi: number): string {
+    const row = this.groups()[gi].indicators[ri];
     return renameFileForUpload(row.upload.files[fi], row.upload.name, fi, row.upload.files.length).name;
   }
 
-  deleteVerification(rowIdx: number, v: IndicatorVerification): void {
+  deleteVerification(gi: number, ri: number, v: IndicatorVerification): void {
     this.svc.deleteIndicatorVerification(this.projectId, v.indicator_id, v.id).subscribe({
       next: () => {
-        this.rows.update(rows => rows.map((r, idx) =>
-          idx === rowIdx
-            ? { ...r, verifications: r.verifications.filter(x => x.id !== v.id) }
-            : r
-        ));
+        this.groups.update(gs => gs.map((g, i) => {
+          if (i !== gi) return g;
+          return {
+            ...g,
+            indicators: g.indicators.map((row, j) =>
+              j === ri ? { ...row, verifications: row.verifications.filter(x => x.id !== v.id) } : row),
+          };
+        }));
       },
     });
   }
@@ -216,36 +264,41 @@ export class TabIndicadoresComponent implements OnInit {
     return VERIFICATION_TYPE_LABELS[key as VerificationTypeKey] ?? key;
   }
 
-  componentName(id: string): string {
-    return this.components.find(c => c.id === id)?.name ?? '—';
-  }
-
   save(): void {
     this.saveSuccess.set(false);
     this.saveError.set(null);
     this.saving.set(true);
 
-    const rows = this.rows();
-    const calls = rows.map(r => {
+    const groups = this.groups();
+    // Componentes sin indicadores hijos no generan ninguna llamada — no se envían al backend.
+    const flat = groups.flatMap((g, gi) => g.indicators.map((r, ri) => ({ g, gi, r, ri, component_id: g.component_id })));
+
+    const calls = flat.map(({ r, component_id }) => {
       const payload: IndicatorRequest = {
-        component_id: r.component_id,
-        type:         r.type,
-        name:         r.name,
-        line:         r.line,
-        goal:         r.goal,
-        medium:       '',
+        component_id,
+        type:   r.type,
+        name:   r.name,
+        line:   r.line,
+        goal:   r.goal,
+        medium: '',
       };
       return r.id
         ? this.svc.updateIndicator(this.projectId, r.id, payload)
         : this.svc.createIndicator(this.projectId, payload);
     });
 
-    if (!calls.length) { this.saving.set(false); return; }
+    if (!calls.length) { this.saving.set(false); this.saveSuccess.set(true); return; }
 
     forkJoin(calls).subscribe({
       next: saved => {
-        this.rows.set(saved.map((s, i) => ({ ...rows[i], id: s.id })));
-        this.uploadPendingVerifications(saved);
+        this.groups.update(gs => gs.map((g, gi) => ({
+          ...g,
+          indicators: g.indicators.map((row, ri) => {
+            const idx = flat.findIndex(f => f.gi === gi && f.ri === ri);
+            return idx >= 0 ? { ...row, id: saved[idx].id } : row;
+          }),
+        })));
+        this.uploadPendingVerifications(flat, saved);
       },
       error: err => {
         this.saving.set(false);
@@ -254,16 +307,19 @@ export class TabIndicadoresComponent implements OnInit {
     });
   }
 
-  private uploadPendingVerifications(saved: Indicator[]): void {
-    const rows = this.rows();
-    const uploadCalls = rows.flatMap((r, i) => {
+  private uploadPendingVerifications(
+    flat: { g: ComponentGroup; gi: number; r: IndicatorRow; ri: number; component_id: string }[],
+    saved: Indicator[],
+  ): void {
+    const uploadCalls = flat.flatMap((f, i) => {
       const ind = saved[i];
-      if (!ind?.id || !r.upload.verification_type || !r.upload.name || !r.upload.files.length) return [];
-      return r.upload.files.map((file, idx) => {
+      const upload = f.r.upload;
+      if (!ind?.id || !upload.verification_type || !upload.name || !upload.files.length) return [];
+      return upload.files.map((file, idx) => {
         const fd = new FormData();
-        fd.append('file', renameFileForUpload(file, r.upload.name, idx, r.upload.files.length));
-        fd.append('verification_type', r.upload.verification_type);
-        fd.append('name', r.upload.name);
+        fd.append('file', renameFileForUpload(file, upload.name, idx, upload.files.length));
+        fd.append('verification_type', upload.verification_type);
+        fd.append('name', upload.name);
         return this.svc.uploadIndicatorVerification(this.projectId, ind.id, fd);
       });
     });
@@ -276,7 +332,10 @@ export class TabIndicadoresComponent implements OnInit {
 
     forkJoin(uploadCalls).subscribe({
       next: () => {
-        this.rows.update(rows => rows.map(r => ({ ...r, upload: emptyUpload() })));
+        this.groups.update(gs => gs.map(g => ({
+          ...g,
+          indicators: g.indicators.map(r => ({ ...r, upload: emptyUpload() })),
+        })));
         this.loadVerifications();
         this.saving.set(false);
         this.saveSuccess.set(true);

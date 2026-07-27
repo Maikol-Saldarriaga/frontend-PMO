@@ -26,7 +26,14 @@ $transition:              0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 // ── Contenido con scroll propio ───────────────
+// position + z-index (> topbar) para que los paneles/modales laterales
+// (position: fixed) de los tabs puedan cubrir el topbar. Sin esto, el topbar
+// —al ser flex item con z-index propio dentro de .dashboard-main— siempre
+// pinta por encima de todo lo que hay dentro de .dashboard-content, sin
+// importar el z-index que tengan sus hijos fixed.
 .dashboard-content {
+  position: relative;
+  z-index: 51;
   flex: 1;
   padding: 1.75rem 2rem;
   overflow-y: auto;
