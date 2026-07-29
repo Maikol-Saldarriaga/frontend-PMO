@@ -1235,6 +1235,7 @@ export interface Invoice {
 
 export interface InvoiceRequest {
   value:                  number;
+  distribution_id?:       string | null;
   year?:                  number | null; // deben ir siempre juntos con month; omitir ambos = factura del componente completo
   month?:                 number | null;
   value_before_tax?:      number;
