@@ -121,6 +121,7 @@ export const ENDPOINTS = {
     get:          (id: string) => `${API_URL}/users/${id}`,
     update:       (id: string) => `${API_URL}/users/${id}`,
     updateMe:     `${API_URL}/users/me`,
+    changeMyPassword: `${API_URL}/users/me/password`,
     myAvatarUrl:  `${API_URL}/users/me/avatar-url`,
     avatarUrlById: (id: string) => `${API_URL}/users/${id}/avatar-url`,
   },

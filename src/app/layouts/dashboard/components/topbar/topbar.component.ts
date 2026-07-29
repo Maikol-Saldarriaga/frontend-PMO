@@ -1,6 +1,5 @@
 import { Component, EventEmitter, inject, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
 import { AuthStore } from '../../../../../core/auth/store/auth.store';
 import { AuthService } from '../../../../../core/auth/services/auth.service';
 import { API_BASE_URL } from '../../../../../core/config/api.config';
@@ -18,7 +17,6 @@ export class TopbarComponent {
   @Input() sidebarCollapsed = false;
   @Output() toggleSidebar = new EventEmitter<void>();
 
-  private router      = inject(Router);
   private authStore   = inject(AuthStore);
   private authService = inject(AuthService);
   private userService  = inject(UserService);
@@ -47,10 +45,6 @@ export class TopbarComponent {
   get initials()  {
     const name = this.user?.name ?? '';
     return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
-  }
-
-  goToProfile(): void {
-    this.router.navigate(['/profile']);
   }
 
   logout(): void { this.authService.logout(); }

@@ -1,0 +1,110 @@
+@use '../../../../../styles/tokens' as *;
+
+// ── Contenedor principal (igual a login) ──────────────────
+.login-bg {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  font-family: $font-family-base;
+  background: linear-gradient(135deg, $color-primary-900 0%, $color-primary-800 40%, $color-primary-700 100%);
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(circle, rgba(14,165,233,0.06) 1px, transparent 1px);
+    background-size: 28px 28px;
+    pointer-events: none;
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    width: 500px;
+    height: 500px;
+    border-radius: 50%;
+    background: $color-accent;
+    opacity: 0.08;
+    filter: blur(90px);
+    top: -130px;
+    right: -130px;
+    pointer-events: none;
+  }
+}
+
+.login-bg .deco-green {
+  position: absolute;
+  width: 380px;
+  height: 380px;
+  border-radius: 50%;
+  background: $color-accent;
+  opacity: 0.06;
+  filter: blur(90px);
+  bottom: -100px;
+  left: -80px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.login-card {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  width: 100%;
+  background: $color-surface;
+  border-radius: $radius-xl;
+  box-shadow: $shadow-card;
+  overflow: hidden;
+}
+
+.not-found-card {
+  max-width: 560px;
+  min-height: unset;
+}
+
+.form-col {
+  flex: 1;
+  padding: 3.5rem 2.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
+.not-found-logo {
+  width: min(60%, 220px);
+  height: auto;
+  object-fit: contain;
+  margin-bottom: 1.5rem;
+}
+
+.not-found-code {
+  font-size: 4.5rem;
+  font-weight: 800;
+  line-height: 1;
+  margin-bottom: 0.5rem;
+  background: linear-gradient(135deg, $color-accent 0%, $color-accent-700 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, $color-accent 0%, $color-accent-700 100%);
+  color: #ffffff !important;
+  transition: opacity 0.2s ease, transform 0.1s ease;
+  box-shadow: 0 4px 14px 0 rgba(14, 165, 233, 0.30);
+
+  &:hover { opacity: 0.88; transform: translateY(-1px); }
+  &:active { transform: translateY(0); }
+}
+
+@media (max-width: 480px) {
+  .form-col { padding: 2.5rem 1.5rem; }
+  .not-found-code { font-size: 3.5rem; }
+}

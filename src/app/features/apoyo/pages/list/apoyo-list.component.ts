@@ -14,18 +14,16 @@ interface ApoyoForm {
   second_surname: string;
   document_type: SupervisorDocumentType;
   identity_document_number: string;
-  birthdate: string;
   email: string;
   phone: string;
   password: string;
-  address: string;
 }
 
 function emptyForm(): ApoyoForm {
   return {
     first_name: '', middle_name: '', first_surname: '', second_surname: '',
-    document_type: 'CC', identity_document_number: '', birthdate: '',
-    email: '', phone: '', password: '', address: '',
+    document_type: 'CC', identity_document_number: '',
+    email: '', phone: '', password: '',
   };
 }
 
@@ -82,11 +80,9 @@ export class ApoyoListComponent implements OnInit {
       second_surname:           user.second_surname ?? '',
       document_type:            user.document_type as SupervisorDocumentType,
       identity_document_number: user.identity_document_number,
-      birthdate:                user.birthdate?.split('T')[0] ?? '',
       email:                    user.email,
       phone:                    user.phone,
       password:                 '',
-      address:                  user.address ?? '',
     };
     this.imageFile = null;
     this.saveError.set(null);
@@ -107,7 +103,7 @@ export class ApoyoListComponent implements OnInit {
     const f = this.form;
     const editing = this.editingUser();
     if (!f.first_name || !f.first_surname || !f.second_surname || !f.identity_document_number
-      || !f.birthdate || !f.email || !f.phone || (!editing && !f.password)) {
+      || !f.email || !f.phone || (!editing && !f.password)) {
       this.saveError.set('Completa todos los campos obligatorios.');
       return;
     }
@@ -121,12 +117,10 @@ export class ApoyoListComponent implements OnInit {
       second_surname:           f.second_surname,
       document_type:            f.document_type,
       identity_document_number: f.identity_document_number,
-      birthdate:                f.birthdate,
       email:                    f.email,
       phone:                    f.phone,
       password:                 f.password,
       middle_name:              f.middle_name || undefined,
-      address:                  f.address     || undefined,
       image_url:                this.imageFile,
     };
 

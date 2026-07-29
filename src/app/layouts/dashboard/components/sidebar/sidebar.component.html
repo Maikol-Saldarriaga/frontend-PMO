@@ -4,12 +4,9 @@
   <div class="sidebar__header">
     <div class="sidebar__brand" *ngIf="!collapsed">
       <div class="sidebar__brand-icon">
-        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round"
-            d="M9 17v-6a2 2 0 012-2h2a2 2 0 012 2v6m-6 0h6M3 17h18M5 17V9a2 2 0 012-2h10a2 2 0 012 2v8"/>
-        </svg>
+        <img src="assets/fodc_pmo.webp" alt="FODC PMO" class="sidebar__brand-icon__img"/>
       </div>
-      <span class="sidebar__brand-name">PMO</span>
+      <span class="sidebar__brand-name">FODC PMO</span>
     </div>
     <button class="sidebar__toggle" (click)="toggle()" [attr.aria-label]="collapsed ? 'Expandir' : 'Colapsar'">
       <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">

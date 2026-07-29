@@ -67,4 +67,11 @@ export class UserService {
 
     return this.http.put<UpdateUserResponse>(ENDPOINTS.users.updateMe, form);
   }
+
+  changePassword(currentPassword: string, newPassword: string): Observable<void> {
+    return this.http.patch<void>(ENDPOINTS.users.changeMyPassword, {
+      current_password: currentPassword,
+      new_password:      newPassword,
+    });
+  }
 }

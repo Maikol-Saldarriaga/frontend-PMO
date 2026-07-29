@@ -1,10 +1,11 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
 
 import { AuthStore } from '../../../../../core/auth/store/auth.store';
 import { UserService } from '../../../../../core/users/services/user.service';
 import { UserDetail } from '../../../../../core/users/models/user.model';
+import { evaluatePasswordStrength, PasswordStrength } from '../../../../shared/utils/password-strength';
 
 @Component({
   selector: 'app-profile',
@@ -36,6 +37,20 @@ export class ProfileComponent implements OnInit {
     document_type:            ['CC'],
     identity_document_number: [''],
   });
+
+  showCurrentPassword = signal(false);
+  showNewPassword     = signal(false);
+  changingPassword    = signal(false);
+  passwordSuccess     = signal(false);
+  passwordError       = signal<string | null>(null);
+
+  strength: PasswordStrength | null = null;
+
+  passwordForm = this.fb.group({
+    current_password: ['', Validators.required],
+    new_password:      ['', [Validators.required, Validators.minLength(8)]],
+    confirm_password:  ['', Validators.required],
+  }, { validators: passwordsMatchValidator });
 
   get user()     { return this.authStore.user(); }
   get initials() {
@@ -122,4 +137,46 @@ export class ProfileComponent implements OnInit {
       },
     });
   }
+
+  onNewPasswordInput(): void {
+    const current = this.passwordForm.get('new_password')?.value ?? '';
+    evaluatePasswordStrength(current).then(s => {
+      if (this.passwordForm.get('new_password')?.value === current) this.strength = s;
+    });
+  }
+
+  onChangePassword(): void {
+    if (this.passwordForm.invalid || this.changingPassword()) return;
+
+    this.changingPassword.set(true);
+    this.passwordSuccess.set(false);
+    this.passwordError.set(null);
+
+    const v = this.passwordForm.getRawValue();
+    this.userService.changePassword(v.current_password!, v.new_password!).subscribe({
+      next: () => {
+        this.changingPassword.set(false);
+        this.passwordSuccess.set(true);
+        this.passwordForm.reset();
+        this.strength = null;
+        setTimeout(() => this.passwordSuccess.set(false), 3000);
+      },
+      error: err => {
+        this.changingPassword.set(false);
+        this.passwordError.set(
+          err?.status === 401
+            ? 'La contraseña actual no es correcta.'
+            : 'No se pudo cambiar la contraseña. Intenta de nuevo.'
+        );
+      },
+    });
+  }
+}
+
+function passwordsMatchValidator(group: AbstractControl): ValidationErrors | null {
+  const newPassword     = group.get('new_password')?.value;
+  const confirmPassword = group.get('confirm_password')?.value;
+  return newPassword && confirmPassword && newPassword !== confirmPassword
+    ? { passwordMismatch: true }
+    : null;
 }

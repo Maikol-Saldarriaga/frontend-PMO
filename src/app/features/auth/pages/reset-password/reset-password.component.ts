@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 
 import { AuthService } from '../../../../../core/auth/services/auth.service';
+import { evaluatePasswordStrength, PasswordStrength } from '../../../../shared/utils/password-strength';
 
 @Component({
   selector: 'app-reset-password',
@@ -26,10 +27,18 @@ export class ResetPasswordComponent implements OnInit {
   success        = false;
   errorMsg       = '';
   currentYear    = new Date().getFullYear();
+  strength: PasswordStrength | null = null;
 
   ngOnInit(): void {
     this.token = this.route.snapshot.queryParamMap.get('token') ?? '';
     this.tokenMissing = !this.token;
+  }
+
+  onPasswordInput(): void {
+    const current = this.password;
+    evaluatePasswordStrength(current).then(s => {
+      if (this.password === current) this.strength = s;
+    });
   }
 
   get passwordMismatch(): boolean {

@@ -26,12 +26,10 @@ export interface CreateSupervisorUserRequest {
   second_surname:            string;
   document_type:             SupervisorDocumentType;
   identity_document_number:  string;
-  birthdate:                 string;
   email:                     string;
   phone:                     string;
   password:                  string;
   middle_name?:              string;
-  address?:                  string;
   image_url?:                File | null;
   // Requerido por el backend cuando se crea con rol SUPERVISOR_ALIADO.
   ally_id?:                  string;
@@ -51,7 +49,6 @@ export interface CreateSupervisorUserResponse {
   identity_document_number: string;
   email:                    string;
   phone:                    string;
-  address:                  string;
   role:                     string;
   image_url:                string | null;
   is_active:                boolean;

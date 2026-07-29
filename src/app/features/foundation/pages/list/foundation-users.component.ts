@@ -19,7 +19,6 @@ interface FoundationUserForm {
   second_surname: string;
   document_type: SupervisorDocumentType;
   identity_document_number: string;
-  birthdate: string;
   email: string;
   phone: string;
   password: string;
@@ -29,7 +28,7 @@ interface FoundationUserForm {
 function emptyForm(): FoundationUserForm {
   return {
     first_name: '', first_surname: '', second_surname: '',
-    document_type: 'CC', identity_document_number: '', birthdate: '',
+    document_type: 'CC', identity_document_number: '',
     email: '', phone: '', password: '', role: 'DILIGENCIADOR',
   };
 }
@@ -87,7 +86,7 @@ export class FoundationUsersComponent implements OnInit {
     if (this.saving()) return;
     const f = this.form;
     if (!f.first_name || !f.first_surname || !f.second_surname || !f.identity_document_number ||
-        !f.birthdate || !f.email || !f.phone || !f.password) {
+        !f.email || !f.phone || !f.password) {
       this.saveError.set('Todos los campos son obligatorios.');
       return;
     }

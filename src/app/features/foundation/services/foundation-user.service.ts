@@ -45,12 +45,10 @@ export class FoundationUserService {
     fd.append('second_surname',           data.second_surname);
     fd.append('document_type',            data.document_type);
     fd.append('identity_document_number', data.identity_document_number);
-    fd.append('birthdate',                data.birthdate);
     fd.append('email',                    data.email);
     fd.append('phone',                    data.phone);
     fd.append('password',                 data.password);
     if (data.middle_name) fd.append('middle_name', data.middle_name);
-    if (data.address)     fd.append('address',     data.address);
     if (data.image_url)   fd.append('image_url',   data.image_url, data.image_url.name);
     return fd;
   }

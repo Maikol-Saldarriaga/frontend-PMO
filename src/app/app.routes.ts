@@ -3,6 +3,7 @@ import { WelcomeComponent } from './layouts/welcome/welcome.component';
 import { LoginComponent } from './features/auth/pages/login/login.component';
 import { ForgotPasswordComponent } from './features/auth/pages/forgot-password/forgot-password.component';
 import { ResetPasswordComponent } from './features/auth/pages/reset-password/reset-password.component';
+import { NotFoundComponent } from './features/not-found/pages/not-found/not-found.component';
 import { DashboardComponent } from './layouts/dashboard/dashboard.component';
 import { HomeComponent } from './features/dashboard/pages/home/home.component';
 import { ProfileComponent } from './features/profile/pages/profile/profile.component';
@@ -51,5 +52,5 @@ export const routes: Routes = [
       { path: 'reports',               component: ReportsComponent },
     ]
   },
-  { path: '**', canActivate: [rootRedirectGuard], children: [] }
+  { path: '**', component: NotFoundComponent }
 ];

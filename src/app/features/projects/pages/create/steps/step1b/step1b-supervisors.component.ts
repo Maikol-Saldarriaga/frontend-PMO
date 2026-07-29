@@ -115,11 +115,9 @@ export class Step1bSupervisorsComponent implements OnInit {
     middle_name:              [''],
     document_type:            ['CC', Validators.required],
     identity_document_number: ['', Validators.required],
-    birthdate:                ['', Validators.required],
     email:                    ['', [Validators.required, Validators.email]],
     phone:                    ['', Validators.required],
     password:                 ['', [Validators.required, Validators.minLength(6)]],
-    address:                  [''],
   });
 
   principalImageFile: File | null = null;
@@ -131,7 +129,6 @@ export class Step1bSupervisorsComponent implements OnInit {
     second_surname:        ['', Validators.required],
     type_identification:   ['CC', Validators.required],
     identification_number: ['', Validators.required],
-    birthdate:             ['', Validators.required],
     entity:                [''],
     job_title:             [''],
     phone:                 ['', Validators.required],
@@ -277,12 +274,10 @@ export class Step1bSupervisorsComponent implements OnInit {
       second_surname:           v.second_surname!,
       document_type:            v.document_type! as SupervisorDocumentType,
       identity_document_number: v.identity_document_number!,
-      birthdate:                v.birthdate!,
       email:                    v.email!,
       phone:                    v.phone!,
       password:                 v.password!,
       middle_name:              v.middle_name  || undefined,
-      address:                  v.address      || undefined,
       image_url:                this.principalImageFile,
     }).subscribe({
       next: (res: CreateSupervisorUserResponse) => {
@@ -321,7 +316,6 @@ export class Step1bSupervisorsComponent implements OnInit {
       second_surname:           v.second_surname!,
       document_type:            v.type_identification! as SupervisorDocumentType,
       identity_document_number: v.identification_number!,
-      birthdate:                v.birthdate!,
       email:                    v.email!,
       phone:                    v.phone!,
       password:                 v.password!,
@@ -487,7 +481,7 @@ export class Step1bSupervisorsComponent implements OnInit {
   apoyoForm = {
     first_name: '', middle_name: '', first_surname: '', second_surname: '',
     document_type: 'CC' as SupervisorDocumentType, identity_document_number: '',
-    birthdate: '', email: '', phone: '', password: '', address: '',
+    email: '', phone: '', password: '',
   };
 
   openApoyoModal(): void {
@@ -496,7 +490,7 @@ export class Step1bSupervisorsComponent implements OnInit {
     this.apoyoForm = {
       first_name: '', middle_name: '', first_surname: '', second_surname: '',
       document_type: 'CC', identity_document_number: '',
-      birthdate: '', email: '', phone: '', password: '', address: '',
+      email: '', phone: '', password: '',
     };
     this.showApoyoModal.set(true);
   }
@@ -513,7 +507,7 @@ export class Step1bSupervisorsComponent implements OnInit {
   createApoyo(): void {
     const f = this.apoyoForm;
     if (!f.first_name || !f.first_surname || !f.second_surname || !f.identity_document_number
-      || !f.birthdate || !f.email || !f.phone || !f.password) {
+      || !f.email || !f.phone || !f.password) {
       this.apoyoError.set('Completa todos los campos obligatorios.');
       return;
     }
@@ -525,12 +519,10 @@ export class Step1bSupervisorsComponent implements OnInit {
       second_surname:           f.second_surname,
       document_type:            f.document_type,
       identity_document_number: f.identity_document_number,
-      birthdate:                f.birthdate,
       email:                    f.email,
       phone:                    f.phone,
       password:                 f.password,
       middle_name:              f.middle_name || undefined,
-      address:                  f.address     || undefined,
       image_url:                this.apoyoImageFile,
     }).subscribe({
       next: (res: CreateSupervisorUserResponse) => {

@@ -253,10 +253,10 @@
               <tbody class="divide-y divide-gray-100">
                 @for (item of entry.items; track trackByItem($index, item)) {
                   <tr class="hover:bg-neutral-50/60 transition-colors">
-                    <td class="px-3 py-2.5 min-w-0">
-                      <p class="text-xs font-semibold text-primary-700 truncate">{{ item.concept || 'Sin concepto' }}</p>
+                    <td class="px-3 py-2.5 min-w-0 max-w-[220px]">
+                      <p class="text-xs font-semibold text-primary-700 truncate" [title]="item.concept || 'Sin concepto'">{{ item.concept || 'Sin concepto' }}</p>
                       @if (item.description) {
-                        <p class="text-[10px] text-neutral-400 truncate">{{ item.description }}</p>
+                        <p class="text-[10px] text-neutral-400 truncate" [title]="item.description">{{ item.description }}</p>
                       }
                     </td>
                     <td class="px-3 py-2.5 text-xs text-neutral-600 whitespace-nowrap">{{ periodicityLabel(item.unit_measurement) }}</td>

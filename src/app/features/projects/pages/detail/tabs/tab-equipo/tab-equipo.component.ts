@@ -350,7 +350,7 @@ export class TabEquipoComponent implements OnInit {
   apoyoForm = {
     first_name: '', middle_name: '', first_surname: '', second_surname: '',
     document_type: 'CC' as SupervisorDocumentType, identity_document_number: '',
-    birthdate: '', email: '', phone: '', password: '', address: '',
+    email: '', phone: '', password: '',
   };
 
   openApoyoModal(): void {
@@ -359,7 +359,7 @@ export class TabEquipoComponent implements OnInit {
     this.apoyoForm = {
       first_name: '', middle_name: '', first_surname: '', second_surname: '',
       document_type: 'CC', identity_document_number: '',
-      birthdate: '', email: '', phone: '', password: '', address: '',
+      email: '', phone: '', password: '',
     };
     this.showApoyoModal.set(true);
   }
@@ -377,7 +377,7 @@ export class TabEquipoComponent implements OnInit {
     if (this.locked) return;
     const f = this.apoyoForm;
     if (!f.first_name || !f.first_surname || !f.second_surname || !f.identity_document_number
-      || !f.birthdate || !f.email || !f.phone || !f.password) {
+      || !f.email || !f.phone || !f.password) {
       this.apoyoError.set('Completa todos los campos obligatorios.');
       return;
     }
@@ -389,12 +389,10 @@ export class TabEquipoComponent implements OnInit {
       second_surname:           f.second_surname,
       document_type:            f.document_type,
       identity_document_number: f.identity_document_number,
-      birthdate:                f.birthdate,
       email:                    f.email,
       phone:                    f.phone,
       password:                 f.password,
       middle_name:              f.middle_name || undefined,
-      address:                  f.address     || undefined,
       image_url:                this.apoyoImageFile,
     }).subscribe({
       next: (res: CreateSupervisorUserResponse) => {
