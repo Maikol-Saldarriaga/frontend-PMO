@@ -136,24 +136,44 @@
             }
           </select>
         </div>
-        <div>
+        <div class="relative">
           <label class="text-xs font-semibold text-gray-600">Coordinador principal</label>
-          <select [(ngModel)]="formPrincipalId" class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm">
-            <option value="">Sin asignar</option>
-            @for (s of supervisors(); track s.id) {
-              <option [value]="s.id">{{ s.full_name }}</option>
-            }
-          </select>
+          <input type="text" [ngModel]="principalSearchText" (ngModelChange)="onPrincipalInput($event)"
+            (focus)="onPrincipalFocus()" (blur)="onPrincipalBlur()" [disabled]="!canChangePrincipal()"
+            placeholder="Buscar coordinador por nombre..." autocomplete="off"
+            class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm disabled:bg-gray-100 disabled:text-gray-400"/>
+          @if (!canChangePrincipal()) {
+            <p class="text-[11px] text-gray-400 mt-1">Ya tiene coordinador principal asignado — solo un administrador puede cambiarlo.</p>
+          }
+          @if (showPrincipalDropdown()) {
+            <ul class="absolute z-10 mt-1 w-full max-h-48 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg text-sm">
+              <li (mousedown)="clearPrincipal()"
+                class="px-3 py-2 text-gray-400 hover:bg-gray-50 cursor-pointer">Sin asignar</li>
+              @for (s of principalOptions(); track s.id) {
+                <li (mousedown)="selectPrincipal(s)" class="px-3 py-2 hover:bg-gray-50 cursor-pointer">{{ s.full_name }}</li>
+              } @empty {
+                <li class="px-3 py-2 text-gray-400">Sin resultados</li>
+              }
+            </ul>
+          }
         </div>
-        <div>
+        <div class="relative">
           <label class="text-xs font-semibold text-gray-600">Supervisor aliado</label>
-          <select [(ngModel)]="formAllySupId" [disabled]="!formAllyId"
-            class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm disabled:bg-gray-100 disabled:text-gray-400">
-            <option value="">Sin asignar</option>
-            @for (a of affiliates(); track a.id) {
-              <option [value]="a.id">{{ a.full_name }}</option>
-            }
-          </select>
+          <input type="text" [ngModel]="allySupSearchText" (ngModelChange)="onAllySupInput($event)"
+            (focus)="onAllySupFocus()" (blur)="onAllySupBlur()" [disabled]="!formAllyId"
+            placeholder="Buscar supervisor aliado por nombre..." autocomplete="off"
+            class="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm disabled:bg-gray-100 disabled:text-gray-400"/>
+          @if (showAllySupDropdown()) {
+            <ul class="absolute z-10 mt-1 w-full max-h-48 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg text-sm">
+              <li (mousedown)="clearAllySup()"
+                class="px-3 py-2 text-gray-400 hover:bg-gray-50 cursor-pointer">Sin asignar</li>
+              @for (a of allySupOptions(); track a.id) {
+                <li (mousedown)="selectAllySup(a)" class="px-3 py-2 hover:bg-gray-50 cursor-pointer">{{ a.full_name }}</li>
+              } @empty {
+                <li class="px-3 py-2 text-gray-400">Sin resultados</li>
+              }
+            </ul>
+          }
           @if (!formAllyId) {
             <p class="text-[11px] text-gray-400 mt-1">Selecciona una alianza para poder asignar un supervisor aliado.</p>
           }

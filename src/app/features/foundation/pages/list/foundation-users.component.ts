@@ -1,6 +1,7 @@
-import { Component, OnInit, signal, computed, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subject, debounceTime, distinctUntilChanged, takeUntil } from 'rxjs';
 
 import { FoundationUserService } from '../../services/foundation-user.service';
 import { UserDetail } from '../../../../../core/users/models/user.model';
@@ -39,19 +40,38 @@ function emptyForm(): FoundationUserForm {
   imports: [CommonModule, FormsModule],
   templateUrl: './foundation-users.component.html',
 })
-export class FoundationUsersComponent implements OnInit {
+export class FoundationUsersComponent implements OnInit, OnDestroy {
   private svc = inject(FoundationUserService);
   private confirmDialog = inject(ConfirmDialogService);
+  private destroy$ = new Subject<void>();
+  private searchInput$ = new Subject<string>();
 
   readonly docTypes: SupervisorDocumentType[] = ['CC', 'CE', 'TI', 'PP', 'RC', 'NIT', 'PEP'];
   readonly creatableRoles = CREATABLE_ROLES;
+  readonly foundationRoles = FOUNDATION_ROLES;
   readonly roleLabels = ROLE_LABELS;
 
-  allUsers = signal<UserDetail[]>([]);
-  loading  = signal(true);
-  error    = signal<string | null>(null);
+  allUsers   = signal<UserDetail[]>([]);
+  loading    = signal(true);
+  error      = signal<string | null>(null);
+  nextCursor = signal<string | number | null>(null);
+  pageIndex  = signal(0);
+  private cursorHistory: (string | number | null)[] = [null];
 
-  users = computed(() => this.allUsers().filter(u => FOUNDATION_ROLES.includes(u.role as UserRole)));
+  searchTerm   = signal('');
+  statusFilter = signal<'all' | 'active' | 'inactive'>('all');
+  // "rol" no lo cubre el search del backend (solo nombre/email/teléfono) —
+  // se filtra en cliente, solo sobre la página actual.
+  roleFilter   = signal<UserRole | 'all'>('all');
+
+  users = computed(() => {
+    const role = this.roleFilter();
+    return this.allUsers().filter(u => {
+      if (!FOUNDATION_ROLES.includes(u.role as UserRole)) return false;
+      if (role !== 'all' && u.role !== role) return false;
+      return true;
+    });
+  });
 
   showForm  = signal(false);
   form: FoundationUserForm = emptyForm();
@@ -59,16 +79,72 @@ export class FoundationUsersComponent implements OnInit {
   saveError = signal<string | null>(null);
 
   ngOnInit(): void {
+    this.searchInput$.pipe(
+      debounceTime(400),
+      distinctUntilChanged(),
+      takeUntil(this.destroy$),
+    ).subscribe(term => {
+      this.searchTerm.set(term);
+      this.load();
+    });
     this.load();
   }
 
-  load(): void {
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  onSearchInput(term: string): void {
+    this.searchInput$.next(term);
+  }
+
+  onStatusFilterChange(status: 'all' | 'active' | 'inactive'): void {
+    this.statusFilter.set(status);
+    this.load();
+  }
+
+  load(resetPagination = true): void {
     this.loading.set(true);
     this.error.set(null);
-    this.svc.list().subscribe({
-      next: users => { this.allUsers.set(users ?? []); this.loading.set(false); },
+    if (resetPagination) {
+      this.cursorHistory = [null];
+      this.pageIndex.set(0);
+    }
+    const status = this.statusFilter();
+    const cursor = this.cursorHistory[this.pageIndex()];
+    this.svc.list({
+      search: this.searchTerm().trim() || undefined,
+      status: status === 'all' ? undefined : status,
+      cursor: cursor ?? undefined,
+    }).subscribe({
+      next: res => {
+        this.allUsers.set(res.data ?? []);
+        this.nextCursor.set(res.next_cursor);
+        this.loading.set(false);
+      },
       error: () => { this.error.set('No se pudo cargar el listado de usuarios.'); this.loading.set(false); },
     });
+  }
+
+  goToNextPage(): void {
+    const cursor = this.nextCursor();
+    if (!cursor) return;
+    if (this.pageIndex() === this.cursorHistory.length - 1) {
+      this.cursorHistory.push(cursor);
+    }
+    this.pageIndex.update(i => i + 1);
+    this.load(false);
+  }
+
+  goToPrevPage(): void {
+    if (this.pageIndex() === 0) return;
+    this.pageIndex.update(i => i - 1);
+    this.load(false);
+  }
+
+  get hasPrevPage(): boolean {
+    return this.pageIndex() > 0;
   }
 
   openAddForm(): void {

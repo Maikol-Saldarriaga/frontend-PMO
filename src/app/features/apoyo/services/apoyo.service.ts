@@ -1,7 +1,8 @@
 import { Injectable, inject } from '@angular/core';
-import { Observable, map } from 'rxjs';
+import { Observable } from 'rxjs';
 
 import { ApiHttpClient } from '../../../../core/api/http-client';
+import { CursorPage } from '../../../../core/api/paginate';
 import { ENDPOINTS } from '../../../../core/api/endpoints';
 import { UserDetail } from '../../../../core/users/models/user.model';
 import {
@@ -14,11 +15,16 @@ import {
 export class ApoyoService {
   private http = inject(ApiHttpClient);
 
-  // GET /users?role=APOYO — paginado (data, next_cursor), admin-only.
-  list(): Observable<UserDetail[]> {
-    return this.http.get<any>(ENDPOINTS.apoyo.list, { params: { role: 'APOYO' } }).pipe(
-      map(res => Array.isArray(res) ? res : (res?.data ?? [])),
-    );
+  // GET /users?role=APOYO&search=<texto>&status=active|inactive&limit=&cursor= — paginado
+  // (data, next_cursor), admin-only.
+  //   search: coincide contra first_name, first_surname, second_surname, email, phone
+  //   status: filtra por is_active (sin el param, devuelve todos)
+  list(params?: { search?: string; status?: 'active' | 'inactive'; cursor?: string | number; limit?: number }): Observable<CursorPage<UserDetail>> {
+    const query: Record<string, string> = { role: 'APOYO', limit: String(params?.limit ?? 20) };
+    if (params?.search) query['search'] = params.search;
+    if (params?.status) query['status'] = params.status;
+    if (params?.cursor) query['cursor'] = String(params.cursor);
+    return this.http.get<CursorPage<UserDetail>>(ENDPOINTS.apoyo.list, { params: query });
   }
 
   create(data: CreateSupervisorUserRequest): Observable<CreateSupervisorUserResponse> {

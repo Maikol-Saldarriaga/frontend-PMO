@@ -26,7 +26,7 @@ export class SidebarComponent {
   private authStore = inject(AuthStore);
 
   private allNavItems: NavItem[] = [
-    { label: 'Inicio',        icon: 'home',     route: '/dashboard' },
+    { label: 'Inicio',        icon: 'home',     route: '/dashboard', adminOnly: true },
     { label: 'Proyectos',     icon: 'folder',   route: '/projects' },
     { label: 'Documentos',    icon: 'document', route: '/documents' },
     { label: 'Cronograma',    icon: 'calendar', route: '/schedule' },

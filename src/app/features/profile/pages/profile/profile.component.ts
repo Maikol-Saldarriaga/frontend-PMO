@@ -31,11 +31,12 @@ export class ProfileComponent implements OnInit {
 
   profileForm = this.fb.group({
     first_name:               ['', Validators.required],
+    middle_name:              [''],
     first_surname:            ['', Validators.required],
-    phone:                    [''],
-    birthdate:                [''],
+    second_surname:           ['', Validators.required],
+    phone:                    ['', Validators.required],
     document_type:            ['CC'],
-    identity_document_number: [''],
+    identity_document_number: ['', Validators.required],
   });
 
   showCurrentPassword = signal(false);
@@ -59,22 +60,19 @@ export class ProfileComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    const userId = this.authStore.user()?.id;
-    if (!userId) { this.loadingProfile.set(false); return; }
-
-    this.userService.getProfile(userId).subscribe({
+    this.userService.getProfile().subscribe({
       next: (detail: UserDetail) => this.applyDetail(detail),
       error: () => this.loadingProfile.set(false),
     });
   }
 
   private applyDetail(d: UserDetail): void {
-    const birthdate = d.birthdate ? d.birthdate.split('T')[0] : '';
     this.profileForm.patchValue({
       first_name:               d.first_name,
+      middle_name:              d.middle_name ?? '',
       first_surname:            d.first_surname,
+      second_surname:           d.second_surname ?? '',
       phone:                    d.phone ?? '',
-      birthdate,
       document_type:            d.document_type ?? 'CC',
       identity_document_number: d.identity_document_number ?? '',
     });
@@ -115,9 +113,10 @@ export class ProfileComponent implements OnInit {
     const v = this.profileForm.getRawValue();
     this.userService.updateProfile({
       first_name:               v.first_name!,
+      middle_name:              v.middle_name || undefined,
       first_surname:            v.first_surname!,
+      second_surname:           v.second_surname!,
       phone:                    v.phone ?? '',
-      birthdate:                v.birthdate ?? '',
       document_type:            v.document_type ?? 'CC',
       identity_document_number: v.identity_document_number ?? '',
       image_url:                this.selectedFile(),

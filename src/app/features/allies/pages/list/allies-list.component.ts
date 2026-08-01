@@ -1,6 +1,7 @@
-import { Component, OnInit, signal, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subject, debounceTime, distinctUntilChanged, takeUntil } from 'rxjs';
 
 import { AllyService } from '../../services/ally.service';
 import { Ally, AllySupervisor } from '../../models/ally.model';
@@ -48,16 +49,30 @@ function emptySupervisorForm(): SupervisorForm {
   imports: [CommonModule, FormsModule],
   templateUrl: './allies-list.component.html',
 })
-export class AlliesListComponent implements OnInit {
+export class AlliesListComponent implements OnInit, OnDestroy {
   private svc = inject(AllyService);
   private supervisorSvc = inject(SupervisorService);
   private confirmDialog = inject(ConfirmDialogService);
+  private destroy$ = new Subject<void>();
+  private searchInput$ = new Subject<string>();
+  private supervisorSearchInput$ = new Subject<string>();
 
   readonly docTypes: SupervisorDocumentType[] = ['CC', 'CE', 'TI', 'PP', 'RC', 'NIT', 'PEP'];
 
-  allies  = signal<Ally[]>([]);
-  loading = signal(true);
-  error   = signal<string | null>(null);
+  allies     = signal<Ally[]>([]);
+  loading    = signal(true);
+  error      = signal<string | null>(null);
+  nextCursor = signal<string | number | null>(null);
+  pageIndex  = signal(0);
+  private cursorHistory: (string | number | null)[] = [null];
+
+  searchTerm   = signal('');
+  statusFilter = signal<'all' | 'active' | 'inactive'>('all');
+
+  supervisorSearchTerm  = signal('');
+  supervisorNextCursor  = signal<string | number | null>(null);
+  supervisorPageIndex   = signal(0);
+  private supervisorCursorHistory: (string | number | null)[] = [null];
 
   // ── Modal: crear/editar aliado ──────────────────────────────────────────
   showForm    = signal(false);
@@ -81,16 +96,86 @@ export class AlliesListComponent implements OnInit {
   supervisorSaveError = signal<string | null>(null);
 
   ngOnInit(): void {
+    this.searchInput$.pipe(
+      debounceTime(400),
+      distinctUntilChanged(),
+      takeUntil(this.destroy$),
+    ).subscribe(term => {
+      this.searchTerm.set(term);
+      this.load();
+    });
+
+    this.supervisorSearchInput$.pipe(
+      debounceTime(400),
+      distinctUntilChanged(),
+      takeUntil(this.destroy$),
+    ).subscribe(term => {
+      this.supervisorSearchTerm.set(term);
+      this.loadSupervisors();
+    });
+
     this.load();
   }
 
-  load(): void {
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  onSearchInput(term: string): void {
+    this.searchInput$.next(term);
+  }
+
+  onStatusFilterChange(status: 'all' | 'active' | 'inactive'): void {
+    this.statusFilter.set(status);
+    this.load();
+  }
+
+  onSupervisorSearchInput(term: string): void {
+    this.supervisorSearchInput$.next(term);
+  }
+
+  load(resetPagination = true): void {
     this.loading.set(true);
     this.error.set(null);
-    this.svc.list().subscribe({
-      next: allies => { this.allies.set(allies ?? []); this.loading.set(false); },
+    if (resetPagination) {
+      this.cursorHistory = [null];
+      this.pageIndex.set(0);
+    }
+    const status = this.statusFilter();
+    const cursor = this.cursorHistory[this.pageIndex()];
+    this.svc.list({
+      search: this.searchTerm().trim() || undefined,
+      status: status === 'all' ? undefined : status,
+      cursor: cursor ?? undefined,
+    }).subscribe({
+      next: res => {
+        this.allies.set(res.data ?? []);
+        this.nextCursor.set(res.next_cursor);
+        this.loading.set(false);
+      },
       error: () => { this.error.set('No se pudo cargar el listado de aliados.'); this.loading.set(false); },
     });
+  }
+
+  goToNextPage(): void {
+    const cursor = this.nextCursor();
+    if (!cursor) return;
+    if (this.pageIndex() === this.cursorHistory.length - 1) {
+      this.cursorHistory.push(cursor);
+    }
+    this.pageIndex.update(i => i + 1);
+    this.load(false);
+  }
+
+  goToPrevPage(): void {
+    if (this.pageIndex() === 0) return;
+    this.pageIndex.update(i => i - 1);
+    this.load(false);
+  }
+
+  get hasPrevPage(): boolean {
+    return this.pageIndex() > 0;
   }
 
   // ── Crear/editar aliado ──────────────────────────────────────────────────
@@ -172,6 +257,7 @@ export class AlliesListComponent implements OnInit {
 
   openSupervisors(ally: Ally): void {
     this.activeAlly.set(ally);
+    this.supervisorSearchTerm.set('');
     this.showSupervisors.set(true);
     this.loadSupervisors();
   }
@@ -182,15 +268,44 @@ export class AlliesListComponent implements OnInit {
     this.activeAlly.set(null);
   }
 
-  private loadSupervisors(): void {
+  private loadSupervisors(resetPagination = true): void {
     const ally = this.activeAlly();
     if (!ally) return;
     this.supervisorsLoading.set(true);
     this.supervisorsError.set(null);
-    this.svc.listSupervisors(ally.id).subscribe({
-      next: sups => { this.supervisors.set(sups ?? []); this.supervisorsLoading.set(false); },
+    if (resetPagination) {
+      this.supervisorCursorHistory = [null];
+      this.supervisorPageIndex.set(0);
+    }
+    const cursor = this.supervisorCursorHistory[this.supervisorPageIndex()];
+    this.svc.listSupervisors(ally.id, { search: this.supervisorSearchTerm().trim() || undefined, cursor: cursor ?? undefined }).subscribe({
+      next: res => {
+        this.supervisors.set(res.data ?? []);
+        this.supervisorNextCursor.set(res.next_cursor);
+        this.supervisorsLoading.set(false);
+      },
       error: () => { this.supervisorsError.set('No se pudieron cargar los supervisores.'); this.supervisorsLoading.set(false); },
     });
+  }
+
+  goToSupervisorNextPage(): void {
+    const cursor = this.supervisorNextCursor();
+    if (!cursor) return;
+    if (this.supervisorPageIndex() === this.supervisorCursorHistory.length - 1) {
+      this.supervisorCursorHistory.push(cursor);
+    }
+    this.supervisorPageIndex.update(i => i + 1);
+    this.loadSupervisors(false);
+  }
+
+  goToSupervisorPrevPage(): void {
+    if (this.supervisorPageIndex() === 0) return;
+    this.supervisorPageIndex.update(i => i - 1);
+    this.loadSupervisors(false);
+  }
+
+  get hasSupervisorPrevPage(): boolean {
+    return this.supervisorPageIndex() > 0;
   }
 
   openAddSupervisorForm(): void {

@@ -94,8 +94,8 @@ export class Step1GeneralInfoComponent implements OnInit, OnChanges {
   });
 
   ngOnInit(): void {
-    this.allySvc.list().subscribe({
-      next: allies => this.allies.set((allies ?? []).filter(a => a.is_active)),
+    this.allySvc.listAll().subscribe({
+      next: allies => this.allies.set(allies ?? []),
       error: () => this.allies.set([]),
     });
 

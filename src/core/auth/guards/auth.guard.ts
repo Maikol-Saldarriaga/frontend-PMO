@@ -24,10 +24,10 @@ export const canCreateProjectGuard: CanActivateFn = () => {
     return true;
   }
 
-  return router.createUrlTree(['/dashboard']);
+  return router.createUrlTree(['/projects']);
 };
 
-// Solo ADMIN — secciones de administración (ej. Alianzas).
+// Solo ADMIN — secciones de administración (ej. Alianzas) y el dashboard/Inicio.
 export const adminGuard: CanActivateFn = () => {
   const authStore = inject(AuthStore);
   const router    = inject(Router);
@@ -36,7 +36,7 @@ export const adminGuard: CanActivateFn = () => {
     return true;
   }
 
-  return router.createUrlTree(['/dashboard']);
+  return router.createUrlTree(['/projects']);
 };
 
 // Enruta '/' y cualquier ruta no encontrada según haya o no sesión persistida,
@@ -45,5 +45,10 @@ export const rootRedirectGuard: CanActivateFn = () => {
   const authStore = inject(AuthStore);
   const router    = inject(Router);
 
-  return router.createUrlTree([authStore.isLoggedIn() ? '/dashboard' : '/login']);
+  if (!authStore.isLoggedIn()) {
+    return router.createUrlTree(['/login']);
+  }
+
+  const isAdmin = authStore.user()?.role === 'ADMIN';
+  return router.createUrlTree([isAdmin ? '/dashboard' : '/projects']);
 };

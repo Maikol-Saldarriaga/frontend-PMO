@@ -139,14 +139,24 @@
     <nav class="flex items-end gap-1.5 overflow-x-auto scrollbar-none pt-3 -mx-1 px-1">
       @for (tab of visibleTabs(); track tab.id) {
         <button (click)="onTabClick(tab.id)"
-          class="group flex flex-col items-center gap-2 px-5 py-3.5 rounded-t-xl transition-all duration-200 whitespace-nowrap flex-shrink-0 border-b-2 hover:opacity-90 min-w-[72px]"
+          [disabled]="isTabLocked(tab.id)"
+          [title]="isTabLocked(tab.id) ? 'No tienes permiso para ver esta sección' : ''"
+          class="group relative flex flex-col items-center gap-2 px-5 py-3.5 rounded-t-xl transition-all duration-200 whitespace-nowrap flex-shrink-0 border-b-2 hover:opacity-90 min-w-[72px]"
           [class.bg-sky-500]="activeTab() === tab.id"
           [class.border-sky-500]="activeTab() === tab.id"
           [class.shadow-md]="activeTab() === tab.id"
           [class.shadow-sky-200]="activeTab() === tab.id"
           [class.bg-gray-50]="activeTab() !== tab.id"
           [class.border-transparent]="activeTab() !== tab.id"
-          [class.hover:bg-gray-100]="activeTab() !== tab.id">
+          [class.hover:bg-gray-100]="activeTab() !== tab.id && !isTabLocked(tab.id)"
+          [class.opacity-40]="isTabLocked(tab.id)"
+          [class.cursor-not-allowed]="isTabLocked(tab.id)">
+
+          @if (isTabLocked(tab.id)) {
+            <svg class="w-3.5 h-3.5 absolute top-1.5 right-1.5 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+            </svg>
+          }
 
           <!-- Icono -->
           <svg class="w-5 h-5 flex-shrink-0 transition-colors"
@@ -175,79 +185,79 @@
 ══════════════════════════════════════════════════════════════════ -->
 
 @if (activeTab() === 'resumen') {
-  <app-tab-resumen [details]="details()!" [locked]="isProjectLocked()" (switchTab)="onTabClick($event)" />
+  <app-tab-resumen [details]="details()!" [locked]="isTabReadOnly('resumen')" [showGantt]="canViewCronograma()" (switchTab)="onTabClick($event)" />
 }
 
 @if (activeTab() === 'alcance') {
-  <app-tab-alcance [projectId]="projectId" [locked]="isProjectLocked()" />
+  <app-tab-alcance [projectId]="projectId" [locked]="isTabReadOnly('alcance')" />
 }
 
 @if (activeTab() === 'ubicaciones') {
-  <app-tab-ubicaciones [projectId]="projectId" [locked]="isProjectLocked()" />
+  <app-tab-ubicaciones [projectId]="projectId" [locked]="isTabReadOnly('ubicaciones')" />
 }
 
 @if (activeTab() === 'condiciones') {
-  <app-tab-condiciones [projectId]="projectId" [locked]="isProjectLocked()" />
+  <app-tab-condiciones [projectId]="projectId" [locked]="isTabReadOnly('condiciones')" />
 }
 
 @if (activeTab() === 'cronograma') {
-  <app-tab-cronograma [projectId]="projectId" [locked]="isProjectLocked()" />
+  <app-tab-cronograma [projectId]="projectId" [locked]="isTabReadOnly('cronograma')" />
 }
 
 @if (activeTab() === 'presupuesto') {
-  <app-tab-presupuesto [projectId]="projectId" [locked]="isProjectLocked()" />
+  <app-tab-presupuesto [projectId]="projectId" [locked]="isTabReadOnly('presupuesto')" />
 }
 
 @if (activeTab() === 'facturacion') {
-  <app-tab-facturacion [projectId]="projectId" [locked]="isProjectLocked()" />
+  <app-tab-facturacion [projectId]="projectId" [locked]="isTabReadOnly('facturacion')" />
 }
 
 @if (activeTab() === 'beneficiarios') {
-  <app-tab-beneficiarios [projectId]="projectId" [locked]="isProjectLocked()" />
+  <app-tab-beneficiarios [projectId]="projectId" [locked]="isTabReadOnly('beneficiarios')" />
 }
 
 @if (activeTab() === 'seguimiento') {
-  <app-tab-seguimiento-tecnico [projectId]="projectId" [locked]="isProjectLocked()" />
+  <app-tab-seguimiento-tecnico [projectId]="projectId" [locked]="isTabReadOnly('seguimiento')" />
 }
 
 @if (activeTab() === 'riesgos') {
-  <app-tab-riesgos [projectId]="projectId" [locked]="isProjectLocked()" />
+  <app-tab-riesgos [projectId]="projectId" [locked]="isTabReadOnly('riesgos')" />
 }
 
 @if (activeTab() === 'entregables') {
-  <app-tab-entregables [projectId]="projectId" [locked]="isProjectLocked()" />
+  <app-tab-entregables [projectId]="projectId" [locked]="isTabReadOnly('entregables')" />
 }
 
 @if (activeTab() === 'indicadores') {
-  <app-tab-indicadores [projectId]="projectId" [locked]="isProjectLocked()" />
+  <app-tab-indicadores [projectId]="projectId" [locked]="isTabReadOnly('indicadores')" />
 }
 
 @if (activeTab() === 'documentos') {
-  <app-tab-documentos [projectId]="projectId" [locked]="isProjectLocked()" />
+  <app-tab-documentos [projectId]="projectId" [locked]="isTabReadOnly('documentos')" />
 }
 
 @if (activeTab() === 'obligaciones') {
-  <app-tab-obligaciones [projectId]="projectId" [locked]="isProjectLocked()" />
+  <app-tab-obligaciones [projectId]="projectId" [locked]="isTabReadOnly('obligaciones')" />
 }
 
 @if (activeTab() === 'abastecimiento') {
-  <app-tab-abastecimiento [projectId]="projectId" [locked]="isProjectLocked()" />
+  <app-tab-abastecimiento [projectId]="projectId" [locked]="isTabReadOnly('abastecimiento')" />
 }
 
 @if (activeTab() === 'flujo-caja') {
-  <app-tab-flujo-caja [projectId]="projectId" [locked]="isProjectLocked()" />
+  <app-tab-flujo-caja [projectId]="projectId" [locked]="isTabReadOnly('flujo-caja')" />
 }
 
 @if (activeTab() === 'equipo') {
-  <app-tab-equipo [projectId]="projectId" [locked]="isProjectLocked()" />
+  <app-tab-equipo [projectId]="projectId" [locked]="isTabReadOnly('equipo')" />
 }
 
 @if (activeTab() === 'garantias') {
-  <app-tab-garantias [projectId]="projectId" [locked]="isProjectLocked()" />
+  <app-tab-garantias [projectId]="projectId" [locked]="isTabReadOnly('garantias')" />
 }
 
 @if (activeTab() === 'firmas') {
-  <app-tab-firmas [projectId]="projectId" [locked]="isProjectLocked()" />
+  <app-tab-firmas [projectId]="projectId" [locked]="isTabReadOnly('firmas')" />
 }
 
 @if (activeTab() !== 'resumen' && activeTab() !== 'alcance' && activeTab() !== 'ubicaciones' && activeTab() !== 'condiciones' && activeTab() !== 'cronograma' && activeTab() !== 'presupuesto' && activeTab() !== 'facturacion' && activeTab() !== 'beneficiarios' && activeTab() !== 'seguimiento' && activeTab() !== 'riesgos' && activeTab() !== 'entregables' && activeTab() !== 'indicadores' && activeTab() !== 'documentos' && activeTab() !== 'obligaciones' && activeTab() !== 'abastecimiento' && activeTab() !== 'flujo-caja' && activeTab() !== 'equipo' && activeTab() !== 'garantias' && activeTab() !== 'firmas') {

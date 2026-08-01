@@ -1,6 +1,7 @@
-import { Component, Input, OnInit, signal, computed, inject } from '@angular/core';
+import { Component, Input, OnInit, OnDestroy, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subject, debounceTime, distinctUntilChanged, takeUntil } from 'rxjs';
 import { ProjectService } from '../../../../services/project.service';
 import { ContractService } from '../../../../services/contract.service';
 import { SupervisorService } from '../../../../services/supervisor.service';
@@ -44,7 +45,7 @@ function emptyPermissions(): Record<ProjectSection, SectionPermission> {
   imports: [CommonModule, FormsModule],
   templateUrl: './tab-equipo.component.html',
 })
-export class TabEquipoComponent implements OnInit {
+export class TabEquipoComponent implements OnInit, OnDestroy {
   @Input() projectId!: string;
   @Input() locked = false;
 
@@ -54,6 +55,9 @@ export class TabEquipoComponent implements OnInit {
   private allySvc      = inject(AllyService);
   private auth          = inject(AuthStore);
   private confirmDialog = inject(ConfirmDialogService);
+  private destroy$ = new Subject<void>();
+  private principalSearch$ = new Subject<string>();
+  private allySupSearch$   = new Subject<string>();
 
   readonly sections = ALL_SECTIONS;
   readonly sectionLabels = SECTION_LABELS;
@@ -80,6 +84,14 @@ export class TabEquipoComponent implements OnInit {
   savingAssignments = signal(false);
   assignmentSaveError = signal<string | null>(null);
 
+  // ── Autocomplete: coordinador principal / supervisor aliado ────────────────
+  principalSearchText  = '';
+  allySupSearchText     = '';
+  showPrincipalDropdown = signal(false);
+  showAllySupDropdown   = signal(false);
+  principalOptions      = signal<SupervisorUser[]>([]);
+  allySupOptions         = signal<AffiliateUser[]>([]);
+
   isPrincipalSupervisor = computed(() => {
     const me = this.auth.user()?.id;
     return !!me && me === this.principalSupervisorId();
@@ -90,8 +102,12 @@ export class TabEquipoComponent implements OnInit {
     return !!me && me === this.allySupervisorId();
   });
 
-  // Alianza, coordinador principal y supervisor aliado: solo ADMIN puede editar.
-  canEditAssignments = computed(() => !this.locked && this.isAdmin());
+  // Alianza y supervisor aliado: ADMIN o el coordinador principal del proyecto pueden editar.
+  canEditAssignments = computed(() => !this.locked && (this.isAdmin() || this.isPrincipalSupervisor()));
+
+  // Coordinador principal: libre mientras no haya uno asignado; una vez elegido,
+  // solo ADMIN puede cambiarlo (el backend devuelve 403 si un no-admin lo intenta).
+  canChangePrincipal = computed(() => this.isAdmin() || !this.principalSupervisorId());
 
   // Equipo: además del ADMIN, el coordinador principal y el supervisor aliado pueden administrarlo.
   canEditTeam = computed(() => !this.locked && (this.isAdmin() || this.isPrincipalSupervisor() || this.isAllySupervisorUser()));
@@ -128,6 +144,25 @@ export class TabEquipoComponent implements OnInit {
   ngOnInit(): void {
     this.load();
     this.loadAssignments();
+
+    // Debounce cortico (250ms) — la idea es que se sienta reactivo tecleando,
+    // sin saturar el backend en cada letra.
+    this.principalSearch$.pipe(
+      debounceTime(250),
+      distinctUntilChanged(),
+      takeUntil(this.destroy$),
+    ).subscribe(term => this.fetchPrincipalOptions(term));
+
+    this.allySupSearch$.pipe(
+      debounceTime(250),
+      distinctUntilChanged(),
+      takeUntil(this.destroy$),
+    ).subscribe(term => this.fetchAllySupOptions(term));
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   load(): void {
@@ -153,8 +188,8 @@ export class TabEquipoComponent implements OnInit {
     this.loadingAssignments.set(true);
     this.assignmentsError.set(null);
 
-    this.allySvc.list().subscribe({
-      next:  allies => this.allies.set((allies ?? []).filter(a => a.is_active)),
+    this.allySvc.listAll().subscribe({
+      next:  allies => this.allies.set(allies ?? []),
       error: () => this.allies.set([]),
     });
 
@@ -191,8 +226,86 @@ export class TabEquipoComponent implements OnInit {
     this.formAllyId      = this.allyId() ?? '';
     this.formPrincipalId = this.principalSupervisorId() ?? '';
     this.formAllySupId   = this.allySupervisorId() ?? '';
+    this.principalSearchText = this.principalSupervisorName() ?? '';
+    this.allySupSearchText   = this.allySupervisorName() ?? '';
+    this.principalOptions.set(this.supervisors());
+    this.allySupOptions.set(this.affiliates());
     this.assignmentSaveError.set(null);
     this.showAssignmentForm.set(true);
+  }
+
+  private fetchPrincipalOptions(term: string): void {
+    this.supervisorSvc.getList(this.formAllyId || null, term).subscribe({
+      next: res => this.principalOptions.set(res.users ?? []),
+      error: () => {},
+    });
+  }
+
+  private fetchAllySupOptions(term: string): void {
+    if (!this.formAllyId) { this.allySupOptions.set([]); return; }
+    this.supervisorSvc.getList(this.formAllyId, term).subscribe({
+      next: res => this.allySupOptions.set(res.affiliates ?? []),
+      error: () => {},
+    });
+  }
+
+  onPrincipalFocus(): void {
+    if (!this.canChangePrincipal()) return;
+    this.showPrincipalDropdown.set(true);
+    if (!this.principalOptions().length) this.fetchPrincipalOptions('');
+  }
+
+  onPrincipalInput(value: string): void {
+    if (!this.canChangePrincipal()) return;
+    this.principalSearchText = value;
+    this.formPrincipalId = '';
+    this.showPrincipalDropdown.set(true);
+    this.principalSearch$.next(value);
+  }
+
+  onPrincipalBlur(): void {
+    setTimeout(() => this.showPrincipalDropdown.set(false), 150);
+  }
+
+  selectPrincipal(s: SupervisorUser): void {
+    this.formPrincipalId = s.id;
+    this.principalSearchText = s.full_name;
+    this.showPrincipalDropdown.set(false);
+  }
+
+  clearPrincipal(): void {
+    this.formPrincipalId = '';
+    this.principalSearchText = '';
+    this.showPrincipalDropdown.set(false);
+  }
+
+  onAllySupFocus(): void {
+    if (!this.formAllyId) return;
+    this.showAllySupDropdown.set(true);
+    if (!this.allySupOptions().length) this.fetchAllySupOptions('');
+  }
+
+  onAllySupInput(value: string): void {
+    this.allySupSearchText = value;
+    this.formAllySupId = '';
+    this.showAllySupDropdown.set(true);
+    this.allySupSearch$.next(value);
+  }
+
+  onAllySupBlur(): void {
+    setTimeout(() => this.showAllySupDropdown.set(false), 150);
+  }
+
+  selectAllySup(a: AffiliateUser): void {
+    this.formAllySupId = a.id;
+    this.allySupSearchText = a.full_name;
+    this.showAllySupDropdown.set(false);
+  }
+
+  clearAllySup(): void {
+    this.formAllySupId = '';
+    this.allySupSearchText = '';
+    this.showAllySupDropdown.set(false);
   }
 
   cancelAssignmentForm(): void {
@@ -204,13 +317,9 @@ export class TabEquipoComponent implements OnInit {
   // y recarga la lista de afiliados para la nueva alianza.
   onFormAllyChange(): void {
     this.formAllySupId = '';
-    this.supervisorSvc.getList(this.formAllyId || null).subscribe({
-      next: res => {
-        this.supervisors.set(res.users ?? []);
-        this.affiliates.set(res.affiliates ?? []);
-      },
-      error: () => {},
-    });
+    this.allySupSearchText = '';
+    this.fetchPrincipalOptions(this.principalSearchText);
+    this.fetchAllySupOptions('');
   }
 
   // Un solo PUT liviano (steps/supervisors) para los 3 campos — no reenvía el
@@ -238,7 +347,7 @@ export class TabEquipoComponent implements OnInit {
   private handleAssignmentError(err: { status?: number; error?: { error?: string; message?: string } }): void {
     this.savingAssignments.set(false);
     const msg = err?.status === 403
-      ? 'Solo un administrador puede editar la alianza y los supervisores.'
+      ? (err?.error?.error ?? err?.error?.message ?? 'Solo un administrador puede cambiar el coordinador principal.')
       : (err?.error?.error ?? err?.error?.message ?? 'Error al guardar los cambios.');
     this.assignmentSaveError.set(msg);
   }

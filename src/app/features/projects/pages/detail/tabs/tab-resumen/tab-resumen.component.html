@@ -108,6 +108,7 @@
   <div class="grid grid-cols-1 lg:grid-cols-5 gap-5">
 
     <!-- Gantt (3 cols) -->
+    @if (showGantt) {
     <div class="lg:col-span-3 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
       <div class="px-5 py-4 border-b border-gray-50 flex items-center justify-between shrink-0">
         <div>
@@ -203,6 +204,7 @@
         </div>
       }
     </div>
+    }
 
     <!-- Donut Por Componente (2 cols) -->
     <div class="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex flex-col">

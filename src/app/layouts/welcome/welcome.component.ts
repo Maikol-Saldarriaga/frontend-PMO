@@ -8,5 +8,5 @@ import { RouterLink } from '@angular/router';
   styleUrl: './welcome.component.scss'
 })
 export class WelcomeComponent {
-
+  currentYear = new Date().getFullYear();
 }

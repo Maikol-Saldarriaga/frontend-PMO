@@ -17,8 +17,12 @@ export class SupervisorService {
 
   // allyId filtra los supervisores aliados (affiliates) a los de esa alianza —
   // el backend ya soporta ?ally_id=. Sin él, devuelve todos (comportamiento previo).
-  getList(allyId?: string | null): Observable<SupervisorListResponse> {
-    const params = allyId ? { ally_id: allyId } : undefined;
+  // search: ILIKE sobre nombre completo, aplica tanto a coordinadores como a
+  // supervisores aliados. Cada lista viene topada a 200 filas server-side.
+  getList(allyId?: string | null, search?: string): Observable<SupervisorListResponse> {
+    const params: Record<string, string> = {};
+    if (allyId) params['ally_id'] = allyId;
+    if (search) params['search'] = search;
     return this.http.get<SupervisorListResponse>(ENDPOINTS.supervisors.list, { params });
   }
 

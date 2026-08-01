@@ -118,6 +118,7 @@ export const ENDPOINTS = {
   },
   users: {
     list:         `${API_URL}/users`,
+    me:           `${API_URL}/users/me`,
     get:          (id: string) => `${API_URL}/users/${id}`,
     update:       (id: string) => `${API_URL}/users/${id}`,
     updateMe:     `${API_URL}/users/me`,

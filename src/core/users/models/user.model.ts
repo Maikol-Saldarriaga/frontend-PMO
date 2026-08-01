@@ -19,9 +19,10 @@ export interface UserDetail {
 
 export interface UpdateUserRequest {
   first_name:               string;
+  middle_name?:             string;
   first_surname:            string;
+  second_surname?:          string;
   phone:                    string;
-  birthdate:                string;
   document_type:            string;
   identity_document_number: string;
   image_url?:               File | null;
