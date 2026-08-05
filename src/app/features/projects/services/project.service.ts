@@ -47,6 +47,8 @@ import {
   ScopeSnapshotsResponse,
   GenerateSnapshotsRequest,
   GenerateSnapshotsResponse,
+  DateRange,
+  DeleteSnapshotsByRangeResponse,
   TrackingReport,
   ReportToken,
   CreateReportTokenResponse,
@@ -281,6 +283,14 @@ export class ProjectService {
 
   generateSnapshots(id: string, sid: string, data: GenerateSnapshotsRequest): Observable<GenerateSnapshotsResponse> {
     return this.http.post<GenerateSnapshotsResponse>(ENDPOINTS.projects.scopeSnapshotsAutoGenerate(id, sid), data);
+  }
+
+  deleteSnapshot(id: string, sid: string, snid: string): Observable<void> {
+    return this.http.delete<void>(ENDPOINTS.projects.scopeSnapshotById(id, sid, snid));
+  }
+
+  deleteSnapshotsByRange(id: string, sid: string, range: DateRange): Observable<DeleteSnapshotsByRangeResponse> {
+    return this.http.post<DeleteSnapshotsByRangeResponse>(ENDPOINTS.projects.scopeSnapshotsDeleteRange(id, sid), range);
   }
 
   getTrackingReport(id: string): Observable<TrackingReport> {

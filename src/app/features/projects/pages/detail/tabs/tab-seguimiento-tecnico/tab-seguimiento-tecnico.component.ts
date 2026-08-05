@@ -6,7 +6,7 @@ import { ServerTimeService } from '../../../../../../core/services/server-time.s
 import {
   ProjectSnapshotItem, Snapshot, SnapshotRequest, ScopeSnapshotsResponse,
   ScopeComponent, ScopeActivity, CheckpointPeriodicity, GenerateSnapshotsRequest,
-  BudgetReportParams,
+  BudgetReportParams, DateRange,
 } from '../../../../models/project.model';
 import { environment } from '../../../../../../../environments/environment';
 import { AuthStore } from '../../../../../../../core/auth/store/auth.store';
@@ -57,6 +57,11 @@ const emptyAutoForm = (): AutoForm => ({
   periodicity: 'mensual',
   custom_days: null,
 });
+
+interface ExcludedRangeDraft {
+  start_date: string;
+  end_date:   string;
+}
 
 @Component({
   selector: 'app-tab-seguimiento-tecnico',
@@ -161,6 +166,17 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
   autoPreviewList = signal<Snapshot[] | null>(null);
   autoLoading     = signal(false);
   autoError       = signal<string | null>(null);
+  /** Rangos sin seguimiento: se excluyen tanto del cálculo automático como de los períodos ya guardados. */
+  excludedRanges  = signal<ExcludedRangeDraft[]>([]);
+  newExcludedRange: ExcludedRangeDraft = { start_date: '', end_date: '' };
+  excludedRangeError = signal<string | null>(null);
+
+  // ── Eliminar períodos ya registrados (individual o por rango) ────────────
+  deletingSnapshot   = signal<string | null>(null); // id del snapshot siendo eliminado
+  showDeleteRangeForm = signal(false);
+  deleteRangeForm: ExcludedRangeDraft = { start_date: '', end_date: '' };
+  deleteRangeLoading = signal(false);
+  deleteRangeError   = signal<string | null>(null);
 
   activities = computed<FlatActivity[]>(() =>
     this.scopeComponents().flatMap(c =>
@@ -264,6 +280,7 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
     this.scopeBounds.set(null);
     this.showForm.set(false);
     this.showAutoForm.set(false);
+    this.showDeleteRangeForm.set(false);
     this.loadActivitySnapshots(act.id);
   }
 
@@ -288,6 +305,7 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
     this.form = { ...emptyForm(), start_date: this.effectiveStart() ?? '', end_date: this.effectiveEnd() ?? '' };
     this.editingSnap.set(null);
     this.showAutoForm.set(false);
+    this.showDeleteRangeForm.set(false);
     this.showForm.set(true);
     this.saveError.set(null);
   }
@@ -302,6 +320,7 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
     };
     this.editingSnap.set(snap);
     this.showAutoForm.set(false);
+    this.showDeleteRangeForm.set(false);
     this.showForm.set(true);
     this.saveError.set(null);
   }
@@ -320,7 +339,11 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
     this.autoForm = emptyAutoForm();
     this.autoPreviewList.set(null);
     this.autoError.set(null);
+    this.excludedRanges.set([]);
+    this.newExcludedRange = { start_date: '', end_date: '' };
+    this.excludedRangeError.set(null);
     this.showForm.set(false);
+    this.showDeleteRangeForm.set(false);
     this.showAutoForm.set(true);
   }
 
@@ -328,6 +351,39 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
     this.showAutoForm.set(false);
     this.autoPreviewList.set(null);
     this.autoError.set(null);
+    this.excludedRanges.set([]);
+  }
+
+  addExcludedRange(): void {
+    const { start_date, end_date } = this.newExcludedRange;
+    this.excludedRangeError.set(null);
+    if (!start_date || !end_date) {
+      this.excludedRangeError.set('Indica fecha inicio y fecha fin del rango a excluir.');
+      return;
+    }
+    if (end_date < start_date) {
+      this.excludedRangeError.set('La fecha fin del rango no puede ser anterior a la fecha inicio.');
+      return;
+    }
+    const minDate = this.effectiveStart();
+    const maxDate = this.effectiveEnd();
+    if ((minDate && start_date < minDate) || (maxDate && end_date > maxDate)) {
+      this.excludedRangeError.set('El rango excluido debe estar dentro del período de la actividad.');
+      return;
+    }
+    const overlap = this.excludedRanges().some(r => start_date <= r.end_date && end_date >= r.start_date);
+    if (overlap) {
+      this.excludedRangeError.set('Ese rango se superpone con otro rango excluido ya agregado.');
+      return;
+    }
+    this.excludedRanges.update(list => [...list, { start_date, end_date }].sort((a, b) => a.start_date.localeCompare(b.start_date)));
+    this.newExcludedRange = { start_date: '', end_date: '' };
+    this.autoPreviewList.set(null);
+  }
+
+  removeExcludedRange(idx: number): void {
+    this.excludedRanges.update(list => list.filter((_, i) => i !== idx));
+    this.autoPreviewList.set(null);
   }
 
   previewAutoGenerate(): void {
@@ -341,6 +397,7 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
       periodicity: this.autoForm.periodicity,
       custom_days: this.autoForm.custom_days ?? undefined,
       preview: true,
+      excluded_ranges: this.excludedRanges(),
     };
     this.autoLoading.set(true);
     this.autoError.set(null);
@@ -369,6 +426,7 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
       custom_days: this.autoForm.custom_days ?? undefined,
       preview: false,
       replace,
+      excluded_ranges: this.excludedRanges(),
     };
     this.autoLoading.set(true);
     this.autoError.set(null);
@@ -377,12 +435,89 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
         this.autoLoading.set(false);
         this.showAutoForm.set(false);
         this.autoPreviewList.set(null);
+        this.excludedRanges.set([]);
         this.loadActivitySnapshots(act.id);
         this.load();
       },
       error: err => {
         this.autoError.set(err?.error?.error ?? err?.error?.message ?? 'No se pudieron guardar los períodos.');
         this.autoLoading.set(false);
+      },
+    });
+  }
+
+  // ── Eliminar períodos ya registrados ──────────────────────────────────────
+
+  async deleteSnapshot(snap: Snapshot): Promise<void> {
+    const act = this.selectedActivity();
+    if (!act || !snap.id || this.isSnapshotLocked(snap)) return;
+    const label = `${(snap.start_date || '').slice(0, 10)} → ${(snap.end_date || '').slice(0, 10)}`;
+    if (!(await this.confirmDialog.confirm({ message: `¿Eliminar el período ${label}? Esta acción no se puede deshacer.` }))) {
+      return;
+    }
+    this.deletingSnapshot.set(snap.id);
+    this.svc.deleteSnapshot(this.projectId, act.id, snap.id).subscribe({
+      next: () => {
+        this.deletingSnapshot.set(null);
+        this.activitySnaps.update(list => list.filter(s => s.id !== snap.id));
+        this.allSnapshots.update(list => list.filter(s => s.id_checkpoint !== snap.id));
+      },
+      error: err => {
+        this.deletingSnapshot.set(null);
+        this.error.set(err?.error?.error ?? err?.error?.message ?? 'No se pudo eliminar el período.');
+      },
+    });
+  }
+
+  openDeleteRangeForm(): void {
+    this.deleteRangeForm = { start_date: '', end_date: '' };
+    this.deleteRangeError.set(null);
+    this.showForm.set(false);
+    this.showAutoForm.set(false);
+    this.showDeleteRangeForm.set(true);
+  }
+
+  cancelDeleteRangeForm(): void {
+    this.showDeleteRangeForm.set(false);
+    this.deleteRangeError.set(null);
+  }
+
+  async confirmDeleteRange(): Promise<void> {
+    const act = this.selectedActivity();
+    if (!act) return;
+    const { start_date, end_date } = this.deleteRangeForm;
+    this.deleteRangeError.set(null);
+    if (!start_date || !end_date) {
+      this.deleteRangeError.set('Indica fecha inicio y fecha fin del rango a eliminar.');
+      return;
+    }
+    if (end_date < start_date) {
+      this.deleteRangeError.set('La fecha fin no puede ser anterior a la fecha inicio.');
+      return;
+    }
+    const affected = this.activitySnaps().filter(s => {
+      const s0 = toDateOnly(s.start_date)!, s1 = toDateOnly(s.end_date)!;
+      return start_date <= s1 && end_date >= s0;
+    });
+    if (affected.length === 0) {
+      this.deleteRangeError.set('Ningún período registrado se solapa con ese rango.');
+      return;
+    }
+    if (!(await this.confirmDialog.confirm({ message: `Se eliminarán ${affected.length} período(s) que se solapan con ${start_date} → ${end_date}. ¿Continuar?` }))) {
+      return;
+    }
+    this.deleteRangeLoading.set(true);
+    const range: DateRange = { start_date, end_date };
+    this.svc.deleteSnapshotsByRange(this.projectId, act.id, range).subscribe({
+      next: () => {
+        this.deleteRangeLoading.set(false);
+        this.showDeleteRangeForm.set(false);
+        this.loadActivitySnapshots(act.id);
+        this.load();
+      },
+      error: err => {
+        this.deleteRangeLoading.set(false);
+        this.deleteRangeError.set(err?.error?.error ?? err?.error?.message ?? 'No se pudieron eliminar los períodos.');
       },
     });
   }

@@ -735,6 +735,11 @@ export interface ProjectSnapshotsResponse {
 
 export type CheckpointPeriodicity = 'mensual' | 'mensual_calendario' | 'semanal' | 'quincenal' | 'personalizado';
 
+export interface DateRange {
+  start_date: string;
+  end_date:   string;
+}
+
 export interface GenerateSnapshotsRequest {
   periodicity:  CheckpointPeriodicity;
   /** Requerido (> 0) solo cuando periodicity = 'personalizado'. */
@@ -743,10 +748,16 @@ export interface GenerateSnapshotsRequest {
   preview:      boolean;
   /** true = confirma reemplazar los periodos ya existentes de la actividad. */
   replace?:     boolean;
+  /** Rangos de fechas donde no se generará ningún período (ej. pausas de temporada). */
+  excluded_ranges?: DateRange[];
 }
 
 export interface GenerateSnapshotsResponse {
   checkpoints: Snapshot[];
+}
+
+export interface DeleteSnapshotsByRangeResponse {
+  deleted: number;
 }
 
 // ── Entregables (delivery) de un checkpoint ─────────────────────────────────
