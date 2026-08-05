@@ -12,14 +12,36 @@
       </button>
     </div>
 
-    @if (loading()) {
+    <div class="flex flex-wrap items-center gap-2 mb-4">
+      <input [ngModel]="searchTerm()" (ngModelChange)="onSearchInput($event)"
+        type="text" placeholder="Buscar por nombre, NIT, email o teléfono..."
+        autocomplete="off" data-bwignore data-lpignore="true" data-1p-ignore
+        class="flex-1 min-w-[220px] px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+      <select [ngModel]="statusFilter()" (ngModelChange)="onStatusFilterChange($event)"
+        class="px-3 py-2 rounded-lg border border-gray-200 text-sm">
+        <option value="all">Todos los estados</option>
+        <option value="active">Activos</option>
+        <option value="inactive">Inactivos</option>
+      </select>
+      @if (loading() && allies().length) {
+        <span class="text-xs text-gray-400 flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+          </svg>
+          Actualizando...
+        </span>
+      }
+    </div>
+
+    @if (loading() && !allies().length) {
       <p class="text-sm text-gray-400 py-8 text-center">Cargando aliados...</p>
     } @else if (error()) {
       <div class="p-3 rounded-lg bg-red-50 border border-red-100 text-sm text-red-600">{{ error() }}</div>
     } @else if (!allies().length) {
-      <p class="text-sm text-gray-400 py-8 text-center">Aún no hay aliados registrados.</p>
+      <p class="text-sm text-gray-400 py-8 text-center">No hay aliados que coincidan con el filtro.</p>
     } @else {
-      <div class="overflow-x-auto">
+      <div class="overflow-x-auto transition-opacity duration-150" [class.opacity-40]="loading()" [class.pointer-events-none]="loading()">
         <table class="w-full text-sm">
           <thead>
             <tr class="text-left text-xs text-gray-400 uppercase border-b border-gray-100">
@@ -80,6 +102,18 @@
             }
           </tbody>
         </table>
+      </div>
+
+      <div class="flex items-center justify-center gap-3 mt-4">
+        <button type="button" [disabled]="!hasPrevPage" (click)="goToPrevPage()"
+          class="px-4 py-2 text-xs font-medium rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+          ← Anterior
+        </button>
+        <span class="text-xs text-gray-400">Página {{ pageIndex() + 1 }}</span>
+        <button type="button" [disabled]="!nextCursor()" (click)="goToNextPage()"
+          class="px-4 py-2 text-xs font-medium rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+          Siguiente →
+        </button>
       </div>
     }
 
@@ -150,12 +184,19 @@
         <div class="mb-3 p-2.5 rounded-lg bg-red-50 border border-red-100 text-xs text-red-600">{{ supervisorsError() }}</div>
       }
 
-      @if (supervisorsLoading()) {
+      <input [ngModel]="supervisorSearchTerm()" (ngModelChange)="onSupervisorSearchInput($event)"
+        type="text" placeholder="Buscar supervisor por nombre o documento..."
+        autocomplete="off" data-bwignore data-lpignore="true" data-1p-ignore
+        class="w-full mb-3 px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+
+      @if (supervisorsLoading() && !supervisors().length) {
         <p class="text-sm text-gray-400 py-6 text-center">Cargando supervisores...</p>
+      } @else if (!supervisors().length && supervisorSearchTerm()) {
+        <p class="text-sm text-gray-400 py-6 text-center">Ningún supervisor coincide con la búsqueda.</p>
       } @else if (!supervisors().length) {
         <p class="text-sm text-gray-400 py-6 text-center">Este aliado aún no tiene supervisores.</p>
       } @else {
-        <table class="w-full text-sm">
+        <table class="w-full text-sm transition-opacity duration-150" [class.opacity-40]="supervisorsLoading()" [class.pointer-events-none]="supervisorsLoading()">
           <thead>
             <tr class="text-left text-xs text-gray-400 uppercase border-b border-gray-100">
               <th class="py-2 pr-4">Nombre</th>
@@ -204,6 +245,18 @@
             }
           </tbody>
         </table>
+
+        <div class="flex items-center justify-center gap-3 mt-4">
+          <button type="button" [disabled]="!hasSupervisorPrevPage" (click)="goToSupervisorPrevPage()"
+            class="px-4 py-2 text-xs font-medium rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+            ← Anterior
+          </button>
+          <span class="text-xs text-gray-400">Página {{ supervisorPageIndex() + 1 }}</span>
+          <button type="button" [disabled]="!supervisorNextCursor()" (click)="goToSupervisorNextPage()"
+            class="px-4 py-2 text-xs font-medium rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+            Siguiente →
+          </button>
+        </div>
       }
 
       <div class="flex justify-end mt-5">

@@ -29,8 +29,8 @@
         </label>
         <div class="flex gap-2">
           <div class="relative flex-1" data-supervisor-dropdown>
-            <button type="button" (click)="togglePrincipalDropdown()"
-              class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-sm text-left transition-colors"
+            <button type="button" (click)="togglePrincipalDropdown()" [disabled]="!canChangePrincipal"
+              class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-sm text-left transition-colors disabled:cursor-not-allowed disabled:opacity-70"
               [class.border-neutral-200]="!isInvalid('counterpart_supervisor')" [class.border-danger]="isInvalid('counterpart_supervisor')"
               [class.bg-neutral-50]="!isInvalid('counterpart_supervisor')" [class.bg-red-50]="isInvalid('counterpart_supervisor')">
               @if (selectedPrincipal()) {
@@ -79,12 +79,15 @@
               </div>
             }
           </div>
-          <button type="button" (click)="openPrincipalModal()" title="Crear coordinador principal"
-            class="w-10 h-10 mt-0.5 rounded-xl border border-accent text-accent hover:bg-accent hover:text-white transition-colors flex items-center justify-center flex-shrink-0">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
-          </button>
+          @if (canChangePrincipal) {
+            <button type="button" (click)="openPrincipalModal()" title="Crear coordinador principal"
+              class="w-10 h-10 mt-0.5 rounded-xl border border-accent text-accent hover:bg-accent hover:text-white transition-colors flex items-center justify-center flex-shrink-0">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+            </button>
+          }
         </div>
         @if (isInvalid('counterpart_supervisor')) { <p class="mt-1 text-xs text-danger">El coordinador principal es obligatorio</p> }
+        @if (!canChangePrincipal) { <p class="mt-1 text-xs text-neutral-400">Ya tiene coordinador principal asignado — solo un administrador puede cambiarlo.</p> }
       </div>
 
       <!-- Supervisor del Cliente (ally) -->

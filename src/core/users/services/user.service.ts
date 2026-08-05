@@ -41,8 +41,8 @@ export class UserService {
     );
   }
 
-  getProfile(userId: string): Observable<UserDetail> {
-    return this.http.get<UserDetail>(ENDPOINTS.users.get(userId)).pipe(
+  getProfile(): Observable<UserDetail> {
+    return this.http.get<UserDetail>(ENDPOINTS.users.me).pipe(
       tap(res => {
         this.authStore.updateUser({
           name:      `${res.first_name} ${res.first_surname}`,
@@ -56,9 +56,10 @@ export class UserService {
   updateProfile(data: UpdateUserRequest): Observable<UpdateUserResponse> {
     const form = new FormData();
     form.append('first_name',               data.first_name);
+    if (data.middle_name)    form.append('middle_name',    data.middle_name);
     form.append('first_surname',            data.first_surname);
+    if (data.second_surname) form.append('second_surname', data.second_surname);
     form.append('phone',                    data.phone);
-    form.append('birthdate',                data.birthdate);
     form.append('document_type',            data.document_type);
     form.append('identity_document_number', data.identity_document_number);
     if (data.image_url) {

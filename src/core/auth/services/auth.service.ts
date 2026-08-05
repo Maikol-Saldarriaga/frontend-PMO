@@ -24,7 +24,8 @@ export class AuthService {
           image_url: res.image_url,
         };
         this.authStore.setSession(res.access_token, res.refresh_token, user);
-        this.router.navigateByUrl(returnUrl && returnUrl !== '/login' ? returnUrl : '/dashboard');
+        const defaultUrl = user.role === 'ADMIN' ? '/dashboard' : '/projects';
+        this.router.navigateByUrl(returnUrl && returnUrl !== '/login' ? returnUrl : defaultUrl);
       })
     );
   }

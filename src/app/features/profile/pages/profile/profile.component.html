@@ -43,7 +43,7 @@
 
         <div class="profile-row">
           <div class="profile-field">
-            <label class="pmo-label">Nombre <span class="required-star">*</span></label>
+            <label class="pmo-label">Primer nombre <span class="required-star">*</span></label>
             <input type="text" formControlName="first_name" placeholder="Juan"
               [class]="'pmo-input mt-1' + (profileForm.get('first_name')?.invalid && profileForm.get('first_name')?.touched ? ' input--error' : '')"/>
             <span class="field-error" *ngIf="profileForm.get('first_name')?.invalid && profileForm.get('first_name')?.touched">
@@ -51,10 +51,25 @@
             </span>
           </div>
           <div class="profile-field">
-            <label class="pmo-label">Apellido <span class="required-star">*</span></label>
+            <label class="pmo-label">Segundo nombre</label>
+            <input type="text" formControlName="middle_name" placeholder="Andrés" class="pmo-input mt-1"/>
+          </div>
+        </div>
+
+        <div class="profile-row">
+          <div class="profile-field">
+            <label class="pmo-label">Primer apellido <span class="required-star">*</span></label>
             <input type="text" formControlName="first_surname" placeholder="Pérez"
               [class]="'pmo-input mt-1' + (profileForm.get('first_surname')?.invalid && profileForm.get('first_surname')?.touched ? ' input--error' : '')"/>
             <span class="field-error" *ngIf="profileForm.get('first_surname')?.invalid && profileForm.get('first_surname')?.touched">
+              Campo obligatorio
+            </span>
+          </div>
+          <div class="profile-field">
+            <label class="pmo-label">Segundo apellido <span class="required-star">*</span></label>
+            <input type="text" formControlName="second_surname" placeholder="Gómez"
+              [class]="'pmo-input mt-1' + (profileForm.get('second_surname')?.invalid && profileForm.get('second_surname')?.touched ? ' input--error' : '')"/>
+            <span class="field-error" *ngIf="profileForm.get('second_surname')?.invalid && profileForm.get('second_surname')?.touched">
               Campo obligatorio
             </span>
           </div>
@@ -62,25 +77,27 @@
 
         <div class="profile-row">
           <div class="profile-field">
-            <label class="pmo-label">Teléfono</label>
+            <label class="pmo-label">Teléfono <span class="required-star">*</span></label>
             <input type="tel" formControlName="phone" class="pmo-input mt-1" placeholder="+57 300 000 0000"/>
+            <span class="field-error" *ngIf="profileForm.get('phone')?.invalid && profileForm.get('phone')?.touched">
+              Campo obligatorio
+            </span>
           </div>
-          <div class="profile-field">
-            <label class="pmo-label">Fecha de nacimiento</label>
-            <input type="date" formControlName="birthdate" class="pmo-input mt-1"/>
-          </div>
-        </div>
-
-        <div class="profile-row">
           <div class="profile-field">
             <label class="pmo-label">Tipo de documento</label>
             <select formControlName="document_type" class="pmo-input mt-1">
               <option *ngFor="let d of documentTypes" [value]="d">{{ d }}</option>
             </select>
           </div>
+        </div>
+
+        <div class="profile-row">
           <div class="profile-field">
-            <label class="pmo-label">Número de documento</label>
+            <label class="pmo-label">Número de documento <span class="required-star">*</span></label>
             <input type="text" formControlName="identity_document_number" class="pmo-input mt-1" placeholder="1234567890"/>
+            <span class="field-error" *ngIf="profileForm.get('identity_document_number')?.invalid && profileForm.get('identity_document_number')?.touched">
+              Campo obligatorio
+            </span>
           </div>
         </div>
 

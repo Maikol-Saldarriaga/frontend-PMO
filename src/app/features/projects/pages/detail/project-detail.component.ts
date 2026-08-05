@@ -99,16 +99,39 @@ export class ProjectDetailComponent implements OnInit {
     return !(environment.allowPastEdits && this.isAdmin());
   });
 
+  /** Tabs sin sección propia (resumen, cronograma, etc.) solo se ocultan si no eres owner/coordinador/full_access; el resto siempre se muestra (candado si no hay permiso). */
   visibleTabs = computed(() => {
     const acc = this.access();
-    if (!acc) return this.TABS;
-    if (acc.full_access) return this.TABS;
+    if (!acc || acc.full_access) return this.TABS;
     return this.TABS.filter(tab => {
+      if (tab.id === 'resumen') return true;
       const section = this.TAB_SECTION[tab.id];
       if (section === null) return acc.is_owner || acc.is_coordinator;
-      return acc.permissions[section] !== 'none';
+      return true;
     });
   });
+
+  /** true = sin permiso alguno sobre la sección del tab (candado, no clickeable). */
+  isTabLocked(tabId: string): boolean {
+    const acc = this.access();
+    if (!acc || acc.full_access) return false;
+    const section = this.TAB_SECTION[tabId];
+    if (section === null) return false;
+    return acc.permissions[section] === 'none';
+  }
+
+  /** true = puede ver el tab pero no editar (permiso 'read' o proyecto ya finalizado). */
+  isTabReadOnly(tabId: string): boolean {
+    if (this.isProjectLocked()) return true;
+    const acc = this.access();
+    if (!acc || acc.full_access) return false;
+    const section = this.TAB_SECTION[tabId];
+    if (section === null) return false;
+    return acc.permissions[section] === 'read';
+  }
+
+  /** Cronograma usa el permiso de sección 'activities'. */
+  canViewCronograma = computed(() => !this.isTabLocked('cronograma'));
 
   readonly TABS = [
     {
@@ -192,7 +215,7 @@ export class ProjectDetailComponent implements OnInit {
   /** Mapea cada tab a la ProjectSection del backend. null = sin match claro (gating por owner/coordinador). */
   private readonly TAB_SECTION: Record<string, ProjectSection | null> = {
     resumen: null, alcance: 'technical_components', ubicaciones: 'locations', condiciones: null,
-    cronograma: null, presupuesto: 'budget', facturacion: 'finance', beneficiarios: 'beneficiaries',
+    cronograma: 'activities', presupuesto: 'budget', facturacion: 'finance', beneficiarios: 'beneficiaries',
     seguimiento: 'checkpoints', riesgos: 'risks', entregables: 'checkpoints', documentos: 'documents',
     indicadores: null, obligaciones: 'compliance_matrix', abastecimiento: 'supply_plan', historial: null,
     equipo: null, 'flujo-caja': 'finance', garantias: 'documents', firmas: 'signature',
@@ -233,7 +256,10 @@ export class ProjectDetailComponent implements OnInit {
 
     this.refreshDetails();
     this.service.getMyAccess(this.projectId).subscribe({
-      next:  a => this.access.set(a),
+      next:  a => {
+        this.access.set(a);
+        if (this.isTabLocked(this.activeTab())) this.onTabClick('resumen');
+      },
       error: () => {},
     });
   }
@@ -246,6 +272,7 @@ export class ProjectDetailComponent implements OnInit {
   }
 
   onTabClick(id: string): void {
+    if (this.isTabLocked(id)) return;
     this.activeTab.set(id);
     this.router.navigate([], {
       relativeTo: this.route,

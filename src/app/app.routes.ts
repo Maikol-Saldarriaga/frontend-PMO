@@ -33,7 +33,7 @@ export const routes: Routes = [
     component: DashboardComponent,
     canActivate: [authGuard],
     children: [
-      { path: 'dashboard',             component: HomeComponent },
+      { path: 'dashboard',             component: HomeComponent, canActivate: [adminGuard] },
       { path: 'profile',               component: ProfileComponent },
       { path: 'settings',              component: ProfileComponent },
       { path: 'projects',              component: ProjectsListComponent },

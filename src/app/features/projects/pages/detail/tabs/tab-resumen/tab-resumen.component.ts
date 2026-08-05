@@ -13,6 +13,7 @@ const PALETTE = ['#0EA5E9','#10B981','#F59E0B','#EF4444','#8B5CF6','#EC4899','#1
 export class TabResumenComponent {
   @Input() details!: ProjectDetails;
   @Input() locked = false;
+  @Input() showGantt = true;
   @Output() switchTab = new EventEmitter<string>();
 
   readonly MONTHS_SHORT = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];

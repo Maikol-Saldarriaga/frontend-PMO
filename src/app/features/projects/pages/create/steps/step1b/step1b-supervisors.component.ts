@@ -210,7 +210,15 @@ export class Step1bSupervisorsComponent implements OnInit {
     this.customerDropdownOpen.set(false);
   }
 
+  // Solo ADMIN puede cambiar el coordinador principal una vez ya está elegido
+  // (el backend devuelve 403 si un no-admin lo intenta). Alianza y supervisor
+  // aliado siguen libres para cualquiera con acceso a este paso.
+  get canChangePrincipal(): boolean {
+    return this.authStore.user()?.role === 'ADMIN' || !this.form.get('counterpart_supervisor')?.value;
+  }
+
   togglePrincipalDropdown(): void {
+    if (!this.canChangePrincipal) return;
     this.principalDropdownOpen.update(v => !v);
     this.customerDropdownOpen.set(false);
   }
