@@ -25,6 +25,8 @@ export const BENEFICIARY_TYPES: { value: BeneficiaryType; label: string }[] = [
   { value: 'comunidades',     label: 'Comunidades'     },
   { value: 'organizaciones',  label: 'Organizaciones'  },
   { value: 'instituciones',   label: 'Instituciones'   },
+  { value: 'entidades_territoriales', label: 'Entidades territoriales' },
+  { value: 'unidades_productivas', label: 'Unidades productivas' },
   { value: 'otro',            label: 'Otro'            },
 ];
 

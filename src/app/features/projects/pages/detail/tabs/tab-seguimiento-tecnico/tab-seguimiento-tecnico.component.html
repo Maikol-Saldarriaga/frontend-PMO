@@ -632,9 +632,14 @@
                         <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
                       </svg>
                     </button>
-                    <button (click)="deleteSnapshot(snap)" [disabled]="locked || deletingSnapshot() === snap.id"
-                      class="shrink-0 p-2 rounded-lg hover:bg-red-50 text-gray-500 hover:text-red-500 transition-colors disabled:opacity-50">
-                      @if (deletingSnapshot() === snap.id) {
+                  }
+
+                  <!-- Eliminar (solo ADMIN) -->
+                  @if (canSeeDeleteSnapshot()) {
+                    <button (click)="deleteSnapshot(snap)" [disabled]="!canDeleteSnapshot() || isSnapshotLocked(snap) || deletingSnapId() === snap.id"
+                      [title]="!canDeleteSnapshot() ? 'Proyecto terminado: no se puede eliminar' : (isSnapshotLocked(snap) ? 'Ya venció y tiene avance registrado: no se puede eliminar' : 'Eliminar período')"
+                      class="shrink-0 p-2 rounded-lg hover:bg-danger/10 text-gray-500 hover:text-danger transition-colors disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-500 disabled:cursor-not-allowed">
+                      @if (deletingSnapId() === snap.id) {
                         <div class="w-4 h-4 border-2 border-gray-300 border-t-transparent rounded-full animate-spin"></div>
                       } @else {
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -777,6 +782,67 @@
           @if (reportGenerating()) { <div class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Generando... } @else { Generar y descargar }
         </button>
         <button type="button" (click)="closeReportPanel()" class="px-4 py-2 text-sm text-neutral-500 hover:text-neutral-700 transition-colors">Cancelar</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Dialog: límite de % planeado alcanzado, reorganizar para que sume 100% -->
+@if (rebalanceMode()) {
+  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 space-y-4">
+      <div class="flex items-start gap-3">
+        <div class="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
+          <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+          </svg>
+        </div>
+        <div>
+          <h3 class="text-sm font-bold text-gray-800">Ya llegaste al límite de % planeado</h3>
+          <p class="text-xs text-gray-400 mt-0.5">Modifica los porcentajes para que sumen exactamente 100% y así encaje el período que estás guardando.</p>
+        </div>
+      </div>
+
+      <div class="max-h-72 overflow-y-auto space-y-2 pr-1">
+        @for (row of rebalanceRows(); track $index; let ri = $index) {
+          <div class="flex items-center gap-3 rounded-lg px-3 py-2"
+            [class.bg-emerald-50]="!row.id" [class.bg-gray-50]="!!row.id">
+            <span class="flex-1 text-sm truncate" [class.font-semibold]="!row.id" [class.text-emerald-700]="!row.id" [class.text-gray-600]="!!row.id">
+              {{ row.start_date | date:'dd/MM/yy':'UTC' }} — {{ row.end_date | date:'dd/MM/yy':'UTC' }}
+              @if (!row.id) { <span class="text-[10px] font-normal text-emerald-500 uppercase">· este período</span> }
+            </span>
+            <input type="number" min="0" max="100"
+              [ngModel]="row.percentage"
+              (ngModelChange)="updateRebalanceRow(ri, $event)"
+              class="w-20 text-sm border border-gray-200 rounded-lg px-2 py-1.5 text-right focus:outline-none focus:ring-2 focus:ring-sky-300"/>
+            <span class="text-xs text-gray-400 w-3">%</span>
+          </div>
+        }
+      </div>
+
+      <div class="flex items-center justify-between px-1">
+        <span class="text-xs font-semibold text-gray-500">Suma total</span>
+        <span class="text-sm font-black"
+          [class.text-emerald-600]="rebalanceSum() === 100"
+          [class.text-red-500]="rebalanceSum() !== 100">
+          {{ rebalanceSum() | number:'1.0-2' }}%
+        </span>
+      </div>
+
+      @if (rebalanceError()) {
+        <p class="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{{ rebalanceError() }}</p>
+      }
+
+      <div class="flex gap-2 justify-end pt-1">
+        <button (click)="closeRebalance()"
+          class="px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-sm text-gray-500 transition-colors">
+          Cancelar
+        </button>
+        <button (click)="confirmRebalance()" [disabled]="rebalanceSaving() || rebalanceSum() !== 100"
+          class="flex items-center gap-2 px-4 py-2 rounded-lg bg-sky-500 hover:bg-sky-600 disabled:opacity-50 text-white text-sm font-semibold transition-colors">
+          @if (rebalanceSaving()) { <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> }
+          Guardar y ajustar
+        </button>
       </div>
     </div>
   </div>

@@ -28,13 +28,14 @@
 
     <select [ngModel]="status()" (ngModelChange)="setStatus($event)"
       class="px-3 py-2.5 rounded-xl border border-neutral-200 bg-surface text-sm text-primary-700 outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-colors">
+      <option value="default">Borrador + Activo</option>
       <option value="">Todos los estados</option>
       @for (s of statusOptions; track s) {
         <option [value]="s">{{ statusLabel(s) }}</option>
       }
     </select>
 
-    @if (search() || status()) {
+    @if (search() || status() !== 'default') {
       <button (click)="clearFilters()" class="text-xs font-medium text-neutral-400 hover:text-danger transition-colors whitespace-nowrap">
         Limpiar
       </button>

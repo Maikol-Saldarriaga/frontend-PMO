@@ -19,6 +19,7 @@ const AMOUNT_EPSILON = 0.01;
 interface ReceiptFormState {
   value:             number | null;
   value_before_tax:  number | null;
+  no_iva:            boolean;
   receipt_date:      string | null;
   status:            FundingReceiptStatus;
   receipt_reference: string;
@@ -27,7 +28,7 @@ interface ReceiptFormState {
 
 function emptyReceiptForm(): ReceiptFormState {
   return {
-    value: null, value_before_tax: null,
+    value: null, value_before_tax: null, no_iva: false,
     receipt_date: new Date().toISOString().slice(0, 10),
     status: 'planeado', receipt_reference: '', observation: '',
   };
@@ -142,6 +143,7 @@ export class TabFacturacionComponent implements OnInit {
   form: {
     value:                  number | null;
     value_before_tax:       number | null;
+    no_iva:                 boolean;
     collection_act_number:  string;
     status:                 InvoiceStatus;
     period:                 string; // "" = componente completo, o "YYYY-M" tomado de monthly_distributions
@@ -264,6 +266,7 @@ export class TabFacturacionComponent implements OnInit {
     return {
       value: null as number | null,
       value_before_tax: null as number | null,
+      no_iva: false,
       collection_act_number: '',
       status: 'PEND' as InvoiceStatus,
       period: '',
@@ -324,11 +327,16 @@ export class TabFacturacionComponent implements OnInit {
     });
   });
 
-  /** Valor antes de IVA = valor / 1.19 (se le quita el 19% de IVA) — se recalcula
-   * solo cada vez que cambia el valor de la factura, no es editable. */
+  /** Valor antes de IVA = valor / 1.19 (se le quita el 19% de IVA), salvo que la factura
+   * esté marcada "No incluye IVA", en cuyo caso valor antes de IVA = valor. No editable a mano. */
   onFormValueChange(value: number | null): void {
     this.form.value = value;
-    this.form.value_before_tax = value ? Math.round((value / 1.19) * 100) / 100 : null;
+    this.form.value_before_tax = value ? (this.form.no_iva ? value : Math.round((value / 1.19) * 100) / 100) : null;
+  }
+
+  onFormNoIvaChange(noIva: boolean): void {
+    this.form.no_iva = noIva;
+    this.onFormValueChange(this.form.value);
   }
 
   startForm(): void {
@@ -344,6 +352,7 @@ export class TabFacturacionComponent implements OnInit {
     this.form = {
       value: inv.value,
       value_before_tax: inv.value_before_tax,
+      no_iva: inv.value_before_tax != null && Math.abs(inv.value_before_tax - inv.value) < AMOUNT_EPSILON,
       collection_act_number: inv.collection_act_number ?? '',
       status: inv.status,
       period: inv.year != null && inv.month != null ? `${inv.year}-${inv.month}` : '',
@@ -472,10 +481,16 @@ export class TabFacturacionComponent implements OnInit {
     this.receiptError.set(null);
   }
 
-  /** Antes de IVA = valor / 1.19, igual que en factura — no editable a mano. */
+  /** Antes de IVA = valor / 1.19, igual que en factura, salvo cobro marcado "No incluye IVA"
+   * (valor antes de IVA = valor). No editable a mano. */
   onReceiptValueChange(value: number | null): void {
     this.receiptForm.value = value;
-    this.receiptForm.value_before_tax = value ? Math.round((value / 1.19) * 100) / 100 : null;
+    this.receiptForm.value_before_tax = value ? (this.receiptForm.no_iva ? value : Math.round((value / 1.19) * 100) / 100) : null;
+  }
+
+  onReceiptNoIvaChange(noIva: boolean): void {
+    this.receiptForm.no_iva = noIva;
+    this.onReceiptValueChange(this.receiptForm.value);
   }
 
   cancelReceiptForm(): void {

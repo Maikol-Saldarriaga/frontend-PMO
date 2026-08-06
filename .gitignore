@@ -40,3 +40,12 @@ testem.log
 # System files
 .DS_Store
 Thumbs.db
+
+# Resolves
+*.md
+
+# Deploy secrets
+/scripts/deploy.env
+
+# Backups locales de scripts/deploy-vps.sh (copia del contenido estático del VPS)
+/backups/

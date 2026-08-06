@@ -130,6 +130,16 @@ export class Step8ScopeComponent {
     this.emit();
   }
 
+  moveComponent(ci: number, direction: -1 | 1): void {
+    const target = ci + direction;
+    const list = this.rows();
+    if (target < 0 || target >= list.length) return;
+    const next = [...list];
+    [next[ci], next[target]] = [next[target], next[ci]];
+    this.rows.set(next);
+    this.emit();
+  }
+
   updateComponentName(ci: number, value: string): void {
     this.rows.update(r => r.map((comp, i) =>
       i === ci ? { ...comp, componentName: value } : comp));

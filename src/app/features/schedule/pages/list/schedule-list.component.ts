@@ -19,7 +19,9 @@ export class ScheduleListComponent implements OnInit {
   loading = signal(true);
   error   = signal<string | null>(null);
   search  = signal('');
-  status  = signal('');
+  // 'default' = filtro inicial (borrador + activo), '' = todos los estados,
+  // cualquier otro valor = un estado puntual (claves en español, ver beKey()).
+  status  = signal('default');
 
   private allProjects = signal<ProjectScheduleItem[]>([]);
 
@@ -27,11 +29,9 @@ export class ScheduleListComponent implements OnInit {
 
   filteredProjects = computed(() => {
     const q = this.search().toLowerCase().trim();
-    const s = this.status();
     return this.allProjects().filter(p => {
-      const matchesName   = !q || (p.project_name ?? p.project_number ?? '').toLowerCase().includes(q);
-      const matchesStatus = !s || this.sk(p.status) === s;
-      return matchesName && matchesStatus && p.start_date && p.end_date;
+      const matchesName = !q || (p.project_name ?? p.project_number ?? '').toLowerCase().includes(q);
+      return matchesName && p.start_date && p.end_date;
     });
   });
 
@@ -85,7 +85,7 @@ export class ScheduleListComponent implements OnInit {
   fetchProjects(): void {
     this.loading.set(true);
     this.error.set(null);
-    this.projectService.getSchedule().subscribe({
+    this.projectService.getSchedule(this.beStatuses(this.status())).subscribe({
       next: (res) => {
         this.allProjects.set(res ?? []);
         this.loading.set(false);
@@ -97,6 +97,18 @@ export class ScheduleListComponent implements OnInit {
     });
   }
 
+  // Traduce el filtro local (claves en español + sentinel 'default') a los
+  // valores de estado que el backend espera (draft/active/completed/canceled).
+  private beStatuses(local: string): string[] | undefined {
+    if (local === 'default') return ['draft', 'active'];
+    if (local === '') return undefined;
+    const map: Record<string, string> = {
+      draft: 'draft', activo: 'active', completado: 'completed', cancelado: 'canceled',
+    };
+    const be = map[local];
+    return be ? [be] : undefined;
+  }
+
   private dateRange(projects: ProjectScheduleItem[]): { rangeStart: Date; rangeEnd: Date } {
     const starts = projects.map(p => new Date(p.start_date!).getTime());
     const ends   = projects.map(p => new Date(p.end_date!).getTime());
@@ -104,8 +116,8 @@ export class ScheduleListComponent implements OnInit {
   }
 
   onSearchInput(value: string): void { this.search.set(value); }
-  setStatus(value: string):     void { this.status.set(value); }
-  clearFilters(): void { this.search.set(''); this.status.set(''); }
+  setStatus(value: string):     void { this.status.set(value); this.fetchProjects(); }
+  clearFilters(): void { this.search.set(''); this.status.set('default'); this.fetchProjects(); }
 
   openProject(id: string): void {
     this.router.navigate(['/projects', id]);

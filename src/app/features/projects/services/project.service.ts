@@ -108,8 +108,11 @@ export class ProjectService {
     return this.http.get<ProjectsPageResponse>(`${ENDPOINTS.projects.list}?${params.toString()}`);
   }
 
-  getSchedule(): Observable<ProjectScheduleItem[]> {
-    return this.http.get<ProjectScheduleItem[]>(ENDPOINTS.projects.schedule);
+  getSchedule(statuses?: string[]): Observable<ProjectScheduleItem[]> {
+    const url = statuses && statuses.length
+      ? `${ENDPOINTS.projects.schedule}?status=${statuses.join(',')}`
+      : ENDPOINTS.projects.schedule;
+    return this.http.get<ProjectScheduleItem[]>(url);
   }
 
   getProject(id: string): Observable<ProjectCreateResponse> {
@@ -253,6 +256,10 @@ export class ProjectService {
     return this.http.put<ScopeComponent>(ENDPOINTS.projects.componentById(id, cid), data);
   }
 
+  updateComponentOrder(id: string, cid: string, order: number): Observable<ScopeComponent[]> {
+    return this.http.put<ScopeComponent[]>(ENDPOINTS.projects.componentOrder(id, cid), { order });
+  }
+
   deleteComponent(id: string, cid: string): Observable<void> {
     return this.http.delete<void>(ENDPOINTS.projects.componentById(id, cid));
   }
@@ -291,6 +298,10 @@ export class ProjectService {
 
   deleteSnapshotsByRange(id: string, sid: string, range: DateRange): Observable<DeleteSnapshotsByRangeResponse> {
     return this.http.post<DeleteSnapshotsByRangeResponse>(ENDPOINTS.projects.scopeSnapshotsDeleteRange(id, sid), range);
+  }
+
+  rebalanceCheckpointPct(id: string, sid: string, items: { id: string; planned_pct: number }[], pendingPct: number): Observable<ScopeSnapshotsResponse> {
+    return this.http.put<ScopeSnapshotsResponse>(ENDPOINTS.projects.scopeSnapshotsRebalance(id, sid), { items, pending_pct: pendingPct });
   }
 
   getTrackingReport(id: string): Observable<TrackingReport> {

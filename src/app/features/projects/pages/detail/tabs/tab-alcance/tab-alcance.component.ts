@@ -1,10 +1,14 @@
-import { Component, Input, OnInit, signal } from '@angular/core';
+import { Component, Input, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { forkJoin, of } from 'rxjs';
 import { ProjectService } from '../../../../services/project.service';
 import { ScopeComponent, ScopeActivity, ActivityFormData, ActivityRequest } from '../../../../models/project.model';
 import { ConfirmDialogService } from '../../../../../../shared/components/confirm-dialog/confirm-dialog.service';
+import { AuthStore } from '../../../../../../../core/auth/store/auth.store';
+import { MoneyMaskDirective } from '../../../../../../shared/directives/money-mask.directive';
+
+const BUDGET_EDIT_ROLES = ['ADMIN', 'COORDINADOR'];
 
 interface RebalanceRow {
   id: string | null; // null = el nuevo elemento pendiente de crear
@@ -24,12 +28,16 @@ const EMPTY_ACTIVITY_FORM = (): ActivityFormData => ({
 @Component({
   selector: 'app-tab-alcance',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, MoneyMaskDirective],
   templateUrl: './tab-alcance.component.html',
 })
 export class TabAlcanceComponent implements OnInit {
   @Input() projectId!: string;
   @Input() locked = false;
+
+  private auth = inject(AuthStore);
+
+  readonly canEditBudget = computed(() => BUDGET_EDIT_ROLES.includes(this.auth.user()?.role ?? ''));
 
   constructor(private svc: ProjectService, private confirmDialog: ConfirmDialogService) {}
 
@@ -51,10 +59,12 @@ export class TabAlcanceComponent implements OnInit {
   addingComponent  = signal(false);
   newComponentName = signal('');
   newComponentPct  = signal<number | null>(null);
+  newComponentBudget = signal<number | null>(null);
 
   editingCompId    = signal<string | null>(null);
   editingCompName  = signal('');
   editingCompPct   = signal<number | null>(null);
+  editingCompBudget = signal<number | null>(null);
 
   // ── Rebalanceo de porcentajes (límite 100%) ──────────────────────────────────
   rebalanceMode    = signal<'component' | 'activity' | null>(null);
@@ -99,7 +109,7 @@ export class TabAlcanceComponent implements OnInit {
             objective:           a.objective ?? null,
             responsible:         a.responsible ?? null,
             is_completed:        a.is_completed ?? false,
-          } as ScopeActivity)),
+          } as ScopeActivity)).sort((a: ScopeActivity, b: ScopeActivity) => (a.act ?? 0) - (b.act ?? 0)),
         }));
         this.scopeComponents.set(normalized);
         this.expandedComps.set(new Set(normalized.map(c => c.id)));
@@ -132,11 +142,13 @@ export class TabAlcanceComponent implements OnInit {
     }
     this.scopeSaving.set(true);
     this.saveError.set(null);
-    this.svc.createComponent(this.projectId, { name, percentage: pct }).subscribe({
+    const budget = this.canEditBudget() ? this.newComponentBudget() : null;
+    this.svc.createComponent(this.projectId, { name, percentage: pct, budget }).subscribe({
       next: () => {
         this.addingComponent.set(false);
         this.newComponentName.set('');
         this.newComponentPct.set(null);
+        this.newComponentBudget.set(null);
         this.load();
         this.scopeSaving.set(false);
       },
@@ -149,14 +161,25 @@ export class TabAlcanceComponent implements OnInit {
 
   // ── Editar componente ─────────────────────────────────────────────────────────
 
+  editingCompOrder = signal<number | null>(null);
+
   startEditComp(comp: ScopeComponent): void {
     this.editingCompId.set(comp.id);
     this.editingCompName.set(comp.name);
     this.editingCompPct.set(comp.percentage);
+    this.editingCompBudget.set(comp.budget ?? null);
+    this.editingCompOrder.set(this.scopeComponents().findIndex(c => c.id === comp.id) + 1);
     this.saveError.set(null);
   }
 
-  cancelEditComp(): void { this.editingCompId.set(null); this.saveError.set(null); }
+  cancelEditComp(): void { this.editingCompId.set(null); this.editingCompOrder.set(null); this.saveError.set(null); }
+
+  /** Solo cambia el número pendiente en pantalla — no reordena ni llama al backend hasta Guardar. */
+  bumpEditOrder(direction: -1 | 1): void {
+    const total = this.scopeComponents().length;
+    const current = this.editingCompOrder() ?? 1;
+    this.editingCompOrder.set(Math.min(Math.max(current + direction, 1), total));
+  }
 
   saveEditComp(comp: ScopeComponent): void {
     const name = this.editingCompName().trim();
@@ -169,13 +192,41 @@ export class TabAlcanceComponent implements OnInit {
     }
     this.scopeSaving.set(true);
     this.saveError.set(null);
-    this.svc.updateComponent(this.projectId, comp.id, { name, percentage: pct }).subscribe({
+    const budget = this.canEditBudget() ? this.editingCompBudget() : comp.budget ?? null;
+    const currentIndex = this.scopeComponents().findIndex(c => c.id === comp.id);
+    const total = this.scopeComponents().length;
+    const newOrder = Math.min(Math.max(this.editingCompOrder() ?? currentIndex + 1, 1), total);
+
+    this.svc.updateComponent(this.projectId, comp.id, { name, percentage: pct, budget }).subscribe({
       next: updated => {
         this.scopeComponents.update(list => list.map(c =>
-          c.id === comp.id ? { ...c, name: updated.name, percentage: updated.percentage } : c
+          c.id === comp.id ? { ...c, name: updated.name, percentage: updated.percentage, budget: updated.budget } : c
         ));
-        this.editingCompId.set(null);
-        this.scopeSaving.set(false);
+        if (newOrder - 1 === currentIndex) {
+          this.editingCompId.set(null);
+          this.editingCompOrder.set(null);
+          this.scopeSaving.set(false);
+          return;
+        }
+        // Reordena en el propio arreglo, sin recargar todo el tab — el backend ya escalona
+        // el resto de componentes internamente.
+        this.svc.updateComponentOrder(this.projectId, comp.id, newOrder).subscribe({
+          next: () => {
+            this.scopeComponents.update(list => {
+              const next = [...list];
+              const [moved] = next.splice(currentIndex, 1);
+              next.splice(newOrder - 1, 0, moved);
+              return next;
+            });
+            this.editingCompId.set(null);
+            this.editingCompOrder.set(null);
+            this.scopeSaving.set(false);
+          },
+          error: err => {
+            this.saveError.set(err?.error?.error ?? 'Error al reordenar el componente.');
+            this.scopeSaving.set(false);
+          },
+        });
       },
       error: err => {
         this.saveError.set(err?.error?.message ?? 'Error al actualizar el componente.');
@@ -343,6 +394,10 @@ export class TabAlcanceComponent implements OnInit {
   }
 
   color(i: number): string { return PALETTE[i % PALETTE.length]; }
+
+  formatBudget(value: number | null): string {
+    return value === null || value === undefined || isNaN(value) ? '' : value.toLocaleString('es-CO');
+  }
 
   /** Dasharray del círculo: a partir de 99.95% se pinta cerrado sin gap por redondeo. */
   dashArrayFor(pct: number): string {

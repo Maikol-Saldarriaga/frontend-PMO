@@ -18,7 +18,7 @@
         <label class="text-xs text-gray-500 font-medium whitespace-nowrap">Año</label>
         <select class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-sky-300 focus:border-sky-400"
           [value]="ganttFilters().year ?? ''"
-          (change)="load({ year: $any($event.target).value ? +$any($event.target).value : undefined })">
+          (change)="onYearChange($any($event.target).value)">
           <option value="">Todo el proyecto</option>
           @for (y of ganttYears(); track y) {
             <option [value]="y">{{ y }}</option>
@@ -26,40 +26,38 @@
         </select>
       </div>
 
-      @if (ganttFilters().year) {
-        <div class="flex items-center gap-2">
-          <label class="text-xs text-gray-500 font-medium">Semestre</label>
-          <div class="flex rounded-lg border border-gray-200 overflow-hidden text-xs">
-            <button (click)="load({ year: ganttFilters().year, semester: undefined, month: undefined })"
-              class="px-3 py-1.5 transition-colors"
-              [class.bg-sky-500]="!ganttFilters().semester && !ganttFilters().month"
-              [class.text-white]="!ganttFilters().semester && !ganttFilters().month"
-              [class.text-gray-500]="ganttFilters().semester || ganttFilters().month">Todos</button>
-            <button (click)="load({ year: ganttFilters().year, semester: 1 })"
-              class="px-3 py-1.5 border-l border-gray-200 transition-colors"
-              [class.bg-sky-500]="ganttFilters().semester === 1"
-              [class.text-white]="ganttFilters().semester === 1"
-              [class.text-gray-500]="ganttFilters().semester !== 1">Ene–Jun</button>
-            <button (click)="load({ year: ganttFilters().year, semester: 2 })"
-              class="px-3 py-1.5 border-l border-gray-200 transition-colors"
-              [class.bg-sky-500]="ganttFilters().semester === 2"
-              [class.text-white]="ganttFilters().semester === 2"
-              [class.text-gray-500]="ganttFilters().semester !== 2">Jul–Dic</button>
-          </div>
+      <div class="flex items-center gap-2">
+        <label class="text-xs text-gray-500 font-medium">Semestre</label>
+        <div class="flex rounded-lg border border-gray-200 overflow-hidden text-xs">
+          <button (click)="onSemesterChange(undefined)"
+            class="px-3 py-1.5 transition-colors"
+            [class.bg-sky-500]="!ganttFilters().semester && !ganttFilters().month"
+            [class.text-white]="!ganttFilters().semester && !ganttFilters().month"
+            [class.text-gray-500]="ganttFilters().semester || ganttFilters().month">Todos</button>
+          <button (click)="onSemesterChange(1)"
+            class="px-3 py-1.5 border-l border-gray-200 transition-colors"
+            [class.bg-sky-500]="ganttFilters().semester === 1"
+            [class.text-white]="ganttFilters().semester === 1"
+            [class.text-gray-500]="ganttFilters().semester !== 1">Ene–Jun</button>
+          <button (click)="onSemesterChange(2)"
+            class="px-3 py-1.5 border-l border-gray-200 transition-colors"
+            [class.bg-sky-500]="ganttFilters().semester === 2"
+            [class.text-white]="ganttFilters().semester === 2"
+            [class.text-gray-500]="ganttFilters().semester !== 2">Jul–Dic</button>
         </div>
+      </div>
 
-        <div class="flex items-center gap-2">
-          <label class="text-xs text-gray-500 font-medium">Mes</label>
-          <select class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-sky-300 focus:border-sky-400"
-            [value]="ganttFilters().month ?? ''"
-            (change)="load({ year: ganttFilters().year, month: $any($event.target).value ? +$any($event.target).value : undefined })">
-            <option value="">Todos los meses</option>
-            @for (m of MONTHS_SHORT; track $index) {
-              <option [value]="$index + 1">{{ m }}</option>
-            }
-          </select>
-        </div>
-      }
+      <div class="flex items-center gap-2">
+        <label class="text-xs text-gray-500 font-medium">Mes</label>
+        <select class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-sky-300 focus:border-sky-400"
+          [value]="ganttFilters().month ?? ''"
+          (change)="onMonthChange($any($event.target).value)">
+          <option value="">Todos los meses</option>
+          @for (m of MONTHS_SHORT; track $index) {
+            <option [value]="$index + 1">{{ m }}</option>
+          }
+        </select>
+      </div>
     </div>
 
     @if (ganttData()) {

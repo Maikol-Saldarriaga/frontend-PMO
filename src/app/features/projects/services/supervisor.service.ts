@@ -10,10 +10,15 @@ import {
   CreateAffiliateRequest,
   CreateAffiliateResponse,
 } from '../models/supervisor.model';
+import { UserDetail } from '../../../../core/users/models/user.model';
 
 @Injectable({ providedIn: 'root' })
 export class SupervisorService {
   private http = inject(ApiHttpClient);
+
+  getById(id: string): Observable<UserDetail> {
+    return this.http.get<UserDetail>(ENDPOINTS.users.get(id));
+  }
 
   // allyId filtra los supervisores aliados (affiliates) a los de esa alianza —
   // el backend ya soporta ?ally_id=. Sin él, devuelve todos (comportamiento previo).

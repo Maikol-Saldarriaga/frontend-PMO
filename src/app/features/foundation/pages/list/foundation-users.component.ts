@@ -16,6 +16,7 @@ const CREATABLE_ROLES: UserRole[] = ['COORDINADOR', 'DILIGENCIADOR'];
 
 interface FoundationUserForm {
   first_name: string;
+  middle_name: string;
   first_surname: string;
   second_surname: string;
   document_type: SupervisorDocumentType;
@@ -28,7 +29,7 @@ interface FoundationUserForm {
 
 function emptyForm(): FoundationUserForm {
   return {
-    first_name: '', first_surname: '', second_surname: '',
+    first_name: '', middle_name: '', first_surname: '', second_surname: '',
     document_type: 'CC', identity_document_number: '',
     email: '', phone: '', password: '', role: 'DILIGENCIADOR',
   };

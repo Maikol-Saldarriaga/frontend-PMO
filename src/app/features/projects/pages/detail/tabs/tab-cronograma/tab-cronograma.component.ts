@@ -30,12 +30,28 @@ export class TabCronogramaComponent implements OnInit {
     this.svc.getGantt(this.projectId, filters).subscribe({
       next: g => {
         this.ganttData.set(g);
-        const years = [...new Set(g.timeline.map(t => t.year))].sort();
-        this.ganttYears.set(years);
+        if (!filters.year && !filters.semester && !filters.month) {
+          const years = [...new Set(g.timeline.map(t => t.year))].sort();
+          this.ganttYears.set(years);
+        }
         this.ganttLoading.set(false);
       },
       error: () => this.ganttLoading.set(false),
     });
+  }
+
+  onYearChange(value: string): void {
+    const year = value ? +value : undefined;
+    this.load({ ...this.ganttFilters(), year });
+  }
+
+  onSemesterChange(semester: 1 | 2 | undefined): void {
+    this.load({ year: this.ganttFilters().year, semester, month: undefined });
+  }
+
+  onMonthChange(value: string): void {
+    const month = value ? +value : undefined;
+    this.load({ year: this.ganttFilters().year, month });
   }
 
   totalActivities(): number {

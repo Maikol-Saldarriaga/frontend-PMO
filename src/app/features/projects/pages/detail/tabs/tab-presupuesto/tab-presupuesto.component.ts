@@ -8,6 +8,7 @@ import {
 } from '../../../../models/project.model';
 import { BudgetItemPanelComponent, BudgetPanelContext } from './budget-item-panel/budget-item-panel.component';
 import { ConfirmDialogService } from '../../../../../../shared/components/confirm-dialog/confirm-dialog.service';
+import { MoneyMaskDirective } from '../../../../../../shared/directives/money-mask.directive';
 
 const PALETTE = ['#0EA5E9','#10B981','#F59E0B','#EF4444','#8B5CF6','#EC4899','#14B8A6','#F97316'];
 const AMOUNT_EPSILON = 0.01;
@@ -40,7 +41,7 @@ export interface ComponentSection {
 @Component({
   selector: 'app-tab-presupuesto',
   standalone: true,
-  imports: [CommonModule, FormsModule, BudgetItemPanelComponent],
+  imports: [CommonModule, FormsModule, BudgetItemPanelComponent, MoneyMaskDirective],
   templateUrl: './tab-presupuesto.component.html',
 })
 export class TabPresupuestoComponent implements OnInit {
@@ -165,13 +166,14 @@ export class TabPresupuestoComponent implements OnInit {
     return s.budgetCap !== null ? s.budgetCap - this.compItemsTotal(s) : 0;
   }
   capPct(s: ComponentSection): number {
-    if (!s.budgetCap) return 0;
+    if (s.budgetCap === null) return 0;
+    if (s.budgetCap === 0) return 100; // tope 0 consumido 0 = nada por asignar, cuenta como completo
     return Math.min(100, (this.compItemsTotal(s) / s.budgetCap) * 100);
   }
 
   /** Estado real del componente técnico según su consumo de presupuesto (independiente de `is_complete` del backend). */
   sectionStatus(s: ComponentSection): { label: string; classes: string } {
-    if (s.budgetCap !== null && s.budgetCap > 0 && this.compItemsTotal(s) >= s.budgetCap) {
+    if (s.budgetCap !== null && (s.budgetCap === 0 || this.compItemsTotal(s) >= s.budgetCap)) {
       return { label: 'Completado', classes: 'bg-emerald-50 text-emerald-700 border-emerald-100' };
     }
     if (s.entries.length > 0) {

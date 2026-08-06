@@ -73,7 +73,7 @@ export class MonthlyComponent implements OnInit {
               start_date:    item.start_date ? item.start_date.slice(0, 10) : null,
               counterpartCap: item.counterpart_contribution ?? 0,
               allyCap:        item.ally_contribution        ?? 0,
-              distributions: [...(item.monthly_distributions ?? [])],
+              distributions: this.sortDistributions([...(item.monthly_distributions ?? [])]),
               expanded:      false,
               dirty:         false,
               saving:        false,
@@ -99,12 +99,29 @@ export class MonthlyComponent implements OnInit {
     row.dirty = true; row.rowSuccess = false; row.rowError = null;
   }
 
+  private sortDistributions(list: BudgetMonthlyDistribution[]): BudgetMonthlyDistribution[] {
+    return [...list].sort((a, b) => (Number(a.year) * 12 + Number(a.month)) - (Number(b.year) * 12 + Number(b.month)));
+  }
+
+  onDateBlur(row: MonthlyRow): void {
+    row.distributions = this.sortDistributions(row.distributions);
+  }
+
   addMonth(row: MonthlyRow): void {
-    const last = row.distributions.at(-1);
+    const last = row.distributions.reduce<{ year: number; month: number } | null>((max, d) => {
+      const dy = Number(d.year), dm = Number(d.month);
+      return !max || dy * 12 + dm > max.year * 12 + max.month ? { year: dy, month: dm } : max;
+    }, null);
     let year  = last?.year  ?? new Date().getFullYear();
     let month = (last?.month ?? 0) + 1;
     if (month > 12) { month = 1; year++; }
+    // Escalona hasta encontrar el primer mes libre, por si ya existe (huecos rellenados a mano, etc).
+    while (row.distributions.some(d => Number(d.year) === year && Number(d.month) === month)) {
+      month++;
+      if (month > 12) { month = 1; year++; }
+    }
     row.distributions.push({ year, month, counterpart_amount: 0, ally_amount: 0, executed_amount: 0 });
+    row.distributions = this.sortDistributions(row.distributions);
     row.dirty = true; row.rowSuccess = false;
   }
 
@@ -165,7 +182,7 @@ export class MonthlyComponent implements OnInit {
     this.service.generateMonthly(this.projectId, row.budget_id).subscribe({
       next: (distributions) => {
         row.generating    = false;
-        row.distributions = distributions ?? [];
+        row.distributions = this.sortDistributions(distributions ?? []);
         row.dirty         = false;
         row.rowSuccess     = true;
       },
@@ -198,7 +215,7 @@ export class MonthlyComponent implements OnInit {
   }
 
   monthName(m: number): string {
-    return ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][m - 1] ?? '';
+    return ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][m - 1] ?? '';
   }
 
   formatCurrency(v: number): string {

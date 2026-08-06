@@ -63,6 +63,13 @@ interface ExcludedRangeDraft {
   end_date:   string;
 }
 
+interface RebalanceRow {
+  id: string | null; // null = el período pendiente de crear (uno que se edita ya trae su propio id)
+  start_date: string;
+  end_date: string;
+  percentage: number;
+}
+
 @Component({
   selector: 'app-tab-seguimiento-tecnico',
   standalone: true,
@@ -172,7 +179,6 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
   excludedRangeError = signal<string | null>(null);
 
   // ── Eliminar períodos ya registrados (individual o por rango) ────────────
-  deletingSnapshot   = signal<string | null>(null); // id del snapshot siendo eliminado
   showDeleteRangeForm = signal(false);
   deleteRangeForm: ExcludedRangeDraft = { start_date: '', end_date: '' };
   deleteRangeLoading = signal(false);
@@ -265,7 +271,10 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
 
     this.svc.getScopeComponents(this.projectId).subscribe({
       next:  r => {
-        const normalized = (r.components ?? []).map((c: any) => ({ ...c, scopes: c.activities ?? c.scopes ?? [] }));
+        const normalized = (r.components ?? []).map((c: any) => ({
+          ...c,
+          scopes: [...(c.activities ?? c.scopes ?? [])].sort((a, b) => (a.act ?? 0) - (b.act ?? 0)),
+        }));
         this.scopeComponents.set(normalized);
         check();
       },
@@ -326,6 +335,19 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
   }
 
   cancelForm(): void { this.showForm.set(false); this.editingSnap.set(null); this.saveError.set(null); }
+
+  /** Botón eliminar solo visible para ADMIN. Activo si el proyecto no está terminado (!locked),
+   * o si está terminado pero la edición pasada la fecha está habilitada (mismo criterio que [[isSnapshotLocked]]). */
+  canSeeDeleteSnapshot(): boolean {
+    return this.auth.user()?.role === 'ADMIN';
+  }
+
+  canDeleteSnapshot(): boolean {
+    if (!this.locked) return true;
+    return environment.allowPastEdits;
+  }
+
+  deletingSnapId = signal<string | null>(null);
 
   // ── Distribución automática de períodos ──────────────────────────────────
 
@@ -450,20 +472,21 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
 
   async deleteSnapshot(snap: Snapshot): Promise<void> {
     const act = this.selectedActivity();
-    if (!act || !snap.id || this.isSnapshotLocked(snap)) return;
+    if (!act || !snap.id || !this.canDeleteSnapshot() || this.isSnapshotLocked(snap)) return;
     const label = `${(snap.start_date || '').slice(0, 10)} → ${(snap.end_date || '').slice(0, 10)}`;
-    if (!(await this.confirmDialog.confirm({ message: `¿Eliminar el período ${label}? Esta acción no se puede deshacer.` }))) {
+    if (!(await this.confirmDialog.confirm({ message: `¿Eliminar el período ${label}? Esta acción no se puede deshacer.`, variant: 'danger' }))) {
       return;
     }
-    this.deletingSnapshot.set(snap.id);
+    this.deletingSnapId.set(snap.id);
     this.svc.deleteSnapshot(this.projectId, act.id, snap.id).subscribe({
       next: () => {
-        this.deletingSnapshot.set(null);
+        this.deletingSnapId.set(null);
         this.activitySnaps.update(list => list.filter(s => s.id !== snap.id));
         this.allSnapshots.update(list => list.filter(s => s.id_checkpoint !== snap.id));
+        this.load();
       },
       error: err => {
-        this.deletingSnapshot.set(null);
+        this.deletingSnapId.set(null);
         this.error.set(err?.error?.error ?? err?.error?.message ?? 'No se pudo eliminar el período.');
       },
     });
@@ -577,11 +600,23 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
       return;
     }
 
+    const othersSum = this.activitySnaps()
+      .filter(s => !isSame(s))
+      .reduce((sum, s) => sum + s.planned_pct, 0);
+    if (othersSum + this.form.planned_pct > 100) {
+      this.openRebalance();
+      return;
+    }
+
+    this.performSaveSnapshot(act, original);
+  }
+
+  private performSaveSnapshot(act: FlatActivity, original: Snapshot | null): void {
     const req: SnapshotRequest = {
       id:          original?.id,
       start_date:  this.form.start_date,
       end_date:    this.form.end_date,
-      planned_pct: this.form.planned_pct,
+      planned_pct: this.form.planned_pct!,
       observation: this.requiresObservation() ? this.form.observation.trim() : undefined,
     };
 
@@ -629,6 +664,79 @@ export class TabSeguimientoTecnicoComponent implements OnInit {
           : (err?.error?.error ?? err?.error?.message ?? 'Error al guardar el período.');
         this.saveError.set(msg);
         this.saving.set(false);
+      },
+    });
+  }
+
+  // ── Reorganizar % (mismo patrón que Alcance, cuando el planeado supera 100%) ────
+
+  rebalanceMode    = signal(false);
+  rebalanceRows    = signal<RebalanceRow[]>([]);
+  rebalanceSaving  = signal(false);
+  rebalanceError   = signal<string | null>(null);
+
+  rebalanceSum = computed(() => Math.round(this.rebalanceRows().reduce((s, r) => s + (r.percentage ?? 0), 0) * 100) / 100);
+
+  openRebalance(): void {
+    const original = this.editingSnap();
+    const rows: RebalanceRow[] = this.activitySnaps()
+      .filter(s => !(original && s.id === original.id))
+      .map(s => ({ id: s.id ?? null, start_date: s.start_date, end_date: s.end_date, percentage: s.planned_pct }));
+    rows.push({ id: original?.id ?? null, start_date: this.form.start_date, end_date: this.form.end_date, percentage: this.form.planned_pct ?? 0 });
+    this.rebalanceRows.set(rows);
+    this.rebalanceError.set(null);
+    this.rebalanceMode.set(true);
+  }
+
+  updateRebalanceRow(index: number, value: number): void {
+    this.rebalanceRows.update(rows => rows.map((r, i) => i === index ? { ...r, percentage: value } : r));
+  }
+
+  closeRebalance(): void {
+    this.rebalanceMode.set(false);
+    this.rebalanceRows.set([]);
+    this.rebalanceError.set(null);
+    this.rebalanceSaving.set(false);
+  }
+
+  confirmRebalance(): void {
+    if (this.rebalanceSum() !== 100) {
+      this.rebalanceError.set('La suma de porcentajes debe ser exactamente 100%.');
+      return;
+    }
+    const act = this.selectedActivity();
+    if (!act) return;
+
+    const rows = this.rebalanceRows();
+    const pendingId = this.editingSnap()?.id ?? null;
+    const bulkItems = rows
+      .filter(r => r.id && r.id !== pendingId)
+      .map(r => ({ id: r.id!, planned_pct: r.percentage }));
+    const pendingRow = rows.find(r => r.id === pendingId) ?? rows[rows.length - 1];
+
+    this.rebalanceSaving.set(true);
+    this.rebalanceError.set(null);
+
+    const proceed = () => {
+      this.form.planned_pct = pendingRow.percentage;
+      const original = this.editingSnap();
+      this.closeRebalance();
+      this.performSaveSnapshot(act, original);
+    };
+
+    if (!bulkItems.length) { proceed(); return; }
+
+    this.svc.rebalanceCheckpointPct(this.projectId, act.id, bulkItems, pendingRow.percentage).subscribe({
+      next: () => {
+        this.activitySnaps.update(list => list.map(s => {
+          const match = bulkItems.find(b => b.id === s.id);
+          return match ? { ...s, planned_pct: match.planned_pct } : s;
+        }));
+        proceed();
+      },
+      error: err => {
+        this.rebalanceError.set(err?.error?.error ?? 'Error al reorganizar los períodos.');
+        this.rebalanceSaving.set(false);
       },
     });
   }

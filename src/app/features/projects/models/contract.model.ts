@@ -174,7 +174,7 @@ export interface ContractStep5Request {
 export type BeneficiaryType =
   | 'personas' | 'mujeres' | 'hombres' | 'jovenes' | 'niños'
   | 'adultos_mayores' | 'familias' | 'comunidades' | 'organizaciones'
-  | 'instituciones' | 'otro';
+  | 'instituciones' | 'entidades_territoriales' | 'unidades_productivas' | 'otro';
 
 export interface ContractBeneficiaryItem {
   id?:          string;

@@ -23,7 +23,6 @@ interface SupervisorForm {
   second_surname: string;
   document_type: SupervisorDocumentType;
   identity_document_number: string;
-  birthdate: string;
   email: string;
   phone: string;
   password: string;
@@ -38,7 +37,7 @@ function emptyAllyForm(): AllyForm {
 function emptySupervisorForm(): SupervisorForm {
   return {
     first_name: '', first_surname: '', second_surname: '',
-    document_type: 'CC', identity_document_number: '', birthdate: '',
+    document_type: 'CC', identity_document_number: '',
     email: '', phone: '', password: '',
   };
 }
@@ -327,6 +326,22 @@ export class AlliesListComponent implements OnInit, OnDestroy {
     };
     this.supervisorSaveError.set(null);
     this.showSupervisorForm.set(true);
+
+    this.supervisorSvc.getById(sup.id).subscribe({
+      next: detail => {
+        this.supervisorForm = {
+          ...this.supervisorForm,
+          first_name: detail.first_name,
+          first_surname: detail.first_surname,
+          second_surname: detail.second_surname ?? '',
+          document_type: (detail.document_type as SupervisorDocumentType) || 'CC',
+          identity_document_number: detail.identity_document_number,
+          email: detail.email,
+          phone: detail.phone,
+        };
+      },
+      error: () => this.supervisorSaveError.set('No se pudo cargar el detalle del supervisor.'),
+    });
   }
 
   cancelSupervisorForm(): void {
@@ -343,7 +358,7 @@ export class AlliesListComponent implements OnInit, OnDestroy {
     const f = this.supervisorForm;
     const passwordRequired = !editing;
     if (!f.first_name || !f.first_surname || !f.second_surname || !f.identity_document_number ||
-        !f.birthdate || !f.email || !f.phone || (passwordRequired && !f.password)) {
+        !f.email || !f.phone || (passwordRequired && !f.password)) {
       this.supervisorSaveError.set('Todos los campos son obligatorios excepto donde se indique.');
       return;
     }
