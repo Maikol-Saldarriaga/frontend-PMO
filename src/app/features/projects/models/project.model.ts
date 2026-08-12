@@ -35,6 +35,9 @@ export interface ProjectStep1Request {
   antecedent:           string;
   /** Alianza (organización aliada) opcional del proyecto. */
   ally_id?:             string | null;
+  // La configuración de administración/IVA (applies_admin_fee, admin_fee_percentage,
+  // iva_percentage) NO se pide aquí — se edita directamente en la pestaña Facturación.
+  // El backend aplica sus propios defaults (sin admin fee, IVA 19%) si no se envían.
 }
 
 export interface ProjectResponsible {
@@ -63,6 +66,9 @@ export interface ProjectCreateResponse {
   percent_done:    number;
   responsible:     ProjectResponsible | null;
   created_at:      string;
+  applies_admin_fee?:     boolean;
+  admin_fee_percentage?:  number | null;
+  iva_percentage?:        number;
   /** Avance real ponderado 0-100. null si el proyecto aún no tiene componentes cargados (borrador típico). */
   real_progress?:      number | null;
   /** Fecha final vigente si el proyecto tuvo alguna extensión; null si nunca se extendió. */
@@ -1242,6 +1248,10 @@ export interface Invoice {
   budget_component_name?:    string | null;
   technical_component_id?:   string | null;
   technical_component_name?: string | null;
+  /** % de administración retenido de esta factura (null si el contrato no aplica el fee) — calculado por el backend. */
+  admin_fee_amount?:         number | null;
+  /** value - admin_fee_amount: lo que queda disponible para desembolso/ejecución — calculado por el backend. */
+  net_value?:                number | null;
 }
 
 export interface InvoiceRequest {
@@ -1272,6 +1282,10 @@ export interface FundingReceipt {
   receipt_reference:      string | null;
   observation:            string | null;
   created_at:             string;
+  /** Comprobante de pago adjunto. receipt_document_key llega como URL firmada (presigned)
+   * lista para abrir directamente — no como una key cruda de storage. */
+  receipt_document_key?:  string | null;
+  receipt_document_name?: string | null;
   /** Resuelto desde la factura (finance_record) a la que pertenece este cobro — solo
    * viene poblado cuando el cobro se obtiene como parte del reporte de Flujo de Caja. */
   budget_item_id?:        string | null;
@@ -1296,6 +1310,10 @@ export interface CashFlowMonth {
   egreso_total:        number;
   ingreso_bruto:       number;
   ingreso_neto:        number;
+  /** % de administración retenido de lo facturado este mes. */
+  admin_fee_retenido:  number;
+  /** ingreso_bruto - admin_fee_retenido: lo que realmente queda disponible para ejecución del proyecto. */
+  ingreso_disponible:  number;
   flujo_neto:          number;
   saldo_acumulado:     number;
   deficit:             boolean;
@@ -1311,6 +1329,8 @@ export interface CashFlowRubro {
   ingreso_recibido:              number;
   comprometido_abastecimiento:   number;
   pagado_abastecimiento:         number;
+  /** % de administración retenido de la facturación de este rubro. */
+  admin_fee_retenido:            number;
 }
 
 /** Parámetros para /projects/:id/reports/budget — o bien year+month, o bien
@@ -1330,6 +1350,8 @@ export interface CashFlowReport {
   total_egresos:    number;
   total_neto:       number;
   saldo_final:      number;
+  /** Total del % de administración retenido en todo el período del reporte. */
+  total_admin_fee:  number;
   rubro_breakdown:  CashFlowRubro[];
   receipts:         FundingReceipt[];
 }

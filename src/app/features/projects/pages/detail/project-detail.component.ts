@@ -76,6 +76,11 @@ export class ProjectDetailComponent implements OnInit {
   error      = signal<string | null>(null);
   activeTab  = signal<string>('resumen');
   access     = signal<ProjectAccess | null>(null);
+  nameExpanded = signal(false);
+
+  toggleNameExpanded(): void {
+    this.nameExpanded.update(v => !v);
+  }
 
   isAdmin = computed(() => this.auth.user()?.role === 'ADMIN');
 

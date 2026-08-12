@@ -1,8 +1,16 @@
 <div class="px-6 py-6 space-y-5">
 
-  <div>
-    <h2 class="text-base font-bold text-gray-900">Flujo de Caja</h2>
-    <p class="text-xs text-gray-400 mt-0.5">Ingresos (cobros reales) vs egresos (distribución presupuestal planeada), mes a mes — y de dónde sale cada cifra, rubro por rubro.</p>
+  <div class="flex items-center justify-between gap-4 flex-wrap">
+    <div>
+      <h2 class="text-base font-bold text-gray-900">Flujo de Caja</h2>
+      <p class="text-xs text-gray-400 mt-0.5">Ingresos (cobros reales) vs egresos (distribución presupuestal planeada), mes a mes — y de dónde sale cada cifra, rubro por rubro.</p>
+    </div>
+    @if (appliesAdminFee()) {
+      <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-100 text-xs font-bold text-amber-700 flex-shrink-0">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 7h6m0 10v-3m-3 3v-6m-3 6v-9m-2 9h10a2 2 0 002-2V5a2 2 0 00-2-2H6a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+        % de Administración: {{ adminFeePercentage() }}%
+      </span>
+    }
   </div>
 
   @if (loading()) {
@@ -19,7 +27,7 @@
   @if (!loading() && !error() && report(); as r) {
 
     <!-- ── KPIs ─────────────────────────────────────────────────────────── -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
       <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
         <p class="text-[10px] font-bold text-neutral-400 uppercase tracking-wide">Ingresos totales</p>
         <p class="text-xl font-black text-success mt-1">{{ formatCurrency(r.total_ingresos) }}</p>
@@ -28,6 +36,12 @@
         <p class="text-[10px] font-bold text-neutral-400 uppercase tracking-wide">Egresos totales</p>
         <p class="text-xl font-black text-danger mt-1">{{ formatCurrency(r.total_egresos) }}</p>
       </div>
+      @if (r.total_admin_fee > 0) {
+        <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
+          <p class="text-[10px] font-bold text-neutral-400 uppercase tracking-wide">Administración retenida ({{ adminFeePercentage() }}%)</p>
+          <p class="text-xl font-black text-amber-600 mt-1">{{ formatCurrency(r.total_admin_fee) }}</p>
+        </div>
+      }
       <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
         <p class="text-[10px] font-bold text-neutral-400 uppercase tracking-wide">Flujo neto</p>
         <p class="text-xl font-black mt-1" [class.text-success]="r.total_neto >= 0" [class.text-danger]="r.total_neto < 0">
@@ -67,11 +81,14 @@
     <!-- ── Tabla mensual ────────────────────────────────────────────────── -->
     <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
       <div class="overflow-x-auto">
-        <table class="w-full text-sm min-w-[900px] border-collapse">
+        <table class="w-full text-sm min-w-[1250px] border-collapse">
           <thead>
             <tr class="bg-neutral-50 border-b border-gray-100 text-[10px] font-bold text-neutral-500 uppercase tracking-wide">
               <th class="text-left px-4 py-2.5">Mes</th>
               <th class="text-right px-3 py-2.5">Ingreso</th>
+              <th class="text-right px-3 py-2.5">Ingreso antes de IVA</th>
+              <th class="text-right px-3 py-2.5">Admin. retenida</th>
+              <th class="text-right px-3 py-2.5">Ingreso disponible</th>
               <th class="text-right px-3 py-2.5">Egreso contraparte</th>
               <th class="text-right px-3 py-2.5">Egreso aliado</th>
               <th class="text-right px-3 py-2.5">Egreso total</th>
@@ -85,6 +102,16 @@
               <tr [ngClass]="m.deficit ? 'bg-danger/5' : ''" class="hover:bg-neutral-50/60 transition-colors">
                 <td class="px-4 py-3 text-xs font-semibold text-primary-700 whitespace-nowrap">{{ monthLabel(m) }}</td>
                 <td class="px-3 py-3 text-right text-xs font-semibold text-success whitespace-nowrap">{{ formatCurrency(m.ingreso_bruto) }}</td>
+                <td class="px-3 py-3 text-right text-xs text-neutral-500 whitespace-nowrap">
+                  {{ formatCurrency(m.ingreso_neto) }}
+                  @if (ingresoIvaPercentage(m) !== null) { <span class="text-neutral-400">(IVA {{ ingresoIvaPercentage(m) }}%)</span> }
+                </td>
+                <td class="px-3 py-3 text-right text-xs text-amber-600 whitespace-nowrap">
+                  @if (m.admin_fee_retenido > 0) {
+                    {{ formatCurrency(m.admin_fee_retenido) }} <span class="text-amber-500">({{ adminFeePercentageOfMonth(m) }}%)</span>
+                  } @else { — }
+                </td>
+                <td class="px-3 py-3 text-right text-xs font-semibold text-primary-700 whitespace-nowrap">{{ formatCurrency(m.ingreso_disponible) }}</td>
                 <td class="px-3 py-3 text-right text-xs text-accent whitespace-nowrap">{{ formatCurrency(m.egreso_contraparte) }}</td>
                 <td class="px-3 py-3 text-right text-xs text-neutral-500 whitespace-nowrap">{{ formatCurrency(m.egreso_aliado) }}</td>
                 <td class="px-3 py-3 text-right text-xs font-semibold text-danger whitespace-nowrap">{{ formatCurrency(m.egreso_total) }}</td>
@@ -114,6 +141,16 @@
               <tr class="bg-neutral-50 border-t-2 border-gray-200">
                 <td class="px-4 py-2.5 text-[10px] font-bold text-neutral-500 uppercase">Total</td>
                 <td class="px-3 py-2.5 text-right text-xs font-bold text-success">{{ formatCurrency(r.total_ingresos) }}</td>
+                <td class="px-3 py-2.5 text-right text-xs font-bold text-neutral-500">
+                  {{ formatCurrency(totalIngresoAntesIva()) }}
+                  @if (totalIngresoIvaPercentage() !== null) { <span class="text-neutral-400 font-normal">(IVA {{ totalIngresoIvaPercentage() }}%)</span> }
+                </td>
+                <td class="px-3 py-2.5 text-right text-xs font-bold text-amber-600">
+                  @if (r.total_admin_fee > 0) {
+                    {{ formatCurrency(r.total_admin_fee) }} <span class="text-amber-500 font-normal">({{ totalAdminFeePercentage() }}%)</span>
+                  } @else { — }
+                </td>
+                <td class="px-3 py-2.5 text-right text-xs font-bold text-primary-700">{{ formatCurrency(r.total_ingresos - r.total_admin_fee) }}</td>
                 <td></td>
                 <td></td>
                 <td class="px-3 py-2.5 text-right text-xs font-bold text-danger">{{ formatCurrency(r.total_egresos) }}</td>
@@ -148,6 +185,7 @@
               <th class="text-right px-3 py-2.5 whitespace-nowrap">Presupuestado</th>
               <th class="text-right px-3 py-2.5 whitespace-nowrap">Egreso planeado</th>
               <th class="text-right px-3 py-2.5 whitespace-nowrap">Ingreso recibido</th>
+              <th class="text-right px-3 py-2.5 whitespace-nowrap">Admin. retenida</th>
               <th class="text-right px-3 py-2.5 whitespace-nowrap">Comprometido (abastecimiento)</th>
               <th class="text-right px-3 py-2.5 whitespace-nowrap">Pagado (abastecimiento)</th>
             </tr>
@@ -167,6 +205,7 @@
                 <td class="px-3 py-3 text-right whitespace-nowrap text-xs text-neutral-600">{{ formatCurrency(rb.total_presupuestado) }}</td>
                 <td class="px-3 py-3 text-right whitespace-nowrap text-xs font-semibold text-danger">{{ formatCurrency(rb.egreso_planeado) }}</td>
                 <td class="px-3 py-3 text-right whitespace-nowrap text-xs font-semibold text-success">{{ formatCurrency(rb.ingreso_recibido) }}</td>
+                <td class="px-3 py-3 text-right whitespace-nowrap text-xs text-amber-600">{{ rb.admin_fee_retenido > 0 ? formatCurrency(rb.admin_fee_retenido) : '—' }}</td>
                 <td class="px-3 py-3 text-right whitespace-nowrap text-xs font-semibold" [class.text-danger]="rubroOverCommitted(rb)" [class.text-accent]="!rubroOverCommitted(rb)">
                   {{ formatCurrency(rb.comprometido_abastecimiento) }}
                 </td>
@@ -190,12 +229,13 @@
         <p class="text-xs text-gray-400 mt-0.5">Cada cobro real recibido del aliado, con el rubro exacto de donde proviene.</p>
       </div>
       <div class="overflow-x-auto">
-        <table class="w-full text-sm min-w-[760px] border-collapse">
+        <table class="w-full text-sm min-w-[900px] border-collapse">
           <thead>
             <tr class="bg-neutral-50 border-b border-gray-100 text-[10px] font-bold text-neutral-500 uppercase tracking-wide">
               <th class="text-left px-4 py-2.5">Fecha</th>
               <th class="text-left px-3 py-2.5">Rubro</th>
               <th class="text-right px-3 py-2.5">Valor</th>
+              <th class="text-right px-3 py-2.5">Antes de IVA</th>
               <th class="text-left px-3 py-2.5">Estado</th>
               <th class="text-left px-3 py-2.5">Referencia</th>
             </tr>
@@ -211,6 +251,12 @@
                   </span>
                 </td>
                 <td class="px-3 py-3 text-right whitespace-nowrap text-xs font-semibold text-success">{{ formatCurrency(rec.value) }}</td>
+                <td class="px-3 py-3 text-right whitespace-nowrap text-xs text-neutral-500">
+                  @if (rec.value_before_tax !== null) {
+                    {{ formatCurrency(rec.value_before_tax) }}
+                    @if (receiptIvaPercentage(rec) !== null) { <span class="text-neutral-400">({{ receiptIvaPercentage(rec) }}%)</span> }
+                  } @else { — }
+                </td>
                 <td class="px-3 py-3">
                   <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold"
                     [class.bg-emerald-50]="rec.status === 'recibido'" [class.text-emerald-700]="rec.status === 'recibido'"

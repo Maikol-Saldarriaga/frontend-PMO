@@ -27,6 +27,13 @@
             Solo ADMIN, COORDINADOR o FINANCE pueden registrar facturas
           </span>
         }
+        <button type="button" [routerLink]="['/projects', projectId, 'movimientos']"
+          class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-neutral-50 text-primary-700 border border-neutral-200 text-sm font-semibold shadow-sm transition-all active:scale-95">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/>
+          </svg>
+          Ver Movimientos
+        </button>
         <button type="button" (click)="openReportPanel()"
           class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-neutral-50 text-primary-700 border border-neutral-200 text-sm font-semibold shadow-sm transition-all active:scale-95">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -46,43 +53,69 @@
 
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
 
-        <!-- ── Columna izquierda: lista de ítems ─────────────────────────── -->
-        <div class="lg:col-span-1 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div class="p-4 border-b border-gray-100">
-            <div class="relative">
-              <svg class="w-4 h-4 text-gray-300 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-              </svg>
-              <input type="text" [(ngModel)]="search" placeholder="Buscar ítem o componente..."
-                class="w-full pl-9 pr-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-300 bg-neutral-50 outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+        <!-- ── Columna izquierda: lista de ítems (sticky) ────────────────── -->
+        <div class="lg:col-span-1 lg:sticky lg:top-24 space-y-4">
+
+          <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div class="p-4 border-b border-gray-100">
+              <div class="relative">
+                <svg class="w-4 h-4 text-gray-300 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+                <input type="text" [(ngModel)]="search" placeholder="Buscar ítem o componente..."
+                  class="w-full pl-9 pr-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-300 bg-neutral-50 outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+              </div>
+            </div>
+
+            <div class="max-h-[360px] overflow-y-auto divide-y divide-gray-50">
+              @for (sec of filteredSections(); track trackByComp($index, sec)) {
+                <div class="px-4 pt-3 pb-1 flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full flex-shrink-0" [style.background]="colorForComponent(sec.component_id)"></span>
+                  <p class="text-[10px] font-bold text-neutral-400 uppercase tracking-wide truncate">{{ sec.name }}</p>
+                </div>
+                @for (row of sec.rows; track trackByRow($index, row)) {
+                  <button type="button" (click)="selectItem(row)"
+                    class="w-full text-left px-4 py-3 flex items-center justify-between gap-3 transition-colors"
+                    [class.bg-accent-50]="selectedItem()?.budget_item_id === row.budget_item_id"
+                    [class.hover:bg-neutral-50]="selectedItem()?.budget_item_id !== row.budget_item_id">
+                    <div class="min-w-0 flex-1">
+                      <p class="text-xs font-semibold truncate" [class.text-accent]="selectedItem()?.budget_item_id === row.budget_item_id" [class.text-primary-700]="selectedItem()?.budget_item_id !== row.budget_item_id">
+                        {{ row.concept || 'Sin nombre' }}
+                      </p>
+                      <p class="text-[10px] text-neutral-400 truncate">{{ row.component_name }}</p>
+                    </div>
+                    <span class="text-[11px] font-bold text-neutral-500 flex-shrink-0">{{ formatCompact(row.total_value) }}</span>
+                  </button>
+                }
+              }
+              @if (!filteredSections().length) {
+                <div class="px-4 py-8 text-center">
+                  <p class="text-xs text-neutral-400">Sin resultados para "{{ search }}".</p>
+                </div>
+              }
             </div>
           </div>
 
-          <div class="max-h-[560px] overflow-y-auto divide-y divide-gray-50">
-            @for (sec of filteredSections(); track trackByComp($index, sec)) {
-              <div class="px-4 pt-3 pb-1">
-                <p class="text-[10px] font-bold text-neutral-400 uppercase tracking-wide">{{ sec.name }}</p>
+          <!-- ── Resumen general del presupuesto ───────────────────────────── -->
+          <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            <p class="text-[10px] font-bold text-neutral-400 uppercase tracking-wide mb-3">Resumen del presupuesto</p>
+            <div class="space-y-2.5">
+              <div class="flex items-center justify-between gap-3">
+                <span class="text-xs text-neutral-500">Componentes técnicos</span>
+                <span class="text-xs font-bold text-primary-700">{{ totalComponentsCount() }}</span>
               </div>
-              @for (row of sec.rows; track trackByRow($index, row)) {
-                <button type="button" (click)="selectItem(row)"
-                  class="w-full text-left px-4 py-3 flex items-center justify-between gap-3 transition-colors"
-                  [class.bg-accent-50]="selectedItem()?.budget_item_id === row.budget_item_id"
-                  [class.hover:bg-neutral-50]="selectedItem()?.budget_item_id !== row.budget_item_id">
-                  <div class="min-w-0 flex-1">
-                    <p class="text-xs font-semibold truncate" [class.text-accent]="selectedItem()?.budget_item_id === row.budget_item_id" [class.text-primary-700]="selectedItem()?.budget_item_id !== row.budget_item_id">
-                      {{ row.concept || 'Sin nombre' }}
-                    </p>
-                    <p class="text-[10px] text-neutral-400 truncate">{{ row.component_name }}</p>
-                  </div>
-                  <span class="text-[11px] font-bold text-neutral-500 flex-shrink-0">{{ formatCompact(row.total_value) }}</span>
-                </button>
-              }
-            }
-            @if (!filteredSections().length) {
-              <div class="px-4 py-8 text-center">
-                <p class="text-xs text-neutral-400">Sin resultados para "{{ search }}".</p>
+              <div class="flex items-center justify-between gap-3">
+                <span class="text-xs text-neutral-500">Rubros / ítems</span>
+                <span class="text-xs font-bold text-primary-700">{{ totalItemsCount() }}</span>
               </div>
-            }
+              <div class="flex items-center justify-between gap-3 pt-2.5 border-t border-gray-100">
+                <span class="text-xs text-neutral-500">Presupuesto total</span>
+                <span class="text-xs font-bold text-accent">{{ formatCurrency(totalProjectBudget()) }}</span>
+              </div>
+            </div>
+            <p class="text-[10px] text-neutral-400 mt-3 pt-3 border-t border-gray-100">
+              Selecciona un ítem para ver su control de cobros, historial de facturas y distribución mensual.
+            </p>
           </div>
         </div>
 
@@ -105,7 +138,10 @@
             <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
               <div class="flex items-center justify-between gap-4 flex-wrap">
                 <div class="min-w-0">
-                  <p class="text-[10px] font-bold text-accent uppercase tracking-wide mb-1">{{ selectedItem()!.technical_name }} · {{ selectedItem()!.component_name }}</p>
+                  <p class="text-[10px] font-bold uppercase tracking-wide mb-1 flex items-center gap-1.5" [style.color]="colorForComponent(selectedItem()!.technical_component_id)">
+                    <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" [style.background]="colorForComponent(selectedItem()!.technical_component_id)"></span>
+                    {{ selectedItem()!.technical_name }} · {{ selectedItem()!.component_name }}
+                  </p>
                   <h3 class="text-sm font-bold text-gray-900 truncate">{{ selectedItem()!.concept }}</h3>
                   <p class="text-xs text-gray-400 mt-0.5">Presupuesto total: {{ formatCurrency(selectedItem()!.total_value) }}</p>
                 </div>
@@ -121,7 +157,6 @@
               </div>
             </div>
 
-            <!-- Historial de facturas y cobros + distribución mensual (vista compartida con el tab Presupuesto) -->
             @if (invoicesLoading()) {
               <div class="bg-white rounded-2xl border border-gray-100 shadow-sm flex items-center justify-center py-12">
                 <div class="w-6 h-6 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
@@ -132,80 +167,276 @@
               </div>
             } @else {
 
-              <!-- Historial de facturas y cobros ─────────────────────────── -->
-              <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                <div class="px-5 py-4 border-b border-gray-100">
-                  <h3 class="text-sm font-bold text-gray-900">Historial de facturas y cobros</h3>
-                  <p class="text-xs text-gray-400 mt-0.5">Facturar no es lo mismo que cobrar — registra los cobros reales recibidos de cada factura.</p>
+              <!-- ── KPIs del ítem: presupuestado / facturado / pendiente por facturar / cobrado / pendiente por cobrar ── -->
+              <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3.5">
+                  <p class="text-[10px] font-bold text-neutral-400 uppercase tracking-wide">Presupuestado</p>
+                  <p class="text-sm font-bold text-gray-900 mt-1">{{ formatCompact(selectedItem()!.total_value) }}</p>
+                </div>
+                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3.5">
+                  <p class="text-[10px] font-bold text-neutral-400 uppercase tracking-wide">Facturado</p>
+                  <p class="text-sm font-bold text-accent mt-1">{{ formatCompact(totalInvoiced()) }}</p>
+                </div>
+                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3.5">
+                  <p class="text-[10px] font-bold text-neutral-400 uppercase tracking-wide">Pendiente por facturar</p>
+                  <p class="text-sm font-bold text-orange-600 mt-1">{{ formatCompact(totalPendingToInvoice()) }}</p>
+                </div>
+                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3.5">
+                  <p class="text-[10px] font-bold text-neutral-400 uppercase tracking-wide">Cobrado</p>
+                  <p class="text-sm font-bold text-success mt-1">{{ formatCompact(totalCollected()) }}</p>
+                </div>
+                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3.5">
+                  <p class="text-[10px] font-bold text-neutral-400 uppercase tracking-wide">Pendiente por cobrar</p>
+                  <p class="text-sm font-bold text-amber-600 mt-1">{{ formatCompact(totalPending()) }}</p>
+                </div>
+              </div>
+
+              @if (invoices().length) {
+                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-4">
+                  <div class="flex items-center justify-between gap-3 mb-1.5">
+                    <p class="text-[10px] font-bold text-neutral-500 uppercase tracking-wide">Avance de recaudo</p>
+                    <p class="text-xs font-semibold" [class.text-success]="collectionPct() >= 100" [class.text-accent]="collectionPct() < 100">
+                      {{ formatCurrency(totalCollected()) }} / {{ formatCurrency(totalInvoiced()) }} ({{ collectionPct() }}%)
+                    </p>
+                  </div>
+                  <div class="h-2 rounded-full bg-gray-200 overflow-hidden">
+                    <div class="h-full rounded-full bg-success transition-all duration-500" [style.width.%]="collectionPct()"></div>
+                  </div>
+                </div>
+              }
+
+              <!-- ── Sub-pestañas: Facturas | Cobros | Detalle por periodo ────── -->
+              <div class="inline-flex items-center gap-1 bg-gray-100 rounded-xl p-1">
+                <button type="button" (click)="facturacionView.set('facturas')"
+                  class="px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                  [class.bg-white]="facturacionView() === 'facturas'" [class.text-primary-700]="facturacionView() === 'facturas'" [class.shadow-sm]="facturacionView() === 'facturas'"
+                  [class.text-neutral-400]="facturacionView() !== 'facturas'">
+                  Facturas
+                  @if (invoices().length) { <span class="ml-1 text-neutral-400">({{ invoices().length }})</span> }
+                </button>
+                <button type="button" (click)="facturacionView.set('cobros')"
+                  class="px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                  [class.bg-white]="facturacionView() === 'cobros'" [class.text-primary-700]="facturacionView() === 'cobros'" [class.shadow-sm]="facturacionView() === 'cobros'"
+                  [class.text-neutral-400]="facturacionView() !== 'cobros'">
+                  Cobros
+                </button>
+                <button type="button" (click)="facturacionView.set('periodo')"
+                  class="px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                  [class.bg-white]="facturacionView() === 'periodo'" [class.text-primary-700]="facturacionView() === 'periodo'" [class.shadow-sm]="facturacionView() === 'periodo'"
+                  [class.text-neutral-400]="facturacionView() !== 'periodo'">
+                  Detalle por periodo
+                </button>
+              </div>
+
+              @if (facturacionView() === 'facturas') {
+
+                <!-- ── Facturas emitidas ─────────────────────────────────────── -->
+                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                  <div class="px-5 py-4 border-b border-gray-100">
+                    <h3 class="text-sm font-bold text-gray-900">Facturas emitidas</h3>
+                    <p class="text-xs text-gray-400 mt-0.5">Registro de emisión. El recaudo real se gestiona en la pestaña "Cobros".</p>
+                  </div>
+
+                  @if (!invoices().length) {
+                    <div class="px-5 py-8 text-center">
+                      <p class="text-xs text-neutral-400">Aún no hay facturas registradas para este ítem.</p>
+                    </div>
+                  } @else {
+                    <div class="divide-y divide-gray-50">
+                      @for (inv of invoices(); track trackByInvoiceRow($index, inv)) {
+                        <div class="w-full px-5 py-3.5 flex items-center justify-between gap-3 hover:bg-neutral-50/60 transition-colors border-l-2 border-sky-400">
+                          <div class="min-w-0 flex-1">
+                            <p class="text-xs font-semibold text-primary-700 flex items-center gap-1.5">
+                              <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-sky-50 text-sky-700 text-[9px] font-bold uppercase tracking-wide flex-shrink-0">
+                                <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                Factura
+                              </span>
+                              {{ formatCurrency(inv.value) }}
+                              <span class="text-[10px] font-medium text-neutral-400 ml-1">{{ inv.date | date:'dd/MM/yyyy':'UTC' }}</span>
+                            </p>
+                            <p class="text-[11px] text-neutral-400 mt-0.5">
+                              {{ inv.year && inv.month ? monthLabel({ year: inv.year, month: inv.month }) : 'Componente completo' }}
+                              @if (inv.collection_act_number) { · {{ inv.collection_act_number }} }
+                            </p>
+                            <p class="text-[10px] text-neutral-400 mt-0.5">
+                              IVA {{ invoiceIvaPercentage(inv) }}%
+                              @if (inv.admin_fee_amount) {
+                                <span class="text-amber-600"> · Admin {{ invoiceAdminFeePercentage(inv) }}%: {{ formatCurrency(inv.admin_fee_amount) }} · Neto: {{ formatCurrency(inv.net_value ?? inv.value) }}</span>
+                              }
+                            </p>
+                          </div>
+                          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold flex-shrink-0"
+                            [class.bg-emerald-50]="inv.status === 'FACT'" [class.text-emerald-700]="inv.status === 'FACT'"
+                            [class.bg-amber-50]="inv.status === 'PEND'" [class.text-amber-700]="inv.status === 'PEND'">
+                            {{ inv.status === 'FACT' ? 'Facturada' : 'Pendiente' }}
+                          </span>
+                          @if (canCreate() && canEditInvoice(inv)) {
+                            <button type="button" (click)="startEditInvoice(inv)" [disabled]="locked" title="Editar factura (aún no cobrada)"
+                              class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-neutral-200 text-[10px] font-semibold text-neutral-500 hover:text-accent hover:border-accent-200 hover:bg-accent-50 transition-colors flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed">
+                              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                              Editar
+                            </button>
+                          }
+                          @if (canCreate()) {
+                            <button type="button" (click)="deleteInvoice(inv)" [disabled]="locked || deletingInvoiceId() === inv.id" title="Eliminar factura"
+                              class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-neutral-200 text-[10px] font-semibold text-neutral-500 hover:text-danger hover:border-danger/30 hover:bg-danger/10 transition-colors flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed">
+                              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                              Eliminar
+                            </button>
+                          }
+                          <button type="button" (click)="goToCobros(inv)" title="Ver cobros de esta factura"
+                            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-neutral-200 text-[10px] font-semibold text-neutral-500 hover:text-accent hover:border-accent-200 hover:bg-accent-50 transition-colors flex-shrink-0">
+                            Cobrado {{ formatCompact(collectedFor(inv.id)) }}/{{ formatCompact(collectibleCap(inv)) }}
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                          </button>
+                        </div>
+                      }
+                    </div>
+                  }
                 </div>
 
-                @if (invoices().length) {
-                  <div class="px-5 py-4 border-b border-gray-100 bg-neutral-50/50">
-                    <div class="flex items-center justify-between gap-3 mb-1.5">
-                      <p class="text-[10px] font-bold text-neutral-500 uppercase tracking-wide">Control de cobros</p>
-                      <p class="text-xs font-semibold" [class.text-success]="collectionPct() >= 100" [class.text-accent]="collectionPct() < 100">
-                        {{ formatCurrency(totalCollected()) }} / {{ formatCurrency(totalInvoiced()) }} ({{ collectionPct() }}%)
-                      </p>
-                    </div>
-                    <div class="h-2 rounded-full bg-gray-200 overflow-hidden">
-                      <div class="h-full rounded-full bg-success transition-all duration-500" [style.width.%]="collectionPct()"></div>
-                    </div>
-                  </div>
-                }
+              } @else if (facturacionView() === 'cobros') {
 
-                @if (!invoices().length) {
-                  <div class="px-5 py-8 text-center">
-                    <p class="text-xs text-neutral-400">Aún no hay facturas registradas para este ítem.</p>
+                <!-- ── Cobros recibidos, agrupados por factura ─────────────────── -->
+                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                  <div class="px-5 py-4 border-b border-gray-100">
+                    <h3 class="text-sm font-bold text-gray-900">Cobros recibidos</h3>
+                    <p class="text-xs text-gray-400 mt-0.5">Recaudo real por factura. Facturar no es lo mismo que cobrar.</p>
                   </div>
-                } @else {
-                  <div class="divide-y divide-gray-50">
-                    @for (inv of invoices(); track trackByInvoiceRow($index, inv)) {
-                      <div class="w-full px-5 py-3.5 flex items-center justify-between gap-3 hover:bg-neutral-50/60 transition-colors">
-                        <button type="button" (click)="openReceiptsModal(inv)" class="min-w-0 flex-1 text-left">
-                          <p class="text-xs font-semibold text-primary-700">
-                            {{ formatCurrency(inv.value) }}
-                            <span class="text-[10px] font-medium text-neutral-400 ml-1">{{ inv.date | date:'dd/MM/yyyy':'UTC' }}</span>
-                          </p>
-                          <p class="text-[11px] text-neutral-400 mt-0.5">
-                            {{ inv.year && inv.month ? monthLabel({ year: inv.year, month: inv.month }) : 'Componente completo' }}
-                            @if (inv.collection_act_number) { · {{ inv.collection_act_number }} }
-                          </p>
-                        </button>
-                        <button type="button" (click)="openReceiptsModal(inv)"
-                          class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold flex-shrink-0"
-                          [class.bg-emerald-50]="collectedFor(inv.id) >= inv.value" [class.text-emerald-700]="collectedFor(inv.id) >= inv.value"
-                          [class.bg-amber-50]="collectedFor(inv.id) < inv.value" [class.text-amber-700]="collectedFor(inv.id) < inv.value">
-                          Cobrado {{ formatCompact(collectedFor(inv.id)) }} / {{ formatCompact(inv.value) }}
-                        </button>
-                        @if (canCreate() && canEditInvoice(inv)) {
-                          <button type="button" (click)="startEditInvoice(inv)" [disabled]="locked" title="Editar factura (aún no cobrada)"
-                            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-neutral-200 text-[10px] font-semibold text-neutral-500 hover:text-accent hover:border-accent-200 hover:bg-accent-50 transition-colors flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                            Editar
-                          </button>
-                        }
-                        <button type="button" (click)="openReceiptsModal(inv)" title="Ver cobros" class="text-neutral-300 hover:text-accent flex-shrink-0">
-                          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                          </svg>
-                        </button>
-                      </div>
-                    }
-                  </div>
-                }
-              </div>
 
-              <div class="pt-2">
-                <p class="text-[10px] font-bold text-neutral-400 uppercase tracking-wide px-1 mb-2">Detalle por periodo</p>
-                <app-budget-period-status
-                [technicalComponentName]="selectedItem()!.technical_name"
-                [budgetComponentName]="selectedItem()!.component_name"
-                [concept]="selectedItem()!.concept"
-                [unitMeasurement]="selectedItem()!.unit_measurement"
-                [quantity]="selectedItem()!.quantity"
-                [monthlyDistributions]="selectedItem()!.monthly_distributions"
-                [invoices]="invoices()" />
-              </div>
+                  @if (!invoices().length) {
+                    <div class="px-5 py-8 text-center">
+                      <p class="text-xs text-neutral-400">Aún no hay facturas para registrar cobros.</p>
+                    </div>
+                  } @else {
+                    <div class="divide-y divide-gray-100">
+                      @for (inv of invoices(); track trackByInvoiceRow($index, inv)) {
+                        <div class="px-5 py-4 transition-colors border-l-2 border-sky-400" [class]="highlightedInvoiceId() === inv.id ? 'bg-accent-50/40' : ''">
+
+                          <div class="flex items-center justify-between gap-3 mb-2">
+                            <div class="min-w-0">
+                              <p class="text-xs font-semibold text-primary-700 flex items-center gap-1.5 flex-wrap">
+                                <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-sky-50 text-sky-700 text-[9px] font-bold uppercase tracking-wide flex-shrink-0">
+                                  <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                  Factura
+                                </span>
+                                {{ formatCurrency(inv.value) }}
+                                <span class="text-[10px] font-medium text-neutral-400 ml-1">{{ inv.date | date:'dd/MM/yyyy':'UTC' }}</span>
+                                @if (inv.collection_act_number) { <span class="text-[10px] font-medium text-neutral-400"> · {{ inv.collection_act_number }}</span> }
+                              </p>
+                            </div>
+                            <p class="text-[11px] font-semibold flex-shrink-0" [class.text-success]="collectedFor(inv.id) >= collectibleCap(inv)" [class.text-accent]="collectedFor(inv.id) < collectibleCap(inv)">
+                              {{ formatCurrency(collectedFor(inv.id)) }} / {{ formatCurrency(collectibleCap(inv)) }}
+                            </p>
+                          </div>
+                          <p class="text-[10px] text-neutral-400 mb-2">
+                            IVA {{ invoiceIvaPercentage(inv) }}%
+                            @if (inv.admin_fee_amount) {
+                              <span class="text-amber-600"> · Admin {{ invoiceAdminFeePercentage(inv) }}% retenido: {{ formatCurrency(inv.admin_fee_amount) }} (neto disponible: {{ formatCurrency(collectibleCap(inv)) }})</span>
+                            }
+                          </p>
+
+                          <div class="h-1.5 rounded-full bg-gray-100 overflow-hidden mb-3">
+                            <div class="h-full rounded-full transition-all duration-500"
+                              [class.bg-success]="collectedFor(inv.id) >= collectibleCap(inv)" [class.bg-accent]="collectedFor(inv.id) < collectibleCap(inv)"
+                              [style.width.%]="collectedPct(inv)"></div>
+                          </div>
+
+                          @if (receiptsLoadingId() === inv.id) {
+                            <div class="flex items-center justify-center py-4">
+                              <div class="w-5 h-5 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+                            </div>
+                          } @else {
+                            @if (receiptsFor(inv.id).length) {
+                              <div class="space-y-1.5 mb-2">
+                                @for (r of receiptsFor(inv.id); track trackByReceipt($index, r)) {
+                                  <div class="flex items-center justify-between gap-3 bg-neutral-50 rounded-lg border border-gray-100 border-l-2 border-l-emerald-400 px-3 py-2">
+                                    <div class="min-w-0">
+                                      <p class="text-xs font-semibold text-gray-900 flex items-center gap-1.5 flex-wrap">
+                                        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[9px] font-bold uppercase tracking-wide flex-shrink-0">
+                                          <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 9V7a4 4 0 00-8 0v2M5 9h14l-1 12H6L5 9z"/></svg>
+                                          Cobro
+                                        </span>
+                                        {{ formatCurrency(r.value) }}
+                                      </p>
+                                      <p class="text-[10px] text-neutral-400">
+                                        {{ r.receipt_date ? (r.receipt_date | date:'dd/MM/yyyy':'UTC') : '—' }}
+                                        @if (r.receipt_reference) { · {{ r.receipt_reference }} }
+                                      </p>
+                                      @if (r.value_before_tax !== null) {
+                                        <p class="text-[10px] text-neutral-400">
+                                          Antes de IVA: {{ formatCurrency(r.value_before_tax) }}
+                                          @if (receiptIvaPercentage(r) !== null) { ({{ receiptIvaPercentage(r) }}%) }
+                                        </p>
+                                      }
+                                    </div>
+                                    <div class="flex items-center gap-2 flex-shrink-0">
+                                      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold"
+                                        [class.bg-emerald-50]="r.status === 'recibido'" [class.text-emerald-700]="r.status === 'recibido'"
+                                        [class.bg-amber-50]="r.status === 'planeado'" [class.text-amber-700]="r.status === 'planeado'">
+                                        {{ receiptStatusLabel(r.status) }}
+                                      </span>
+                                      @if (r.receipt_document_key) {
+                                        <a [href]="r.receipt_document_key" target="_blank" rel="noopener" title="Ver comprobante"
+                                          class="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-emerald-200 text-[10px] font-semibold text-emerald-700 hover:bg-emerald-50 transition-colors flex-shrink-0">
+                                          <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                          Ver
+                                        </a>
+                                      } @else if (canCreate()) {
+                                        <label title="Adjuntar comprobante"
+                                          class="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-neutral-200 text-[10px] font-semibold text-neutral-500 hover:text-accent hover:border-accent-200 hover:bg-accent-50 transition-colors flex-shrink-0 cursor-pointer"
+                                          [class.opacity-40]="locked || uploadingDocumentId() === r.id" [class.pointer-events-none]="locked || uploadingDocumentId() === r.id">
+                                          @if (uploadingDocumentId() === r.id) {
+                                            <div class="w-3 h-3 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
+                                          } @else {
+                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                                          }
+                                          Adjuntar
+                                          <input type="file" class="hidden" accept="image/*,.pdf" [disabled]="locked || uploadingDocumentId() === r.id" (change)="onAttachExistingDocument(inv, r, $event)"/>
+                                        </label>
+                                      }
+                                      @if (canCreate()) {
+                                        <button type="button" (click)="deleteReceipt(inv, r)" [disabled]="locked || deletingReceiptId() === r.id" title="Eliminar"
+                                          class="w-6 h-6 flex items-center justify-center rounded-lg text-neutral-400 hover:text-danger hover:bg-danger/10 transition-colors disabled:opacity-40">
+                                          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                        </button>
+                                      }
+                                    </div>
+                                  </div>
+                                }
+                              </div>
+                            } @else {
+                              <p class="text-[11px] text-neutral-400 mb-2">Sin cobros registrados para esta factura.</p>
+                            }
+
+                            @if (canCreate()) {
+                              <button type="button" (click)="startReceiptForm(inv)" [disabled]="locked"
+                                class="flex items-center gap-1.5 text-[11px] font-semibold text-accent hover:text-accent-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                                Registrar cobro
+                              </button>
+                            }
+                          }
+                        </div>
+                      }
+                    </div>
+                  }
+                </div>
+
+              } @else {
+
+                <!-- ── Detalle por periodo (distribución mensual) ──────────────── -->
+                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden p-1">
+                  <app-budget-period-status
+                  [technicalComponentName]="selectedItem()!.technical_name"
+                  [budgetComponentName]="selectedItem()!.component_name"
+                  [concept]="selectedItem()!.concept"
+                  [unitMeasurement]="selectedItem()!.unit_measurement"
+                  [quantity]="selectedItem()!.quantity"
+                  [monthlyDistributions]="selectedItem()!.monthly_distributions"
+                  [invoices]="invoices()" />
+                </div>
+              }
             }
 
           }
@@ -239,17 +470,63 @@
           <input type="text" inputmode="numeric" appMoneyMask [ngModel]="form.value" (ngModelChange)="onFormValueChange($event)" placeholder="0"
             class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
         </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">% de IVA</label>
+            <div class="relative">
+              <input type="number" min="0" max="100" step="0.01" [ngModel]="form.iva_percentage" (ngModelChange)="onFormIvaChange($event)" placeholder="19"
+                class="w-full pr-7 pl-3 py-2 rounded-xl border border-neutral-200 text-sm font-semibold text-primary-700 placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+              <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none"><span class="text-xs text-neutral-400 font-semibold">%</span></div>
+            </div>
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Valor antes de IVA</label>
+            <input type="text" [value]="form.value_before_tax !== null ? formatCurrency(form.value_before_tax) : ''" readonly placeholder="—"
+              class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-neutral-500 placeholder-neutral-300 bg-neutral-100 cursor-not-allowed outline-none"/>
+          </div>
+        </div>
         <div>
-          <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Valor antes de IVA</label>
-          <input type="text" [value]="form.value_before_tax !== null ? formatCurrency(form.value_before_tax) : ''" readonly placeholder="—"
-            class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-neutral-500 placeholder-neutral-300 bg-neutral-100 cursor-not-allowed outline-none"/>
-          <label class="flex items-center gap-1.5 mt-1.5 cursor-pointer select-none">
+          <label class="flex items-center gap-1.5 cursor-pointer select-none">
             <input type="checkbox" [ngModel]="form.no_iva" (ngModelChange)="onFormNoIvaChange($event)"
               class="w-3.5 h-3.5 rounded border-neutral-300 text-accent focus:ring-accent-200"/>
             <span class="text-[11px] text-neutral-500">No incluye IVA</span>
           </label>
-          <p class="text-[10px] text-neutral-400 mt-1">{{ form.no_iva ? 'Sin IVA: valor antes de IVA = valor' : 'Calculado automáticamente (valor sin 19% de IVA)' }}</p>
+          <p class="text-[10px] text-neutral-400 mt-1">{{ form.no_iva ? 'Sin IVA: valor antes de IVA = valor' : 'Calculado automáticamente (valor sin ' + form.iva_percentage + '% de IVA)' }}</p>
         </div>
+
+        <!-- % de administración: configurable aquí mismo, aplica a todo el proyecto (no solo a esta factura) -->
+        <div class="rounded-xl border border-neutral-200 px-3 py-3">
+          <div class="flex items-center gap-3">
+            <div class="flex-1">
+              <p class="text-xs font-bold text-primary-700">¿Aplica % de administración?</p>
+              <p class="text-[10px] text-neutral-400">La fundación/coordinador retiene un % sobre lo facturado en este proyecto</p>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+              <input type="checkbox" [ngModel]="form.applies_admin_fee" (ngModelChange)="onFormAdminToggle($event)" class="sr-only peer"/>
+              <div class="w-10 h-5 bg-neutral-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-accent-100 rounded-full peer peer-checked:after:translate-x-[20px] peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-[16px] after:w-[16px] after:transition-all peer-checked:bg-accent shadow-input"></div>
+            </label>
+          </div>
+          @if (form.applies_admin_fee) {
+            <div class="mt-3">
+              <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">% de Administración</label>
+              <div class="relative max-w-[160px]">
+                <input type="number" min="0" max="100" step="0.01" [(ngModel)]="form.admin_fee_percentage" placeholder="Ej: 10"
+                  class="w-full pr-7 pl-3 py-2 rounded-xl border border-neutral-200 text-sm font-semibold text-primary-700 placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+                <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none"><span class="text-xs text-neutral-400 font-semibold">%</span></div>
+              </div>
+              @if (formAdminFeeEstimate(); as estimate) {
+                <div class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 mt-2">
+                  <div class="flex items-center justify-between text-xs">
+                    <span class="text-amber-700">Retenido: <strong>{{ formatCurrency(estimate.fee) }}</strong></span>
+                    <span class="text-amber-700">Neto disponible: <strong>{{ formatCurrency(estimate.net) }}</strong></span>
+                  </div>
+                </div>
+              }
+            </div>
+          }
+          <p class="text-[10px] text-neutral-400 mt-2">Esta configuración es del proyecto, no solo de esta factura — se guarda junto con la factura al presionar el botón de abajo.</p>
+        </div>
+
         <div>
           <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">N° acta de cobro</label>
           <input type="text" [(ngModel)]="form.collection_act_number" placeholder="Ej: No FODC 709"
@@ -262,7 +539,7 @@
             class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
             <option value="" disabled>Selecciona un mes</option>
             @for (dist of availableMonths(); track dist.id) {
-              <option [value]="periodValue(dist)">{{ monthLabel(dist) }}</option>
+              <option [value]="periodValue(dist)">{{ monthLabel(dist) }}{{ periodExceeded(dist) ? ' ⚠ ya completado' : '' }}</option>
             }
           </select>
         </div>
@@ -295,9 +572,10 @@
             class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
         </div>
 
-        @if (availableMonths().length === 0) {
-          <p class="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-            No se pueden generar más facturas: todos los meses de este ítem ya fueron facturados.
+        @if (invoiceOverageWarning(); as warning) {
+          <p class="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex items-start gap-1.5">
+            <svg class="w-3.5 h-3.5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span>Te estás pasando de lo planeado: {{ warning }} Puedes guardar igual, esto es solo un aviso.</span>
           </p>
         }
 
@@ -317,21 +595,21 @@
     </aside>
   }
 
-  <!-- Modal lateral: cobros de una factura -->
-  @if (expandedInvoice(); as inv) {
-    <div appPortalToBody class="fixed inset-0 bg-neutral-900/40 z-[200] transition-opacity" (click)="closeReceiptsModal()"></div>
+  <!-- Modal lateral: registrar cobro -->
+  @if (receiptFormInvoice(); as inv) {
+    <div appPortalToBody class="fixed inset-0 bg-neutral-900/40 z-[200] transition-opacity" (click)="cancelReceiptForm()"></div>
 
     <aside appPortalToBody class="fixed top-0 right-0 h-full w-full sm:w-[560px] lg:w-[640px] bg-surface shadow-2xl z-[201] flex flex-col">
       <!-- Header -->
       <div class="flex items-center justify-between gap-3 px-6 py-4 border-b border-neutral-100 flex-shrink-0">
         <div class="min-w-0">
-          <h2 class="text-base font-bold text-primary-700">Cobros de la factura</h2>
+          <h2 class="text-base font-bold text-primary-700">Registrar cobro</h2>
           <p class="text-xs text-neutral-400 mt-0.5 truncate">
-            {{ formatCurrency(inv.value) }} · {{ inv.date | date:'dd/MM/yyyy':'UTC' }}
+            Factura {{ formatCurrency(inv.value) }} · {{ inv.date | date:'dd/MM/yyyy':'UTC' }}
             @if (inv.collection_act_number) { · {{ inv.collection_act_number }} }
           </p>
         </div>
-        <button type="button" (click)="closeReceiptsModal()" class="p-2 rounded-lg text-neutral-400 hover:text-neutral-600 hover:bg-neutral-50 transition-colors flex-shrink-0">
+        <button type="button" (click)="cancelReceiptForm()" class="p-2 rounded-lg text-neutral-400 hover:text-neutral-600 hover:bg-neutral-50 transition-colors flex-shrink-0">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
           </svg>
@@ -340,129 +618,95 @@
 
       <!-- Body -->
       <div class="flex-1 overflow-y-auto px-6 py-5 space-y-4">
-        <div class="flex items-center justify-between gap-3 px-1">
-          <p class="text-[10px] font-bold text-neutral-500 uppercase tracking-wide">Control de cobros</p>
-          <p class="text-xs font-semibold" [class.text-success]="collectedFor(inv.id) >= inv.value" [class.text-accent]="collectedFor(inv.id) < inv.value">
-            {{ formatCurrency(collectedFor(inv.id)) }} / {{ formatCurrency(inv.value) }}
-          </p>
+        <!-- Referencia: lo que YA quedó definido al facturar — no se vuelve a calcular ni a
+             descontar nada aquí, solo se muestra para tenerlo en cuenta al cobrar. -->
+        <div class="rounded-2xl border border-neutral-200 bg-neutral-50 divide-y divide-neutral-200 overflow-hidden">
+          <p class="px-4 py-2 text-[10px] font-bold text-neutral-500 uppercase tracking-wide bg-neutral-100">Referencia de la factura (sin descuentos)</p>
+          <div class="flex items-center justify-between px-4 py-3">
+            <p class="text-xs font-semibold text-neutral-500">Valor original de la factura</p>
+            <p class="text-xl font-black text-primary-700">{{ formatCurrency(inv.value) }}</p>
+          </div>
+          <div class="flex items-center justify-between px-4 py-3">
+            <p class="text-xs font-semibold text-neutral-500">IVA aplicado en la factura</p>
+            <p class="text-sm font-bold text-neutral-700">{{ invoiceIvaPercentage(inv) }}% ({{ formatCurrency(inv.value - (inv.value_before_tax ?? inv.value)) }})</p>
+          </div>
+          @if (inv.admin_fee_amount) {
+            <div class="flex items-center justify-between px-4 py-3">
+              <p class="text-xs font-semibold text-amber-700">Administración retenida en la factura</p>
+              <p class="text-sm font-bold text-amber-600">{{ invoiceAdminFeePercentage(inv) }}% ({{ formatCurrency(inv.admin_fee_amount) }})</p>
+            </div>
+          }
+          <div class="flex items-center justify-between px-4 py-3 bg-emerald-50/60">
+            <p class="text-xs font-bold text-emerald-700">Disponible para cobrar (neto de la factura)</p>
+            <p class="text-base font-black text-emerald-700">{{ formatCurrency(collectibleCap(inv)) }}</p>
+          </div>
+          <div class="flex items-center justify-between px-4 py-3">
+            <p class="text-[10px] font-bold text-neutral-500 uppercase tracking-wide">Ya cobrado / disponible</p>
+            <p class="text-xs font-semibold" [class.text-success]="collectedFor(inv.id) >= collectibleCap(inv)" [class.text-accent]="collectedFor(inv.id) < collectibleCap(inv)">
+              {{ formatCurrency(collectedFor(inv.id)) }} / {{ formatCurrency(collectibleCap(inv)) }}
+            </p>
+          </div>
         </div>
 
-        @if (receiptsLoadingId() === inv.id) {
-          <div class="flex items-center justify-center py-10">
-            <div class="w-6 h-6 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
-          </div>
-        } @else {
-          @if (!receiptsFor(inv.id).length) {
-            <p class="text-xs text-neutral-400 py-2">Sin cobros registrados para esta factura.</p>
+        <div>
+          <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Valor a registrar (sin descuentos) <span class="text-danger">*</span></label>
+          <input type="text" inputmode="numeric" appMoneyMask [ngModel]="receiptForm.value" (ngModelChange)="onReceiptValueChange($event)" placeholder="0"
+            class="w-full px-4 py-3 rounded-xl border border-neutral-200 text-xl font-black text-primary-700 placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+          <p class="text-[10px] text-neutral-400 mt-1">Registra el monto real recibido — ya no se le vuelve a aplicar IVA ni administración, eso quedó resuelto en la factura.</p>
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Fecha de recepción</label>
+          <input type="date" [(ngModel)]="receiptForm.receipt_date"
+            class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Referencia</label>
+          <input type="text" [(ngModel)]="receiptForm.receipt_reference"
+            class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Observación</label>
+          <input type="text" [(ngModel)]="receiptForm.observation"
+            class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+        </div>
+
+        <div>
+          <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Comprobante de pago (opcional)</label>
+          @if (receiptDocumentFile(); as file) {
+            <div class="flex items-center justify-between gap-2 px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50">
+              <span class="text-xs font-medium text-emerald-700 truncate flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                {{ file.name }}
+              </span>
+              <button type="button" (click)="removeReceiptFile()" class="text-emerald-600 hover:text-danger transition-colors flex-shrink-0">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
           } @else {
-            <div class="space-y-2">
-              @for (r of receiptsFor(inv.id); track trackByReceipt($index, r)) {
-                <div class="flex items-center justify-between gap-3 bg-neutral-50 rounded-xl border border-gray-100 px-3.5 py-2.5">
-                  <div class="min-w-0">
-                    <p class="text-xs font-semibold text-gray-900">{{ formatCurrency(r.value) }}</p>
-                    <p class="text-[11px] text-neutral-400">
-                      {{ r.receipt_date ? (r.receipt_date | date:'dd/MM/yyyy':'UTC') : '—' }}
-                      @if (r.receipt_reference) { · {{ r.receipt_reference }} }
-                    </p>
-                  </div>
-                  <div class="flex items-center gap-2 flex-shrink-0">
-                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold"
-                      [class.bg-emerald-50]="r.status === 'recibido'" [class.text-emerald-700]="r.status === 'recibido'"
-                      [class.bg-amber-50]="r.status === 'planeado'" [class.text-amber-700]="r.status === 'planeado'">
-                      {{ receiptStatusLabel(r.status) }}
-                    </span>
-                    @if (canCreate()) {
-                      <button type="button" (click)="deleteReceipt(inv, r)" [disabled]="locked || deletingReceiptId() === r.id" title="Eliminar"
-                        class="w-6 h-6 flex items-center justify-center rounded-lg text-neutral-400 hover:text-danger hover:bg-danger/10 transition-colors disabled:opacity-40">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                      </button>
-                    }
-                  </div>
-                </div>
-              }
-            </div>
+            <label class="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-neutral-300 text-xs font-semibold text-neutral-500 hover:border-accent hover:text-accent hover:bg-accent-50 cursor-pointer transition-colors">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+              Adjuntar comprobante
+              <input type="file" class="hidden" accept="image/*,.pdf" (change)="onReceiptFileSelected($event)"/>
+            </label>
           }
+        </div>
 
-          @if (canCreate()) {
-            <div class="border-t border-neutral-100 pt-4">
-              @if (receiptFormInvoiceId() !== inv.id) {
-                <button type="button" (click)="startReceiptForm(inv)" [disabled]="locked"
-                  class="flex items-center gap-1.5 text-xs font-semibold text-accent hover:text-accent-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                  Registrar cobro
-                </button>
-              } @else {
-                <div class="space-y-3">
-                  <div>
-                    <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Valor <span class="text-danger">*</span></label>
-                    <input type="text" inputmode="numeric" appMoneyMask [ngModel]="receiptForm.value" (ngModelChange)="onReceiptValueChange($event)" placeholder="0"
-                      class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
-                  </div>
-                  <div>
-                    <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Valor antes de IVA</label>
-                    <input type="text" [value]="receiptForm.value_before_tax !== null ? formatCurrency(receiptForm.value_before_tax) : ''" readonly placeholder="—"
-                      class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-neutral-500 placeholder-neutral-300 bg-neutral-100 cursor-not-allowed outline-none"/>
-                    <label class="flex items-center gap-1.5 mt-1.5 cursor-pointer select-none">
-                      <input type="checkbox" [ngModel]="receiptForm.no_iva" (ngModelChange)="onReceiptNoIvaChange($event)"
-                        class="w-3.5 h-3.5 rounded border-neutral-300 text-accent focus:ring-accent-200"/>
-                      <span class="text-[11px] text-neutral-500">No incluye IVA</span>
-                    </label>
-                    <p class="text-[10px] text-neutral-400 mt-1">{{ receiptForm.no_iva ? 'Sin IVA: valor antes de IVA = valor' : 'Calculado automáticamente (valor sin 19% de IVA)' }}</p>
-                  </div>
-                  <div class="grid grid-cols-2 gap-3">
-                    <div>
-                      <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Fecha</label>
-                      <input type="date" [(ngModel)]="receiptForm.receipt_date"
-                        class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
-                    </div>
-                    <div>
-                      <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Estado</label>
-                      <div class="flex items-center gap-2">
-                        <button type="button" (click)="receiptForm.status = 'planeado'"
-                          class="flex-1 px-3 py-2 rounded-xl border text-xs font-semibold transition-colors"
-                          [class.bg-amber-50]="receiptForm.status === 'planeado'" [class.text-amber-700]="receiptForm.status === 'planeado'" [class.border-amber-300]="receiptForm.status === 'planeado'"
-                          [class.bg-neutral-50]="receiptForm.status !== 'planeado'" [class.text-neutral-400]="receiptForm.status !== 'planeado'" [class.border-neutral-200]="receiptForm.status !== 'planeado'">
-                          Planeado
-                        </button>
-                        <button type="button" (click)="receiptForm.status = 'recibido'"
-                          class="flex-1 px-3 py-2 rounded-xl border text-xs font-semibold transition-colors"
-                          [class.bg-emerald-50]="receiptForm.status === 'recibido'" [class.text-emerald-700]="receiptForm.status === 'recibido'" [class.border-emerald-300]="receiptForm.status === 'recibido'"
-                          [class.bg-neutral-50]="receiptForm.status !== 'recibido'" [class.text-neutral-400]="receiptForm.status !== 'recibido'" [class.border-neutral-200]="receiptForm.status !== 'recibido'">
-                          Recibido
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                  <div>
-                    <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Referencia</label>
-                    <input type="text" [(ngModel)]="receiptForm.receipt_reference"
-                      class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
-                  </div>
-                  <div>
-                    <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Observación</label>
-                    <input type="text" [(ngModel)]="receiptForm.observation"
-                      class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
-                  </div>
-
-                  @if (receiptError()) {
-                    <p class="text-xs font-medium text-danger">{{ receiptError() }}</p>
-                  }
-
-                  <div class="flex items-center gap-2 pt-1">
-                    <button type="button" (click)="submitReceipt(inv)" [disabled]="locked || receiptSaving()"
-                      class="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-accent to-accent-700 hover:from-accent-600 hover:to-accent-800 text-white text-xs font-semibold rounded-lg shadow-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed">
-                      @if (receiptSaving()) { Guardando... } @else { Guardar cobro }
-                    </button>
-                    <button type="button" (click)="cancelReceiptForm()" class="px-4 py-2 text-xs font-semibold text-neutral-500 hover:bg-neutral-50 rounded-lg transition-colors">Cancelar</button>
-                  </div>
-                </div>
-              }
-            </div>
-          }
+        @if (receiptError()) {
+          <p class="text-xs font-medium text-danger">{{ receiptError() }}</p>
         }
+
+        <div class="flex items-center gap-2 pt-1">
+          <button type="button" (click)="submitReceipt(inv)" [disabled]="locked || receiptSaving()"
+            class="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-accent to-accent-700 hover:from-accent-600 hover:to-accent-800 text-white text-xs font-semibold rounded-lg shadow-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+            @if (receiptSaving()) { Guardando... } @else { Guardar cobro }
+          </button>
+          <button type="button" (click)="cancelReceiptForm()"
+            class="px-4 py-2 text-xs font-semibold text-neutral-500 hover:bg-neutral-50 rounded-lg transition-colors">Cancelar</button>
+        </div>
       </div>
     </aside>
   }
+
 </div>
 
 <!-- ══ PANEL: GENERAR REPORTE ═══════════════════════════════════════════════ -->

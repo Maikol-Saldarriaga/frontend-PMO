@@ -66,7 +66,20 @@ export class TabFlujoCajaComponent implements OnInit {
    * color y el nombre completo (técnico · sub-componente · concepto) coincidan en toda la app. */
   rubroNames = signal<RubroName[]>([]);
 
+  /** Configuración de administración del proyecto (misma fuente que tab-facturacion), para
+   * mostrar el % real configurado — no solo el % implícito que se deriva de los montos. */
+  appliesAdminFee    = signal(false);
+  adminFeePercentage = signal<number | null>(null);
+
   ngOnInit(): void {
+    this.service.getProject(this.projectId).subscribe({
+      next: p => {
+        this.appliesAdminFee.set(p.applies_admin_fee ?? false);
+        this.adminFeePercentage.set(p.admin_fee_percentage ?? null);
+      },
+      error: () => {},
+    });
+
     this.service.getBudgetWizard(this.projectId).subscribe({
       next: w => {
         const flat: RubroName[] = (w.components ?? []).flatMap(comp =>
@@ -105,6 +118,37 @@ export class TabFlujoCajaComponent implements OnInit {
 
   months = computed<CashFlowMonth[]>(() => this.report()?.months ?? []);
   deficitMonthsCount = computed(() => this.months().filter(m => m.deficit).length);
+
+  /** Total de ingreso antes de IVA (suma de m.ingreso_neto), para el pie de la tabla mensual. */
+  totalIngresoAntesIva = computed(() => this.months().reduce((s, m) => s + m.ingreso_neto, 0));
+
+  /** % de IVA implícito en el ingreso de un mes, derivado de ingreso_bruto vs. ingreso_neto
+   * (mismo cálculo que a nivel de factura/cobro, aplicado al agregado mensual). */
+  ingresoIvaPercentage(m: CashFlowMonth): number | null {
+    if (!m.ingreso_neto || m.ingreso_neto <= 0) return null;
+    return Math.round(((m.ingreso_bruto / m.ingreso_neto) - 1) * 10000) / 100;
+  }
+
+  /** % que representa la administración retenida sobre el ingreso bruto del mes. */
+  adminFeePercentageOfMonth(m: CashFlowMonth): number | null {
+    if (!m.admin_fee_retenido || m.ingreso_bruto <= 0) return null;
+    return Math.round((m.admin_fee_retenido / m.ingreso_bruto) * 10000) / 100;
+  }
+
+  /** % de IVA implícito en el total del reporte (para el pie de la tabla mensual). */
+  totalIngresoIvaPercentage(): number | null {
+    const neto = this.totalIngresoAntesIva();
+    const bruto = this.report()?.total_ingresos ?? 0;
+    if (!neto || neto <= 0) return null;
+    return Math.round(((bruto / neto) - 1) * 10000) / 100;
+  }
+
+  /** % que representa el total de administración retenida sobre el total ingresado. */
+  totalAdminFeePercentage(): number | null {
+    const total = this.report();
+    if (!total || !total.total_admin_fee || total.total_ingresos <= 0) return null;
+    return Math.round((total.total_admin_fee / total.total_ingresos) * 10000) / 100;
+  }
 
   /** Rubros ordenados por presupuesto total descendente, solo los que tienen algún movimiento
    * (presupuestado, egreso, ingreso o abastecimiento) — evita ruido de rubros vacíos que además
@@ -178,6 +222,13 @@ export class TabFlujoCajaComponent implements OnInit {
     if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(1)}M`;
     if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(0)}K`;
     return `${sign}$${abs}`;
+  }
+
+  /** % de IVA de un desembolso (cobro), derivado de su propio value/value_before_tax —
+   * el mismo cálculo usado en la pestaña Facturación, para que ambas vistas coincidan. */
+  receiptIvaPercentage(r: FundingReceipt): number | null {
+    if (r.value_before_tax == null || r.value_before_tax <= 0) return null;
+    return Math.round(((r.value / r.value_before_tax) - 1) * 10000) / 100;
   }
 
   trackByMonth(_: number, m: CashFlowMonth) { return `${m.year}-${m.month}`; }

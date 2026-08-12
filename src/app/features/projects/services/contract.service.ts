@@ -4,6 +4,7 @@ import { ApiHttpClient } from '../../../../core/api/http-client';
 import { ENDPOINTS } from '../../../../core/api/endpoints';
 import {
   ContractStep1Request, ContractStep1Response,
+  ContractResponse, UpdateAdminFeeConfigRequest,
   ContractStep1bRequest,
   ContractStep2Request,
   ContractLocationItem,
@@ -46,6 +47,13 @@ export class ContractService {
 
   updateValue(id: string, value: number): Observable<void> {
     return this.http.patch<void>(ENDPOINTS.contracts.updateValue(id), { value });
+  }
+
+  /** Actualización parcial genérica (PUT /projects/:id) usada solo para configurar
+   * applies_admin_fee/admin_fee_percentage/iva_percentage desde la pestaña Facturación,
+   * sin tener que reenviar el payload completo del step 1 del wizard. */
+  updateAdminFeeConfig(id: string, data: UpdateAdminFeeConfigRequest): Observable<ContractResponse> {
+    return this.http.put<ContractResponse>(ENDPOINTS.contracts.detail(id), data);
   }
 
   updateStep2(id: string, data: ContractStep2Request): Observable<ContractProgressResponse> {

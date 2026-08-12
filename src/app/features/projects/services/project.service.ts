@@ -235,6 +235,10 @@ export class ProjectService {
     return this.http.put<Invoice>(ENDPOINTS.projects.invoiceById(id, bid, iid), data);
   }
 
+  deleteInvoice(id: string, bid: string, iid: string): Observable<void> {
+    return this.http.delete<void>(ENDPOINTS.projects.invoiceById(id, bid, iid));
+  }
+
   getGantt(id: string, filters: GanttFilters = {}): Observable<GanttResponse> {
     const params = new URLSearchParams();
     if (filters.year)     params.set('year',     String(filters.year));
@@ -482,6 +486,12 @@ export class ProjectService {
 
   deleteFundingReceipt(id: string, budgetItemId: string, invoiceId: string, receiptId: string): Observable<void> {
     return this.http.delete<void>(ENDPOINTS.projects.receiptById(id, budgetItemId, invoiceId, receiptId));
+  }
+
+  /** Sube el comprobante de pago (archivo) de un cobro ya registrado — form debe traer un
+   * campo "file" (mismo patrón que uploadSignatureImage). */
+  uploadReceiptDocument(id: string, budgetItemId: string, invoiceId: string, receiptId: string, form: FormData): Observable<FundingReceipt> {
+    return this.http.post<FundingReceipt>(ENDPOINTS.projects.receiptDocument(id, budgetItemId, invoiceId, receiptId), form);
   }
 
   // ── Flujo de Caja ────────────────────────────────────────────────────────

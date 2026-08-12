@@ -68,6 +68,7 @@ export const ENDPOINTS = {
     extensionById:     (id: string, eid: string) => `${API_URL}/projects/${id}/extensions/${eid}`,
     receipts:          (id: string, bid: string, iid: string) => `${API_URL}/projects/${id}/budget/${bid}/invoices/${iid}/receipts`,
     receiptById:       (id: string, bid: string, iid: string, rid: string) => `${API_URL}/projects/${id}/budget/${bid}/invoices/${iid}/receipts/${rid}`,
+    receiptDocument:   (id: string, bid: string, iid: string, rid: string) => `${API_URL}/projects/${id}/budget/${bid}/invoices/${iid}/receipts/${rid}/document`,
     cashFlow:          (id: string) => `${API_URL}/projects/${id}/cash-flow`,
     budgetReport:      (id: string) => `${API_URL}/projects/${id}/reports/budget`,
     trackingReportDoc: (id: string) => `${API_URL}/projects/${id}/reports/tracking`,

@@ -37,6 +37,16 @@ export interface ContractStep1Request {
   number_work_order?: string | null;
   // Alianza (organización aliada) opcional del proyecto.
   ally_id?:           string | null;
+  // La configuración de administración/IVA se edita en la pestaña Facturación
+  // (ver UpdateAdminFeeConfigRequest), no en este step del wizard.
+}
+
+/** Body de PUT /projects/:id (actualización parcial genérica) usado para configurar
+ * solo la administración/IVA desde la pestaña Facturación, sin reenviar todo el step 1. */
+export interface UpdateAdminFeeConfigRequest {
+  applies_admin_fee:     boolean;
+  admin_fee_percentage?: number | null;
+  iva_percentage:        number;
 }
 
 export interface ContractResponsible {
@@ -65,6 +75,9 @@ export interface ContractResponse {
   other_type_if:   boolean | null;
   responsible:     ContractResponsible | null;
   created_at:      string;
+  applies_admin_fee?:    boolean;
+  admin_fee_percentage?: number | null;
+  iva_percentage?:       number;
 }
 
 export interface SupervisorRef {
