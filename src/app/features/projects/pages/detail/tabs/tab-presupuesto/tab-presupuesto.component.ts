@@ -95,8 +95,15 @@ export class TabPresupuestoComponent implements OnInit {
   addingComponent      = signal(false);
   newComponentCatalogItemId = '';
   newComponentTechId   = '';
+  newComponentName     = ''; // solo cuando newComponentCatalogItemId === CUSTOM_CATALOG_OPTION
+  newComponentCostType: 'directo' | 'indirecto' = 'directo'; // solo modo texto libre
   addingComponentError = signal<string | null>(null);
   addingComponentSaving = signal(false);
+
+  /** Valor centinela del <select> para "escribir el nombre yo mismo" en vez de elegir del
+   * catálogo — el rubro se crea siempre como directo (exige componente técnico), igual que
+   * funcionaba antes de que existiera el catálogo. */
+  readonly CUSTOM_CATALOG_OPTION = '__custom__';
 
   /** Métodos normales, no `computed()`: `sections` es un array plano reasignado en cada
    * recarga, no un signal, así que un `computed` quedaría con el valor cacheado del primer
@@ -316,10 +323,16 @@ export class TabPresupuestoComponent implements OnInit {
     return this.catalogItems().find(i => i.id === this.newComponentCatalogItemId) ?? null;
   }
 
-  /** true cuando el ítem de catálogo elegido es `directo` y por lo tanto exige seleccionar
-   * un componente técnico; false para `indirecto` (va a Nivel Proyecto) o si aún no se elige nada. */
+  /** true cuando el rubro (de catálogo o texto libre) es de costo `directo` — en ese caso
+   * exige seleccionar un componente técnico. false para `indirecto` (va a Nivel Proyecto)
+   * o si aún no se elige nada. */
   newComponentRequiresTech(): boolean {
+    if (this.newComponentCatalogItemId === this.CUSTOM_CATALOG_OPTION) return this.newComponentCostType === 'directo';
     return this.selectedCatalogItem()?.cost_type === 'directo';
+  }
+
+  newComponentIsCustom(): boolean {
+    return this.newComponentCatalogItemId === this.CUSTOM_CATALOG_OPTION;
   }
 
   // ── Rubros de presupuesto (budget_component) ──────────────────────
@@ -329,6 +342,8 @@ export class TabPresupuestoComponent implements OnInit {
     this.addingComponent.set(true);
     this.newComponentCatalogItemId = '';
     this.newComponentTechId = this.sections[0]?.component_id ?? '';
+    this.newComponentName = '';
+    this.newComponentCostType = 'directo';
     this.addingComponentError.set(null);
   }
 
@@ -336,19 +351,28 @@ export class TabPresupuestoComponent implements OnInit {
     this.addingComponent.set(false);
     this.newComponentCatalogItemId = '';
     this.newComponentTechId = '';
+    this.newComponentName = '';
+    this.newComponentCostType = 'directo';
     this.addingComponentError.set(null);
   }
 
   saveNewComponent(): void {
-    const catalogItem = this.selectedCatalogItem();
+    const isCustom = this.newComponentIsCustom();
+    const catalogItem = isCustom ? null : this.selectedCatalogItem();
     const techId = this.newComponentTechId;
-    if (!catalogItem) { this.addingComponentError.set('Selecciona un rubro del catálogo.'); return; }
-    const requiresTech = catalogItem.cost_type === 'directo';
+
+    if (!isCustom && !catalogItem) { this.addingComponentError.set('Selecciona un rubro del catálogo.'); return; }
+    if (isCustom && !this.newComponentName.trim()) { this.addingComponentError.set('Escribe el nombre del rubro.'); return; }
+    const requiresTech = this.newComponentRequiresTech();
     if (requiresTech && !techId) { this.addingComponentError.set('Selecciona un componente técnico.'); return; }
 
     this.addingComponentSaving.set(true);
-    this.svc.createBudgetComponent(this.projectId, {
-      catalog_item_id: catalogItem.id,
+    this.svc.createBudgetComponent(this.projectId, isCustom ? {
+      component_id: requiresTech ? techId : null,
+      name: this.newComponentName.trim(),
+      cost_type: this.newComponentCostType,
+    } : {
+      catalog_item_id: catalogItem!.id,
       component_id: requiresTech ? techId : null,
     }).subscribe({
       next: (bc) => {

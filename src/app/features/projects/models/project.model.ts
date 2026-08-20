@@ -1001,10 +1001,14 @@ export interface BudgetComponent {
   total_contribution:      number | null; // solo lectura, calculado por el backend
 }
 
-/** El nombre ya no se envía al crear: se deriva server-side del catálogo elegido. */
+/** Dos caminos: (1) catalog_item_id presente — el nombre se deriva server-side del catálogo;
+ *  (2) catalog_item_id ausente/vacío — modo texto libre (siempre "directo"): name y
+ *  component_id son obligatorios, igual que antes de existir el catálogo. */
 export interface CreateBudgetComponentRequest {
-  catalog_item_id: string;
-  component_id?:   string | null; // requerido solo si el catalog item elegido es cost_type 'directo'
+  catalog_item_id?: string;
+  component_id?:    string | null; // requerido cuando el rubro es 'directo'
+  name?:             string;        // solo en modo texto libre; ignorado si catalog_item_id viene
+  cost_type?:        BudgetCostType; // solo modo texto libre (por defecto 'directo' si se omite)
 }
 
 /** Único campo editable tras crear: el nombre queda congelado del catálogo salvo renombre manual. */
