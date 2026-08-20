@@ -46,6 +46,7 @@ Thumbs.db
 
 # Deploy secrets
 /scripts/deploy.env
+/scripts/vps/deploy.env
 
 # Backups locales de scripts/deploy-vps.sh (copia del contenido estático del VPS)
 /backups/
