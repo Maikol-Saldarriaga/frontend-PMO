@@ -13,25 +13,25 @@
 # si hace falta mirar atrás.
 #
 # Uso:
-#   scripts/rollback-vps.sh --list
-#   scripts/rollback-vps.sh <timestamp> [--yes]
+#   scripts/vps/rollback-vps.sh --list
+#   scripts/vps/rollback-vps.sh <timestamp> [--yes]
 #
-# Requiere scripts/deploy.env (mismo que deploy-vps.sh).
+# Requiere scripts/vps/deploy.env (mismo que deploy-vps.sh).
 
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-[ -f "$ROOT_DIR/scripts/deploy.env" ] || {
-  echo "❌ Falta $ROOT_DIR/scripts/deploy.env — copia deploy.env.example y ajusta." >&2
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+[ -f "$ROOT_DIR/scripts/vps/deploy.env" ] || {
+  echo "❌ Falta $ROOT_DIR/scripts/vps/deploy.env — copia deploy.env.example y ajusta." >&2
   exit 1
 }
-source "$ROOT_DIR/scripts/deploy.env"
+source "$ROOT_DIR/scripts/vps/deploy.env"
 
-REMOTE_USER="${REMOTE_USER:?set REMOTE_USER en scripts/deploy.env}"
-REMOTE_HOST="${REMOTE_HOST:?set REMOTE_HOST en scripts/deploy.env}"
+REMOTE_USER="${REMOTE_USER:?set REMOTE_USER en scripts/vps/deploy.env}"
+REMOTE_HOST="${REMOTE_HOST:?set REMOTE_HOST en scripts/vps/deploy.env}"
 REMOTE_PORT="${REMOTE_PORT:-22}"
 SSH_KEY="${SSH_KEY:-}"
-REMOTE_WEB_DIR="${REMOTE_WEB_DIR:?set REMOTE_WEB_DIR en scripts/deploy.env}"
+REMOTE_WEB_DIR="${REMOTE_WEB_DIR:?set REMOTE_WEB_DIR en scripts/vps/deploy.env}"
 
 case "$REMOTE_WEB_DIR" in
   /*fodc*) : ;;

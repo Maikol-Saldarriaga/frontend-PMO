@@ -820,6 +820,19 @@ export interface RiskRequest {
   contingency_plan?: string | null;
   evidence?:         string | null;
   responsible?:      string | null;
+
+  // Baseline sugerido por el agente IA — solo se manda al crear (echo de lo que
+  // devolvió POST /risks/evaluate). El backend lo ignora en update: el baseline
+  // de un riesgo ya creado es inmutable, siempre se lee de BD.
+  ai_probability?:       RiskProbability | null;
+  ai_impact?:            RiskImpact | null;
+  ai_risk_level?:        RiskLevel | null;
+  ai_justification?:     string | null;
+  ai_suggested_control?: string | null;
+  ai_evaluated_at?:      string | null;
+  // Obligatorio (validado también en backend) cuando probability/impact difiere
+  // del baseline de IA.
+  correction_reason?:    string | null;
 }
 
 export interface Risk {
@@ -835,6 +848,34 @@ export interface Risk {
   evidence:               string | null;
   responsible:            string | null;
   created_at:             string;
+
+  ai_probability:         RiskProbability | null;
+  ai_impact:              RiskImpact | null;
+  ai_risk_level:          RiskLevel | null;
+  ai_justification:       string | null;
+  ai_suggested_control:   string | null;
+  ai_evaluated_at:        string | null;
+  correction_reason:      string | null;
+}
+
+// ── Evaluación de riesgo asistida por IA (preview, no persiste nada) ────────
+
+export interface RiskEvaluationRequest {
+  description:        string;
+  category?:          string | null;
+  additional_context?: string | null;
+}
+
+export interface RiskEvaluationResult {
+  probability:         RiskProbability;
+  impact:               RiskImpact;
+  risk_level:           RiskLevel;
+  risk_level_label:     string;
+  justification:        string;
+  suggested_control:     string;
+  treatment_suggested:   string;
+  precedents_used:        string[];
+  evaluated_at:            string;
 }
 
 export interface RiskTrackingRequest {

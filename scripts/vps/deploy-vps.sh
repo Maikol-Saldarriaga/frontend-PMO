@@ -2,39 +2,39 @@
 # Deploy del frontend Angular (build "application", sin SSR) al VPS de FODC
 # (fodcpmo.cloud).
 #
-# Mismo patrón que web_ascend/scripts/deploy-vps.sh: antes de sincronizar,
+# Mismo patrón que web_ascend/scripts/vps/deploy-vps.sh: antes de sincronizar,
 # respalda el contenido actual del VPS a REMOTE_WEB_DIR.bak-<timestamp> (en
 # el propio servidor) y además baja copia local a backups/<timestamp>/
 # web_backup.tar.gz — por si se pierde acceso al VPS o el backup remoto se
-# borra. Rollback con scripts/rollback-vps.sh <timestamp>.
+# borra. Rollback con scripts/vps/rollback-vps.sh <timestamp>.
 #
 # El --delete de rsync solo borra DENTRO de REMOTE_WEB_DIR (carpeta dedicada
 # a este build, no compartida con otra app en el VPS) — así los chunks con
 # hash viejo de builds anteriores no quedan huérfanos.
 #
 # Uso:
-#   scripts/deploy-vps.sh                # build + deploy con confirmación
-#   scripts/deploy-vps.sh --yes          # sin confirmación interactiva
-#   scripts/deploy-vps.sh --dry-run      # build real, pero rsync en modo simulación (no escribe nada remoto)
-#   scripts/deploy-vps.sh --skip-build   # usa el dist/ que ya esté en disco (no corre `npm run build`)
+#   scripts/vps/deploy-vps.sh                # build + deploy con confirmación
+#   scripts/vps/deploy-vps.sh --yes          # sin confirmación interactiva
+#   scripts/vps/deploy-vps.sh --dry-run      # build real, pero rsync en modo simulación (no escribe nada remoto)
+#   scripts/vps/deploy-vps.sh --skip-build   # usa el dist/ que ya esté en disco (no corre `npm run build`)
 #
-# Requiere scripts/deploy.env (gitignored, ver deploy.env.example) con
+# Requiere scripts/vps/deploy.env (gitignored, ver deploy.env.example) con
 # REMOTE_USER/REMOTE_HOST/SSH_KEY/REMOTE_WEB_DIR.
 
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-[ -f "$ROOT_DIR/scripts/deploy.env" ] || {
-  echo "❌ Falta $ROOT_DIR/scripts/deploy.env — copia deploy.env.example y ajusta." >&2
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+[ -f "$ROOT_DIR/scripts/vps/deploy.env" ] || {
+  echo "❌ Falta $ROOT_DIR/scripts/vps/deploy.env — copia deploy.env.example y ajusta." >&2
   exit 1
 }
-source "$ROOT_DIR/scripts/deploy.env"
+source "$ROOT_DIR/scripts/vps/deploy.env"
 
-REMOTE_USER="${REMOTE_USER:?set REMOTE_USER en scripts/deploy.env}"
-REMOTE_HOST="${REMOTE_HOST:?set REMOTE_HOST en scripts/deploy.env}"
+REMOTE_USER="${REMOTE_USER:?set REMOTE_USER en scripts/vps/deploy.env}"
+REMOTE_HOST="${REMOTE_HOST:?set REMOTE_HOST en scripts/vps/deploy.env}"
 REMOTE_PORT="${REMOTE_PORT:-22}"
 SSH_KEY="${SSH_KEY:-}"
-REMOTE_WEB_DIR="${REMOTE_WEB_DIR:?set REMOTE_WEB_DIR en scripts/deploy.env}"
+REMOTE_WEB_DIR="${REMOTE_WEB_DIR:?set REMOTE_WEB_DIR en scripts/vps/deploy.env}"
 
 # Salvaguarda: REMOTE_WEB_DIR se usa con `rsync --delete` y `rm -rf` para el
 # respaldo viejo — un valor vacío, "/" o demasiado corto sería catastrófico.
@@ -147,4 +147,4 @@ fi
 
 echo
 echo "✅ Deploy OK."
-echo "   Rollback si algo sale mal: scripts/rollback-vps.sh $TS"
+echo "   Rollback si algo sale mal: scripts/vps/rollback-vps.sh $TS"

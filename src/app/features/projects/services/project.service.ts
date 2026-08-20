@@ -59,6 +59,8 @@ import {
   DeliveryVerification,
   Risk,
   RiskRequest,
+  RiskEvaluationRequest,
+  RiskEvaluationResult,
   RiskTrackingItem,
   RiskTrackingRequest,
   Beneficiary,
@@ -384,6 +386,10 @@ export class ProjectService {
 
   getRisks(id: string): Observable<Risk[]> {
     return this.http.get<Risk[]>(ENDPOINTS.projects.risks(id));
+  }
+
+  evaluateRisk(id: string, data: RiskEvaluationRequest): Observable<RiskEvaluationResult> {
+    return this.http.post<RiskEvaluationResult>(ENDPOINTS.projects.evaluateRisk(id), data);
   }
 
   createRisk(id: string, data: RiskRequest): Observable<Risk> {

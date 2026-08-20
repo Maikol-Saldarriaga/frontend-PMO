@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ProjectService } from '../../../../services/project.service';
 import {
-  Risk, RiskRequest, RiskProbability, RiskImpact, RiskLevel,
+  Risk, RiskRequest, RiskProbability, RiskImpact, RiskLevel, RiskEvaluationResult,
   RiskTrackingItem, RiskTrackingRequest, RiskTrackingStatus,
 } from '../../../../models/project.model';
 
@@ -15,11 +15,12 @@ interface RiskForm {
   contingency_plan:   string;
   evidence:           string;
   responsible:        string;
+  correction_reason:  string;
 }
 
 const emptyRiskForm = (): RiskForm => ({
   description: '', zone: '', probability: '', impact: '',
-  contingency_plan: '', evidence: '', responsible: '',
+  contingency_plan: '', evidence: '', responsible: '', correction_reason: '',
 });
 
 interface TrackingForm {
@@ -85,6 +86,48 @@ export class TabRiesgosComponent implements OnInit {
   saving       = signal(false);
   saveError    = signal<string | null>(null);
 
+  // ── Evaluación IA (solo al crear; al editar el baseline sale del riesgo ya guardado) ──
+  evalCategory  = '';
+  evalContext   = '';
+  evaluating    = signal(false);
+  evaluateError = signal<string | null>(null);
+  aiResult      = signal<RiskEvaluationResult | null>(null);
+
+  // Baseline contra el que se compara para exigir motivo: el del riesgo ya guardado
+  // (edición, inmutable) o el de la última evaluación de esta sesión (creación).
+  //
+  // Métodos normales, NO computed(): dependen de this.form.probability/impact, que son
+  // propiedades planas mutadas por [(ngModel)] — no señales — así que un computed() no
+  // se invalidaría al cambiarlas (solo recalcula cuando cambia una señal que lee, y
+  // aquí solo "lee" campos planos). Zone.js sí vuelve a llamar estos métodos en cada
+  // ciclo de detección de cambios, que es lo que necesitamos.
+  aiBaseline(): { probability: RiskProbability; impact: RiskImpact; risk_level_label: string; justification: string | null; suggested_control: string | null } | null {
+    const editing = this.editingRisk();
+    if (editing?.ai_probability && editing?.ai_impact) {
+      return {
+        probability:       editing.ai_probability,
+        impact:             editing.ai_impact,
+        risk_level_label:   this.riskLevelLabel(editing.ai_risk_level ?? 'B'),
+        justification:      editing.ai_justification,
+        suggested_control:  editing.ai_suggested_control,
+      };
+    }
+    const r = this.aiResult();
+    return r ? {
+      probability:       r.probability,
+      impact:             r.impact,
+      risk_level_label:   r.risk_level_label,
+      justification:      r.justification,
+      suggested_control:  r.suggested_control,
+    } : null;
+  }
+
+  requiresCorrection(): boolean {
+    const b = this.aiBaseline();
+    if (!b || !this.form.probability || !this.form.impact) return false;
+    return this.form.probability !== b.probability || this.form.impact !== b.impact;
+  }
+
   selectedRisk    = signal<Risk | null>(null);
   tracking        = signal<RiskTrackingItem[]>([]);
   trackingLoading = signal(false);
@@ -118,6 +161,10 @@ export class TabRiesgosComponent implements OnInit {
 
   openNewForm(): void {
     this.form = emptyRiskForm();
+    this.evalCategory = '';
+    this.evalContext = '';
+    this.aiResult.set(null);
+    this.evaluateError.set(null);
     this.editingRisk.set(null);
     this.showForm.set(true);
     this.saveError.set(null);
@@ -132,7 +179,10 @@ export class TabRiesgosComponent implements OnInit {
       contingency_plan:   risk.contingency_plan ?? '',
       evidence:           risk.evidence ?? '',
       responsible:        risk.responsible ?? '',
+      correction_reason:  risk.correction_reason ?? '',
     };
+    this.aiResult.set(null);
+    this.evaluateError.set(null);
     this.editingRisk.set(risk);
     this.showForm.set(true);
     this.saveError.set(null);
@@ -140,11 +190,42 @@ export class TabRiesgosComponent implements OnInit {
 
   cancelForm(): void { this.showForm.set(false); this.editingRisk.set(null); this.saveError.set(null); }
 
+  // Pide al agente IA una sugerencia de probabilidad/impacto (preview, no persiste
+  // nada). Solo tiene sentido al crear — al editar el baseline ya quedó fijado.
+  evaluateWithAI(): void {
+    if (!this.form.description.trim()) { this.evaluateError.set('Escribe la descripción del riesgo antes de evaluar.'); return; }
+
+    this.evaluating.set(true);
+    this.evaluateError.set(null);
+    this.svc.evaluateRisk(this.projectId, {
+      description:        this.form.description.trim(),
+      category:            this.evalCategory.trim() || null,
+      additional_context:  this.evalContext.trim() || null,
+    }).subscribe({
+      next: result => {
+        this.aiResult.set(result);
+        this.form.probability = result.probability;
+        this.form.impact = result.impact;
+        this.form.correction_reason = '';
+        this.evaluating.set(false);
+      },
+      error: err => {
+        this.evaluateError.set(err?.error?.message ?? 'No se pudo evaluar el riesgo con IA.');
+        this.evaluating.set(false);
+      },
+    });
+  }
+
   saveRisk(): void {
     if (!this.form.description.trim()) { this.saveError.set('La descripción es obligatoria.'); return; }
     if (!this.form.probability)        { this.saveError.set('Selecciona la probabilidad.'); return; }
     if (!this.form.impact)             { this.saveError.set('Selecciona el impacto.'); return; }
+    if (this.requiresCorrection() && !this.form.correction_reason.trim()) {
+      this.saveError.set('Explica el motivo: por qué el agente falló y cuál es la probabilidad/impacto real.');
+      return;
+    }
 
+    const aiResult = this.aiResult();
     const req: RiskRequest = {
       description:       this.form.description.trim(),
       zone:               this.form.zone.trim() || null,
@@ -153,6 +234,17 @@ export class TabRiesgosComponent implements OnInit {
       contingency_plan:   this.form.contingency_plan.trim() || null,
       evidence:           this.form.evidence.trim() || null,
       responsible:        this.form.responsible.trim() || null,
+      correction_reason:  this.form.correction_reason.trim() || null,
+      // El baseline de IA solo se manda al crear (echo de la evaluación de esta
+      // sesión); al editar el backend lo ignora y sigue usando el ya guardado.
+      ...(!this.editingRisk() && aiResult ? {
+        ai_probability:       aiResult.probability,
+        ai_impact:             aiResult.impact,
+        ai_risk_level:         aiResult.risk_level,
+        ai_justification:      aiResult.justification,
+        ai_suggested_control:  aiResult.suggested_control,
+        ai_evaluated_at:       aiResult.evaluated_at,
+      } : {}),
     };
 
     this.saving.set(true);
