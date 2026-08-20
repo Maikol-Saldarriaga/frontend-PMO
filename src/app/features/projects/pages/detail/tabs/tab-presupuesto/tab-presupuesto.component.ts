@@ -5,10 +5,12 @@ import { Router } from '@angular/router';
 import { ProjectService } from '../../../../services/project.service';
 import {
   BudgetWizardResponse, BudgetEntry, BudgetItem, BUDGET_ITEM_UNIT_OPTIONS,
+  BudgetComponentCatalogItem, BudgetReconciliation,
 } from '../../../../models/project.model';
 import { BudgetItemPanelComponent, BudgetPanelContext } from './budget-item-panel/budget-item-panel.component';
 import { ConfirmDialogService } from '../../../../../../shared/components/confirm-dialog/confirm-dialog.service';
 import { MoneyMaskDirective } from '../../../../../../shared/directives/money-mask.directive';
+import { BudgetCatalogService } from '../../../../../../../core/budget-catalog/services/budget-catalog.service';
 
 const PALETTE = ['#0EA5E9','#10B981','#F59E0B','#EF4444','#8B5CF6','#EC4899','#14B8A6','#F97316'];
 const AMOUNT_EPSILON = 0.01;
@@ -48,7 +50,12 @@ export class TabPresupuestoComponent implements OnInit {
   @Input() projectId!: string;
   @Input() locked = false;
 
-  constructor(private svc: ProjectService, private rtr: Router, private confirmDialog: ConfirmDialogService) {}
+  constructor(
+    private svc: ProjectService,
+    private rtr: Router,
+    private confirmDialog: ConfirmDialogService,
+    private catalogSvc: BudgetCatalogService,
+  ) {}
 
   readonly unitOptions = BUDGET_ITEM_UNIT_OPTIONS;
 
@@ -61,8 +68,32 @@ export class TabPresupuestoComponent implements OnInit {
 
   sections: ComponentSection[] = [];
 
+  /** Rubros creados desde un ítem de catálogo `indirecto` — no enlazados a ningún componente
+   * técnico. Se modela como una `ComponentSection` sintética (sin tope de presupuesto) para
+   * reutilizar toda la lógica de entries/items ya existente, pero se renderiza en su propia
+   * tarjeta, separada de la tabla de componentes técnicos. */
+  readonly PROJECT_LEVEL_ID = '__project_level__';
+  projectLevelSection: ComponentSection = {
+    component_id: this.PROJECT_LEVEL_ID,
+    name: 'Nivel Proyecto',
+    percentage: 0,
+    is_complete: true,
+    entries: [],
+    budgetCap: null,
+    editingBudget: false,
+    budgetDraft: null,
+    savingBudget: false,
+    budgetError: null,
+  };
+
+  readonly EPSILON = 0.01;
+
+  // ── Catálogo de rubros (para el selector de "Crear rubro") ─────────────────
+  catalogItems      = signal<BudgetComponentCatalogItem[]>([]);
+  catalogLoaded     = false;
+
   addingComponent      = signal(false);
-  newComponentName     = '';
+  newComponentCatalogItemId = '';
   newComponentTechId   = '';
   addingComponentError = signal<string | null>(null);
   addingComponentSaving = signal(false);
@@ -82,7 +113,7 @@ export class TabPresupuestoComponent implements OnInit {
   }
 
   budgetGrandTotal(): number {
-    return this.sections.reduce((s, sec) => s + this.compTotal(sec), 0);
+    return this.sections.reduce((s, sec) => s + this.compTotal(sec), 0) + this.compTotal(this.projectLevelSection);
   }
 
   ngOnInit(): void {
@@ -102,6 +133,10 @@ export class TabPresupuestoComponent implements OnInit {
       next: (w: BudgetWizardResponse) => {
         this.budgetWizard.set(w);
         this.sections = this.mapWizard(w);
+        this.projectLevelSection = {
+          ...this.projectLevelSection,
+          entries: this.mapEntries(w.project_level_entries),
+        };
         this.budgetLoading.set(false);
         this.syncPanelAfterReload();
       },
@@ -120,18 +155,22 @@ export class TabPresupuestoComponent implements OnInit {
       budgetDraft:   comp.budget ?? null,
       savingBudget:  false,
       budgetError:   null,
-      entries: (comp.budget_entries ?? []).map((entry: BudgetEntry) => ({
-        budget_component_id:  entry.budget_component_id,
-        name:                  entry.name,
-        company_contribution:  entry.company_contribution,
-        ally_contribution:     entry.ally_contribution,
-        total_contribution:    entry.total_contribution,
-        editingName:           false,
-        nameDraft:             entry.name,
-        savingName:            false,
-        items:                 entry.items ?? [],
-      } as EntrySection)),
+      entries: this.mapEntries(comp.budget_entries),
     }));
+  }
+
+  private mapEntries(entries: BudgetEntry[] | null | undefined): EntrySection[] {
+    return (entries ?? []).map((entry: BudgetEntry) => ({
+      budget_component_id:  entry.budget_component_id,
+      name:                  entry.name,
+      company_contribution:  entry.company_contribution,
+      ally_contribution:     entry.ally_contribution,
+      total_contribution:    entry.total_contribution,
+      editingName:           false,
+      nameDraft:             entry.name,
+      savingName:            false,
+      items:                 entry.items ?? [],
+    } as EntrySection));
   }
 
   // ── Totales ──────────────────────────────────────────────────────────────
@@ -149,10 +188,10 @@ export class TabPresupuestoComponent implements OnInit {
     return e.items.reduce((s, r) => s + r.total_value, 0);
   }
   grandTotalCP(): number {
-    return this.sections.reduce((s, sec) => s + this.compTotalCP(sec), 0);
+    return this.sections.reduce((s, sec) => s + this.compTotalCP(sec), 0) + this.compTotalCP(this.projectLevelSection);
   }
   grandTotalAlly(): number {
-    return this.sections.reduce((s, sec) => s + this.compTotalAlly(sec), 0);
+    return this.sections.reduce((s, sec) => s + this.compTotalAlly(sec), 0) + this.compTotalAlly(this.projectLevelSection);
   }
 
   /** Suma real de todos los ítems de presupuesto (todas las entries) del componente técnico. */
@@ -253,58 +292,89 @@ export class TabPresupuestoComponent implements OnInit {
   color(i: number): string { return PALETTE[i % PALETTE.length]; }
 
   hasAnyEntries(): boolean {
-    return this.sections.some(s => s.entries.length > 0);
+    return this.sections.some(s => s.entries.length > 0) || this.projectLevelSection.entries.length > 0;
   }
 
   periodicityLabel(value: string | null): string {
     return this.unitOptions.find(o => o.value === value)?.label ?? (value || '—');
   }
 
+  // ── Catálogo de rubros ───────────────────────────────────────────────────
+
+  private loadCatalog(): void {
+    if (this.catalogLoaded) return;
+    this.catalogSvc.list().subscribe({
+      next: items => {
+        this.catalogItems.set((items ?? []).filter(i => i.is_active));
+        this.catalogLoaded = true;
+      },
+      error: () => { /* el select simplemente queda vacío; el usuario puede reintentar reabriendo el diálogo */ },
+    });
+  }
+
+  selectedCatalogItem(): BudgetComponentCatalogItem | null {
+    return this.catalogItems().find(i => i.id === this.newComponentCatalogItemId) ?? null;
+  }
+
+  /** true cuando el ítem de catálogo elegido es `directo` y por lo tanto exige seleccionar
+   * un componente técnico; false para `indirecto` (va a Nivel Proyecto) o si aún no se elige nada. */
+  newComponentRequiresTech(): boolean {
+    return this.selectedCatalogItem()?.cost_type === 'directo';
+  }
+
   // ── Rubros de presupuesto (budget_component) ──────────────────────
 
   startAddComponent(): void {
+    this.loadCatalog();
     this.addingComponent.set(true);
-    this.newComponentName = '';
+    this.newComponentCatalogItemId = '';
     this.newComponentTechId = this.sections[0]?.component_id ?? '';
     this.addingComponentError.set(null);
   }
 
   cancelAddComponent(): void {
     this.addingComponent.set(false);
-    this.newComponentName = '';
+    this.newComponentCatalogItemId = '';
     this.newComponentTechId = '';
     this.addingComponentError.set(null);
   }
 
   saveNewComponent(): void {
-    const name = this.newComponentName.trim();
+    const catalogItem = this.selectedCatalogItem();
     const techId = this.newComponentTechId;
-    if (!name)   { this.addingComponentError.set('El nombre es requerido.'); return; }
-    if (!techId) { this.addingComponentError.set('Selecciona un componente técnico.'); return; }
+    if (!catalogItem) { this.addingComponentError.set('Selecciona un rubro del catálogo.'); return; }
+    const requiresTech = catalogItem.cost_type === 'directo';
+    if (requiresTech && !techId) { this.addingComponentError.set('Selecciona un componente técnico.'); return; }
 
     this.addingComponentSaving.set(true);
-    this.svc.createBudgetComponent(this.projectId, { component_id: techId, name }).subscribe({
+    this.svc.createBudgetComponent(this.projectId, {
+      catalog_item_id: catalogItem.id,
+      component_id: requiresTech ? techId : null,
+    }).subscribe({
       next: (bc) => {
-        const sec = this.sections.find(s => s.component_id === techId);
-        if (sec) {
-          sec.entries.push({
-            budget_component_id: bc.id,
-            name:                 bc.name,
-            company_contribution: bc.company_contribution,
-            ally_contribution:    bc.ally_contribution,
-            total_contribution:   bc.total_contribution,
-            editingName:          false,
-            nameDraft:            bc.name,
-            savingName:           false,
-            items:                [],
-          });
+        const newEntry: EntrySection = {
+          budget_component_id: bc.id,
+          name:                 bc.name,
+          company_contribution: bc.company_contribution,
+          ally_contribution:    bc.ally_contribution,
+          total_contribution:   bc.total_contribution,
+          editingName:          false,
+          nameDraft:            bc.name,
+          savingName:           false,
+          items:                [],
+        };
+        if (requiresTech) {
+          const sec = this.sections.find(s => s.component_id === techId);
+          sec?.entries.push(newEntry);
+        } else {
+          this.projectLevelSection.entries.push(newEntry);
         }
         this.addingComponentSaving.set(false);
         this.cancelAddComponent();
       },
       error: err => {
         this.addingComponentSaving.set(false);
-        this.addingComponentError.set(err?.error?.message ?? 'Error al crear el componente de presupuesto.');
+        this.addingComponentError.set(err?.error?.error ?? err?.error?.message ?? 'Error al crear el componente de presupuesto.');
       },
     });
   }
@@ -396,9 +466,14 @@ export class TabPresupuestoComponent implements OnInit {
 
   /** Tras recargar (ítem creado/editado/eliminado desde el panel), refresca el contexto del
    * panel si sigue abierto, para que sus totales de tope reflejen los datos ya persistidos. */
+  private findSectionByComponentId(componentId: string): ComponentSection | undefined {
+    if (componentId === this.PROJECT_LEVEL_ID) return this.projectLevelSection;
+    return this.sections.find(s => s.component_id === componentId);
+  }
+
   private syncPanelAfterReload(): void {
     if (!this.panelOpen() || !this.panelSection) return;
-    const sec = this.sections.find(s => s.component_id === this.panelSection!.component_id);
+    const sec = this.findSectionByComponentId(this.panelSection.component_id);
     if (!sec) return;
     this.panelSection = sec;
     const ctx = this.panelContext();
@@ -448,4 +523,15 @@ export class TabPresupuestoComponent implements OnInit {
   trackByComp(_: number, s: ComponentSection)  { return s.component_id; }
   trackByEntry(_: number, e: EntrySection)     { return e.budget_component_id; }
   trackByItem(_: number, i: BudgetItem)        { return i.id; }
+
+  // ── Cuadre presupuestal (informativo — el bloqueo real ocurre al activar el proyecto) ──
+
+  reconciliation(): BudgetReconciliation | null {
+    return this.budgetWizard()?.reconciliation ?? null;
+  }
+
+  reconciliationOk(): boolean {
+    const r = this.reconciliation();
+    return !!r && Math.abs(r.diferencia) <= this.EPSILON;
+  }
 }

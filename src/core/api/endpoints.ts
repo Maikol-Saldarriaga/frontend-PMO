@@ -18,6 +18,7 @@ export const ENDPOINTS = {
     stepById:      (id: string, step: number) => `${API_URL}/projects/${id}/steps/${step}`,
     details:           (id: string) => `${API_URL}/projects/${id}/details`,
     budgetWizard:      (id: string) => `${API_URL}/projects/${id}/budget/wizard`,
+    budgetReconciliation: (id: string) => `${API_URL}/projects/${id}/budget/reconciliation`,
     budget:            (id: string) => `${API_URL}/projects/${id}/budget`,
     budgetItem:        (id: string, bid: string) => `${API_URL}/projects/${id}/budget/${bid}`,
     monthlyWizard:     (id: string) => `${API_URL}/projects/${id}/monthly-wizard`,
@@ -167,6 +168,12 @@ export const ENDPOINTS = {
   fodcConfig: {
     list:        `${API_URL}/fodc-config`,
     totalMoney:  `${API_URL}/fodc-config/total_money`,
+  },
+  budgetCatalog: {
+    list:       `${API_URL}/budget-catalog`,
+    create:     `${API_URL}/budget-catalog`,
+    update:     (id: string) => `${API_URL}/budget-catalog/${id}`,
+    deactivate: (id: string) => `${API_URL}/budget-catalog/${id}`,
   },
   allies: {
     list:        `${API_URL}/allies`,

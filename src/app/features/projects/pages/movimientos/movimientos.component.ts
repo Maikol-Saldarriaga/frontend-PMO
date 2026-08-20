@@ -109,6 +109,9 @@ export class MovimientosComponent implements OnInit {
         this.generalSummary.set(w.execution?.summary ?? null);
         this.generalSeries.set(w.execution?.time_series ?? []);
         this.components = (w.components ?? []).map(comp => this.buildComponentNode(comp));
+        if (w.project_level_entries?.length) {
+          this.components.push(this.buildProjectLevelNode(w.project_level_entries));
+        }
         this.loading.set(false);
       },
       error: () => {
@@ -153,6 +156,21 @@ export class MovimientosComponent implements OnInit {
       id: entry.budget_component_id, name,
       totalPlaneado, totalEjecutado, pct: pct(totalEjecutado, totalPlaneado),
       months, items, expanded: false,
+    };
+  }
+
+  /** Rubros indirecto (catálogo `cost_type = indirecto`) — no enlazados a ningún componente
+   * técnico, agrupados como un nodo hermano "Nivel Proyecto" al mismo nivel que los
+   * componentes técnicos, construido con la misma lógica de agregación (`buildRubroNode`). */
+  private buildProjectLevelNode(entries: BudgetEntry[]): ComponentNode {
+    const rubros = entries.map((e, i) => this.buildRubroNode(e, i));
+    const months = mergeMonths(rubros.map(r => r.months));
+    const totalPlaneado = rubros.reduce((s, r) => s + r.totalPlaneado, 0);
+    const totalEjecutado = rubros.reduce((s, r) => s + r.totalEjecutado, 0);
+    return {
+      id: '__project_level__', name: 'Nivel Proyecto',
+      totalPlaneado, totalEjecutado, pct: pct(totalEjecutado, totalPlaneado),
+      months, rubros, expanded: false,
     };
   }
 

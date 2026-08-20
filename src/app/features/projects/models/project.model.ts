@@ -494,7 +494,7 @@ export interface ProjectDraft {
 // ── Project Details (dashboard) ───────────────────────────────────────────────
 
 export interface ProjectComponentDistribution {
-  component_id:   string;
+  component_id:   string | null; // null = agregado "Nivel Proyecto" (rubros indirecto del catálogo)
   component_name: string;
   total:          number;
   percentage:     number;
@@ -993,16 +993,44 @@ export interface BudgetItem {
 export interface BudgetComponent {
   id:                      string;
   contract_agreement_id:   string;
-  component_id:            string;
+  component_id:            string | null; // null cuando el rubro es "Nivel Proyecto" (catálogo indirecto)
+  catalog_item_id:         string | null; // ítem del catálogo del que se creó este rubro (null en rubros legados)
   name:                    string;
   company_contribution:    number | null; // solo lectura, calculado por el backend
   ally_contribution:       number | null; // solo lectura, calculado por el backend
   total_contribution:      number | null; // solo lectura, calculado por el backend
 }
 
-export interface BudgetComponentRequest {
-  component_id?: string; // solo al crear
-  name:          string;
+/** El nombre ya no se envía al crear: se deriva server-side del catálogo elegido. */
+export interface CreateBudgetComponentRequest {
+  catalog_item_id: string;
+  component_id?:   string | null; // requerido solo si el catalog item elegido es cost_type 'directo'
+}
+
+/** Único campo editable tras crear: el nombre queda congelado del catálogo salvo renombre manual. */
+export interface UpdateBudgetComponentRequest {
+  name: string;
+}
+
+// ── Catálogo maestro de rubros (budget_component_catalog) — company-wide, admin-managed ──
+
+export type BudgetCostType = 'directo' | 'indirecto';
+
+export interface BudgetComponentCatalogItem {
+  id:         string;
+  company_id: string;
+  name:       string;
+  cost_type:  BudgetCostType;
+  is_active:  boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BudgetComponentCatalogRequest {
+  name:       string;
+  cost_type:  BudgetCostType;
+  sort_order: number;
 }
 
 export interface BudgetEntry {
@@ -1062,12 +1090,27 @@ export interface BudgetExecution {
   details:     BudgetExecutionDetail[];
 }
 
+/** Cuadre en tiempo real entre lo asignado (Componentes Técnicos + Nivel Proyecto) y el
+ * presupuesto aprobado del contrato (`contract_agreement.value`). Solo informativo en esta
+ * pantalla — el bloqueo real ocurre server-side al intentar activar el proyecto. */
+export interface BudgetReconciliation {
+  total_componentes_tecnicos: number;
+  total_nivel_proyecto:       number;
+  total_general:              number;
+  presupuesto_aprobado:       number | null;
+  diferencia:                 number;
+}
+
 export interface BudgetWizardResponse {
   is_complete:       boolean;
   total_components:  number;
   filled_components: number;
   components:        BudgetWizardComponent[];
   execution:         BudgetExecution;
+  /** Rubros creados desde un ítem de catálogo `indirecto` — no enlazados a ningún componente
+   * técnico, asignados a nivel "Proyecto". Mismo shape que `budget_entries[]`. */
+  project_level_entries: BudgetEntry[];
+  reconciliation?:        BudgetReconciliation;
 }
 
 export interface BudgetItemRequest {

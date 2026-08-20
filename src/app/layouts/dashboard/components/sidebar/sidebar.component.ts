@@ -34,6 +34,7 @@ export class SidebarComponent {
     { label: 'Alianzas',      icon: 'link',     route: '/allies',    adminOnly: true },
     { label: 'Fundación',     icon: 'building', route: '/foundation', adminOnly: true },
     { label: 'Apoyo',         icon: 'shield',   route: '/apoyo',      adminOnly: true },
+    { label: 'Catálogo de rubros', icon: 'tag', route: '/budget-catalog', adminOnly: true },
     { label: 'Reportes',      icon: 'chart',    route: '/reports' },
     { label: 'Configuración', icon: 'settings', route: '/settings' },
   ];

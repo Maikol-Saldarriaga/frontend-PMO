@@ -21,6 +21,7 @@ import { ReportsComponent } from './features/reports/pages/reports.component';
 import { AlliesListComponent } from './features/allies/pages/list/allies-list.component';
 import { FoundationUsersComponent } from './features/foundation/pages/list/foundation-users.component';
 import { ApoyoListComponent } from './features/apoyo/pages/list/apoyo-list.component';
+import { BudgetCatalogComponent } from './features/budget-catalog/pages/list/budget-catalog.component';
 import { authGuard, rootRedirectGuard, canCreateProjectGuard, adminGuard } from '../core/auth/guards/auth.guard';
 
 export const routes: Routes = [
@@ -51,6 +52,7 @@ export const routes: Routes = [
       { path: 'allies',                component: AlliesListComponent, canActivate: [adminGuard] },
       { path: 'foundation',            component: FoundationUsersComponent, canActivate: [adminGuard] },
       { path: 'apoyo',                 component: ApoyoListComponent, canActivate: [adminGuard] },
+      { path: 'budget-catalog',        component: BudgetCatalogComponent, canActivate: [adminGuard] },
       { path: 'reports',               component: ReportsComponent },
     ]
   },

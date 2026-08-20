@@ -30,7 +30,9 @@ import {
   ProjectWizardResponse,
   BudgetWizardResponse,
   BudgetComponent,
-  BudgetComponentRequest,
+  CreateBudgetComponentRequest,
+  UpdateBudgetComponentRequest,
+  BudgetReconciliation,
   Invoice,
   InvoiceRequest,
   GanttResponse,
@@ -191,16 +193,20 @@ export class ProjectService {
     return this.http.get<BudgetComponent[]>(ENDPOINTS.projects.budgetComponents(id));
   }
 
-  createBudgetComponent(id: string, data: BudgetComponentRequest): Observable<BudgetComponent> {
+  createBudgetComponent(id: string, data: CreateBudgetComponentRequest): Observable<BudgetComponent> {
     return this.http.post<BudgetComponent>(ENDPOINTS.projects.budgetComponents(id), data);
   }
 
-  updateBudgetComponent(id: string, bid: string, data: BudgetComponentRequest): Observable<BudgetComponent> {
+  updateBudgetComponent(id: string, bid: string, data: UpdateBudgetComponentRequest): Observable<BudgetComponent> {
     return this.http.put<BudgetComponent>(ENDPOINTS.projects.budgetComponentById(id, bid), data);
   }
 
   deleteBudgetComponent(id: string, bid: string): Observable<void> {
     return this.http.delete<void>(ENDPOINTS.projects.budgetComponentById(id, bid));
+  }
+
+  getBudgetReconciliation(id: string): Observable<BudgetReconciliation> {
+    return this.http.get<BudgetReconciliation>(ENDPOINTS.projects.budgetReconciliation(id));
   }
 
   getMonthlyWizard(id: string): Observable<MonthlyWizardResponse> {

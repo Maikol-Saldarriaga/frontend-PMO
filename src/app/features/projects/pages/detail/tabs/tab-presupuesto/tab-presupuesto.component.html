@@ -38,19 +38,33 @@
         <h3 class="text-sm font-bold text-primary-700">Nuevo rubro de presupuesto</h3>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Nombre</label>
-            <input type="text" [(ngModel)]="newComponentName" placeholder="Ej: Materiales, Mano de obra"
-              class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-300 bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
-          </div>
-          <div>
-            <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Componente técnico</label>
-            <select [(ngModel)]="newComponentTechId"
+            <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Rubro del catálogo</label>
+            <select [(ngModel)]="newComponentCatalogItemId"
               class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors cursor-pointer">
-              @for (sec of sections; track trackByComp($index, sec)) {
-                <option [value]="sec.component_id">{{ sec.name }}</option>
+              <option value="" disabled>Selecciona un rubro...</option>
+              @for (c of catalogItems(); track c.id) {
+                <option [value]="c.id">{{ c.name }} ({{ c.cost_type === 'directo' ? 'Directo' : 'Indirecto' }})</option>
               }
             </select>
+            @if (!catalogItems().length) {
+              <p class="text-[10px] text-neutral-400 mt-1">No hay rubros activos en el catálogo. Un administrador puede crearlos en "Catálogo de rubros".</p>
+            }
           </div>
+          @if (newComponentRequiresTech()) {
+            <div>
+              <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Componente técnico</label>
+              <select [(ngModel)]="newComponentTechId"
+                class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors cursor-pointer">
+                @for (sec of sections; track trackByComp($index, sec)) {
+                  <option [value]="sec.component_id">{{ sec.name }}</option>
+                }
+              </select>
+            </div>
+          } @else if (selectedCatalogItem()) {
+            <div class="flex items-end">
+              <p class="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">Este rubro es de costo <strong>Indirecto</strong>: se asignará a Nivel Proyecto, sin enlazarse a un componente técnico.</p>
+            </div>
+          }
         </div>
         @if (addingComponentError()) {
           <p class="text-xs text-danger">{{ addingComponentError() }}</p>
@@ -62,6 +76,42 @@
           </button>
           <button type="button" (click)="cancelAddComponent()"
             class="px-4 py-2 text-xs text-neutral-500 hover:text-neutral-700 transition-colors">Cancelar</button>
+        </div>
+      </div>
+    }
+
+    <!-- ── Cuadre presupuestal en tiempo real ─────────────────────── -->
+    @if (reconciliation(); as rec) {
+      <div class="rounded-2xl border p-4 flex items-center justify-between gap-4 flex-wrap"
+        [class.bg-emerald-50]="reconciliationOk()" [class.border-emerald-100]="reconciliationOk()"
+        [class.bg-amber-50]="!reconciliationOk()" [class.border-amber-100]="!reconciliationOk()">
+        <div class="flex items-center gap-3">
+          @if (reconciliationOk()) {
+            <svg class="w-5 h-5 text-emerald-600 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          } @else {
+            <svg class="w-5 h-5 text-amber-600 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/>
+            </svg>
+          }
+          <div>
+            <p class="text-sm font-bold" [class.text-emerald-700]="reconciliationOk()" [class.text-amber-700]="!reconciliationOk()">
+              {{ reconciliationOk() ? 'El presupuesto cuadra con lo aprobado' : 'El presupuesto no cuadra con lo aprobado' }}
+            </p>
+            <p class="text-xs mt-0.5" [class.text-emerald-600]="reconciliationOk()" [class.text-amber-600]="!reconciliationOk()">
+              Componentes técnicos: {{ formatCurrency(rec.total_componentes_tecnicos) }} · Nivel Proyecto: {{ formatCurrency(rec.total_nivel_proyecto) }}
+              @if (rec.presupuesto_aprobado !== null) {
+                · Diferencia: {{ formatCurrency(rec.diferencia) }}
+              }
+            </p>
+          </div>
+        </div>
+        <div class="text-right">
+          <p class="text-[10px] font-bold uppercase tracking-wide" [class.text-emerald-500]="reconciliationOk()" [class.text-amber-500]="!reconciliationOk()">Total asignado / Aprobado</p>
+          <p class="text-sm font-black" [class.text-emerald-700]="reconciliationOk()" [class.text-amber-700]="!reconciliationOk()">
+            {{ formatCurrency(rec.total_general) }} @if (rec.presupuesto_aprobado !== null) { / {{ formatCurrency(rec.presupuesto_aprobado) }} }
+          </p>
         </div>
       </div>
     }
@@ -302,6 +352,125 @@
 
           <div class="px-1 py-2">
             <button type="button" (click)="openNewItem(sec, entry)" [disabled]="locked"
+              class="flex items-center gap-1.5 text-xs text-accent hover:text-accent-700 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+              </svg>
+              Agregar ítem
+            </button>
+          </div>
+
+        </div>
+
+      }
+    }
+
+    <!-- ── Nivel Proyecto (rubros indirecto, sin componente técnico) ─────── -->
+    @if (projectLevelSection.entries.length) {
+      <h3 class="text-sm font-bold text-gray-800 px-1 flex items-center gap-2">
+        Nivel Proyecto
+        <span class="text-[10px] font-medium text-neutral-400 normal-case">— rubros indirecto, sin tope de componente técnico</span>
+      </h3>
+
+      @for (entry of projectLevelSection.entries; track trackByEntry($index, entry)) {
+
+        <div class="space-y-0 mb-5">
+
+          <div class="flex items-center justify-between gap-3 flex-wrap px-3 py-2.5 bg-neutral-50 rounded-t-lg">
+            <div class="flex items-center gap-3 min-w-0 flex-1">
+              <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-semibold flex-shrink-0 bg-slate-500/10 text-slate-600">
+                <span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
+                Nivel Proyecto
+              </span>
+              @if (entry.editingName) {
+                <input type="text" [(ngModel)]="entry.nameDraft"
+                  class="px-2 py-1 rounded-lg border border-accent-200 text-sm font-semibold text-primary-700 outline-none focus:ring-2 focus:ring-accent-200 flex-1 min-w-0"/>
+                <button type="button" (click)="saveEntryName(entry)" [disabled]="locked || entry.savingName"
+                  class="text-xs font-semibold text-accent hover:text-accent-700 flex-shrink-0">Guardar</button>
+                <button type="button" (click)="cancelEditEntryName(entry)"
+                  class="text-xs text-neutral-400 hover:text-neutral-600 flex-shrink-0">Cancelar</button>
+              } @else {
+                <span class="text-sm font-bold text-primary-700 truncate">{{ entry.name }}</span>
+                <button type="button" (click)="startEditEntryName(entry)" [disabled]="locked"
+                  class="p-1 rounded-lg text-neutral-500 hover:text-accent hover:bg-accent-50 transition-colors flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                  </svg>
+                </button>
+              }
+            </div>
+            <button type="button" (click)="deleteEntry(projectLevelSection, entry)" [disabled]="locked" class="p-1 rounded-lg text-neutral-500 hover:text-danger hover:bg-danger/10 transition-colors flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm min-w-[900px] border-collapse">
+              <thead>
+                <tr class="border-b border-t border-gray-200 text-[10px] font-bold text-neutral-500 uppercase tracking-wide">
+                  <th class="text-left px-3 py-2">Concepto</th>
+                  <th class="text-left px-3 py-2 whitespace-nowrap">Periodicidad</th>
+                  <th class="text-right px-3 py-2 whitespace-nowrap">Cantidad</th>
+                  <th class="text-right px-3 py-2 whitespace-nowrap">Valor unitario</th>
+                  <th class="text-right px-3 py-2 whitespace-nowrap">Total</th>
+                  <th class="text-right px-3 py-2 whitespace-nowrap text-accent">Contrapartida</th>
+                  <th class="text-right px-3 py-2 whitespace-nowrap text-success">Aliado</th>
+                  <th class="px-3 py-2 w-20 text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                @for (item of entry.items; track trackByItem($index, item)) {
+                  <tr class="hover:bg-neutral-50/60 transition-colors">
+                    <td class="px-3 py-2.5 min-w-0 max-w-[220px]">
+                      <p class="text-xs font-semibold text-primary-700 truncate" [title]="item.concept || 'Sin concepto'">{{ item.concept || 'Sin concepto' }}</p>
+                      @if (item.description) {
+                        <p class="text-[10px] text-neutral-400 truncate" [title]="item.description">{{ item.description }}</p>
+                      }
+                    </td>
+                    <td class="px-3 py-2.5 text-xs text-neutral-600 whitespace-nowrap">{{ periodicityLabel(item.unit_measurement) }}</td>
+                    <td class="px-3 py-2.5 text-right text-xs text-neutral-600 whitespace-nowrap">{{ item.quantity || '—' }}</td>
+                    <td class="px-3 py-2.5 text-right text-xs text-neutral-600 whitespace-nowrap">{{ formatCurrency(item.unit_value) }}</td>
+                    <td class="px-3 py-2.5 text-right whitespace-nowrap"><span class="text-xs font-bold text-primary-700">{{ formatCurrency(item.total_value) }}</span></td>
+                    <td class="px-3 py-2.5 text-right whitespace-nowrap"><span class="text-xs font-semibold text-accent">{{ formatCurrency(item.counterpart_contribution) }}</span></td>
+                    <td class="px-3 py-2.5 text-right whitespace-nowrap"><span class="text-xs font-semibold text-success">{{ formatCurrency(item.ally_contribution) }}</span></td>
+                    <td class="px-3 py-2.5">
+                      <div class="flex items-center justify-end gap-1">
+                        <button type="button" (click)="editItem(projectLevelSection, entry, item)" title="Editar" [disabled]="locked"
+                          class="w-8 h-8 flex items-center justify-center rounded-lg text-neutral-500 hover:text-accent hover:bg-accent-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                          </svg>
+                        </button>
+                        <button type="button" (click)="deleteItemQuick(projectLevelSection, entry, item)" title="Eliminar" [disabled]="locked"
+                          class="w-8 h-8 flex items-center justify-center rounded-lg text-neutral-500 hover:text-danger hover:bg-danger/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                          </svg>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+
+              @if (entry.items.length) {
+                <tfoot>
+                  <tr class="bg-neutral-50 font-bold border-t border-gray-200">
+                    <td colspan="4" class="px-5 py-2.5 text-[11px] text-neutral-500 uppercase tracking-wide">Subtotal — {{ entry.name }}</td>
+                    <td class="px-3 py-2.5 text-right whitespace-nowrap text-xs text-primary-700">{{ formatCurrency(entry.total_contribution ?? entryTotal(entry)) }}</td>
+                    <td class="px-3 py-2.5 text-right whitespace-nowrap text-xs text-accent">{{ formatCurrency(entry.company_contribution ?? 0) }}</td>
+                    <td class="px-3 py-2.5 text-right whitespace-nowrap text-xs text-success">{{ formatCurrency(entry.ally_contribution ?? 0) }}</td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              }
+            </table>
+          </div>
+
+          <div class="px-1 py-2">
+            <button type="button" (click)="openNewItem(projectLevelSection, entry)" [disabled]="locked"
               class="flex items-center gap-1.5 text-xs text-accent hover:text-accent-700 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
