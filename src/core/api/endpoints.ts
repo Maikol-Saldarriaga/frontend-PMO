@@ -51,6 +51,7 @@ export const ENDPOINTS = {
     trackingReportTokens:   (id: string) => `${API_URL}/projects/${id}/tracking-report/tokens`,
     trackingReportTokenById:(id: string, tid: string) => `${API_URL}/projects/${id}/tracking-report/tokens/${tid}`,
     risks:             (id: string) => `${API_URL}/projects/${id}/risks`,
+    evaluateRisk:      (id: string) => `${API_URL}/projects/${id}/risks/evaluate`,
     riskById:          (id: string, rid: string) => `${API_URL}/projects/${id}/risks/${rid}`,
     riskTracking:      (id: string, rid: string) => `${API_URL}/projects/${id}/risks/${rid}/tracking`,
     affiliates:        (id: string) => `${API_URL}/projects/${id}/affiliates`,
