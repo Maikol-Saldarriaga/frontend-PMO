@@ -42,7 +42,7 @@
             <select [(ngModel)]="newComponentCatalogItemId"
               class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors cursor-pointer">
               <option value="" disabled>Selecciona un rubro...</option>
-              <option [value]="CUSTOM_CATALOG_OPTION">✏️ Escribir nombre manualmente...</option>
+              <option [value]="CUSTOM_CATALOG_OPTION">Escribir nombre manualmente...</option>
               @for (c of catalogItems(); track c.id) {
                 <option [value]="c.id">{{ c.name }} ({{ c.cost_type === 'directo' ? 'Directo' : 'Indirecto' }})</option>
               }

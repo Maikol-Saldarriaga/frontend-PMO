@@ -20,6 +20,13 @@
 #
 # Requiere scripts/vps/deploy.env (gitignored, ver deploy.env.example) con
 # REMOTE_USER/REMOTE_HOST/SSH_KEY/REMOTE_WEB_DIR.
+#
+# IMPORTANTE: el build se sincroniza PLANO dentro de REMOTE_WEB_DIR (sin
+# subcarpeta "browser"). La conf nginx del sitio debe tener
+# `root REMOTE_WEB_DIR;` (NO `REMOTE_WEB_DIR/browser`). Si alguien reconstruye
+# el server o el sitio nginx desde cero con root apuntando a .../browser, el
+# deploy queda con index.html en la raíz pero nginx buscando en una carpeta
+# inexistente -> error 500 "rewrite or internal redirection cycle" al pedir /.
 
 set -euo pipefail
 
