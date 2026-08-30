@@ -53,9 +53,18 @@ export class MonthlyComponent implements OnInit {
 
   months = [1,2,3,4,5,6,7,8,9,10,11,12];
 
+  /** Egresos reales registrados (módulo "Egresos"), por rubro y por "YYYY-MM" — reemplaza el
+   * antiguo campo manual "presupuesto ejecutado" por el valor real, solo informativo aquí. */
+  executedSummary: Record<string, Record<string, number>> = {};
+
   ngOnInit(): void {
     this.projectId = this.route.snapshot.paramMap.get('id') ?? '';
     if (!this.projectId) { this.router.navigate(['/projects']); return; }
+
+    this.service.getExecutionsMonthlySummary(this.projectId).subscribe({
+      next: (summary) => { this.executedSummary = summary ?? {}; },
+      error: () => { this.executedSummary = {}; },
+    });
 
     this.service.getMonthlyWizard(this.projectId).subscribe({
       next: (w) => {
@@ -91,6 +100,14 @@ export class MonthlyComponent implements OnInit {
         this.loading.set(false);
       },
     });
+  }
+
+  /** Egreso real registrado para este ítem en ese año/mes — reemplaza el valor manual que
+   * traía `dist.executed_amount`, ahora puramente informativo (ver módulo "Egresos"). */
+  realExecuted(row: MonthlyRow, dist: BudgetMonthlyDistribution): number {
+    if (!row.budget_id) return 0;
+    const key = `${dist.year}-${String(dist.month).padStart(2, '0')}`;
+    return this.executedSummary[row.budget_id]?.[key] ?? 0;
   }
 
   toggleExpand(row: MonthlyRow): void { row.expanded = !row.expanded; }
@@ -200,7 +217,7 @@ export class MonthlyComponent implements OnInit {
     return row.distributions.reduce((s, d) => s + d.ally_amount, 0);
   }
   distTotalExecuted(row: MonthlyRow): number {
-    return row.distributions.reduce((s, d) => s + (d.executed_amount ?? 0), 0);
+    return row.distributions.reduce((s, d) => s + this.realExecuted(row, d), 0);
   }
   distTotalBilled(row: MonthlyRow): number {
     return row.distributions.reduce((s, d) => s + (d.billed_amount ?? 0), 0);

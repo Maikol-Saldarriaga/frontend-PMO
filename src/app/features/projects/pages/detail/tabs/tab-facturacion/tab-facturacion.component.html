@@ -44,6 +44,100 @@
       </div>
     </div>
 
+    <!-- ── Facturas generales (una factura de proveedor que cubre varios rubros) ────────── -->
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h3 class="text-sm font-bold text-gray-900">Facturas generales</h3>
+          <p class="text-xs text-gray-400 mt-0.5">Una sola factura de proveedor repartida entre varios rubros a la vez.</p>
+        </div>
+        @if (canCreate()) {
+          <button type="button" (click)="showHeaderForm() ? cancelHeaderForm() : startHeaderForm()" [disabled]="locked"
+            class="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white hover:bg-neutral-50 text-primary-700 border border-neutral-200 text-xs font-semibold shadow-sm transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0">
+            <svg class="w-3.5 h-3.5 transition-transform duration-300 ease-out" [class.rotate-45]="showHeaderForm()" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+            </svg>
+            @if (showHeaderForm()) { Cancelar } @else { Factura general (varios rubros) }
+          </button>
+        }
+      </div>
+
+      @if (invoiceHeadersLoading()) {
+        <div class="flex items-center justify-center py-8">
+          <div class="w-6 h-6 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      } @else if (invoiceHeadersError()) {
+        <div class="px-5 py-6"><p class="text-xs text-danger">{{ invoiceHeadersError() }}</p></div>
+      } @else if (!invoiceHeaders().length) {
+        <div class="px-5 py-8 text-center">
+          <p class="text-xs text-neutral-400">Aún no hay facturas generales registradas.</p>
+        </div>
+      } @else {
+        <div class="divide-y divide-gray-50">
+          @for (h of invoiceHeaders(); track trackByHeader($index, h)) {
+            <div>
+              <div class="px-5 py-3.5 flex items-center gap-3 hover:bg-neutral-50/60 transition-colors">
+                <button type="button" (click)="toggleHeaderExpand(h)" class="min-w-0 flex-1 text-left flex items-center gap-3">
+                  <div class="min-w-0 flex-1">
+                    <p class="text-xs font-semibold text-primary-700 flex items-center gap-1.5 flex-wrap">
+                      <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-violet-50 text-violet-700 text-[9px] font-bold uppercase tracking-wide flex-shrink-0">
+                        <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        General
+                      </span>
+                      {{ formatCurrency(h.value) }}
+                      <span class="text-[10px] font-medium text-neutral-400 ml-1">{{ h.date | date:'dd/MM/yyyy':'UTC' }}</span>
+                    </p>
+                    <p class="text-[11px] text-neutral-400 mt-0.5 truncate">
+                      @if (h.provider) { {{ h.provider }} · }
+                      @if (h.invoice_number) { {{ h.invoice_number }} · }
+                      {{ headerLineCount(h.id) }} línea(s)
+                    </p>
+                  </div>
+                  <svg class="w-4 h-4 text-neutral-400 flex-shrink-0 transition-transform" [class.rotate-180]="expandedHeaderId() === h.id" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+                  </svg>
+                </button>
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold flex-shrink-0"
+                  [class.bg-emerald-50]="h.status === 'FACT'" [class.text-emerald-700]="h.status === 'FACT'"
+                  [class.bg-amber-50]="h.status === 'PEND'" [class.text-amber-700]="h.status === 'PEND'">
+                  {{ h.status === 'FACT' ? 'Facturada' : 'Pendiente' }}
+                </span>
+                @if (canCreate()) {
+                  <button type="button" (click)="deleteInvoiceHeader(h)" [disabled]="locked || deletingHeaderId() === h.id" title="Eliminar factura general"
+                    class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-neutral-200 text-[10px] font-semibold text-neutral-500 hover:text-danger hover:border-danger/30 hover:bg-danger/10 transition-colors flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                    Eliminar
+                  </button>
+                }
+              </div>
+
+              @if (expandedHeaderId() === h.id) {
+                <div class="px-5 pb-4 bg-neutral-50/50">
+                  @if (h.description) {
+                    <p class="text-[11px] text-neutral-400 mb-2 italic">{{ h.description }}</p>
+                  }
+                  @if (headerLinesLoadingId() === h.id) {
+                    <div class="flex items-center justify-center py-4">
+                      <div class="w-5 h-5 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                  } @else {
+                    <div class="space-y-1.5">
+                      @for (line of headerLinesFor(h.id); track line.id) {
+                        <div class="flex items-center justify-between gap-3 bg-white rounded-lg border border-gray-100 px-3 py-2">
+                          <span class="text-xs text-neutral-600 truncate">{{ rubroLabelForLine(line) }}</span>
+                          <span class="text-xs font-semibold text-primary-700 flex-shrink-0">{{ formatCurrency(line.value) }}</span>
+                        </div>
+                      }
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
+    </div>
+
     @if (!hasAnyRows()) {
       <div class="bg-white rounded-2xl border border-dashed border-gray-200 flex flex-col items-center justify-center py-16 gap-2">
         <p class="text-sm font-medium text-gray-500">Aún no hay ítems de presupuesto.</p>
@@ -253,6 +347,11 @@
                               </span>
                               {{ formatCurrency(inv.value) }}
                               <span class="text-[10px] font-medium text-neutral-400 ml-1">{{ inv.date | date:'dd/MM/yyyy':'UTC' }}</span>
+                              @if (inv.invoice_header_id) {
+                                <span class="inline-flex items-center px-1.5 py-0.5 rounded-md bg-violet-50 text-violet-600 text-[9px] font-semibold" title="Esta factura es una línea de una factura general">
+                                  Parte de factura general
+                                </span>
+                              }
                             </p>
                             <p class="text-[11px] text-neutral-400 mt-0.5">
                               {{ inv.year && inv.month ? monthLabel({ year: inv.year, month: inv.month }) : 'Componente completo' }}
@@ -332,7 +431,7 @@
                           <p class="text-[10px] text-neutral-400 mb-2">
                             IVA {{ invoiceIvaPercentage(inv) }}%
                             @if (inv.admin_fee_amount) {
-                              <span class="text-amber-600"> · Admin {{ invoiceAdminFeePercentage(inv) }}% retenido: {{ formatCurrency(inv.admin_fee_amount) }} (neto disponible: {{ formatCurrency(collectibleCap(inv)) }})</span>
+                              <span class="text-amber-600"> · Admin {{ invoiceAdminFeePercentage(inv) }}% (informativo, no se descuenta del cobro): {{ formatCurrency(inv.admin_fee_amount) }}</span>
                             }
                           </p>
 
@@ -637,7 +736,7 @@
             </div>
           }
           <div class="flex items-center justify-between px-4 py-3 bg-emerald-50/60">
-            <p class="text-xs font-bold text-emerald-700">Disponible para cobrar (neto de la factura)</p>
+            <p class="text-xs font-bold text-emerald-700">Disponible para cobrar (valor total facturado)</p>
             <p class="text-base font-black text-emerald-700">{{ formatCurrency(collectibleCap(inv)) }}</p>
           </div>
           <div class="flex items-center justify-between px-4 py-3">
@@ -701,6 +800,265 @@
             @if (receiptSaving()) { Guardando... } @else { Guardar cobro }
           </button>
           <button type="button" (click)="cancelReceiptForm()"
+            class="px-4 py-2 text-xs font-semibold text-neutral-500 hover:bg-neutral-50 rounded-lg transition-colors">Cancelar</button>
+        </div>
+      </div>
+    </aside>
+  }
+
+  <!-- Modal lateral: nueva factura general (cabecera + líneas por rubro) -->
+  @if (showHeaderForm()) {
+    <div appPortalToBody class="fixed inset-0 bg-neutral-900/40 z-[200] transition-opacity" (click)="cancelHeaderForm()"></div>
+
+    <aside appPortalToBody class="fixed top-0 right-0 h-full w-full sm:w-[600px] lg:w-[680px] bg-surface shadow-2xl z-[201] flex flex-col">
+      <!-- Header -->
+      <div class="flex items-center justify-between gap-3 px-6 py-4 border-b border-neutral-100 flex-shrink-0">
+        <div>
+          <h2 class="text-base font-bold text-primary-700">Factura general</h2>
+          <p class="text-xs text-neutral-400 mt-0.5">Una factura de proveedor repartida entre varios rubros.</p>
+        </div>
+        <button type="button" (click)="cancelHeaderForm()" class="p-2 rounded-lg text-neutral-400 hover:text-neutral-600 hover:bg-neutral-50 transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Body -->
+      <div class="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">N° de factura</label>
+            <input type="text" [(ngModel)]="headerForm.invoice_number" placeholder="Ej: FV-1024"
+              class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Proveedor</label>
+            <input type="text" [(ngModel)]="headerForm.provider" placeholder="Nombre del proveedor"
+              class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Valor total <span class="text-danger">*</span></label>
+          <input type="text" inputmode="numeric" appMoneyMask [ngModel]="headerForm.value" (ngModelChange)="onHeaderFormValueChange($event)" placeholder="0"
+            class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">% de IVA</label>
+            <div class="relative">
+              <input type="number" min="0" max="100" step="0.01" [ngModel]="headerForm.iva_percentage" (ngModelChange)="onHeaderFormIvaChange($event)" placeholder="19"
+                class="w-full pr-7 pl-3 py-2 rounded-xl border border-neutral-200 text-sm font-semibold text-primary-700 placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+              <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none"><span class="text-xs text-neutral-400 font-semibold">%</span></div>
+            </div>
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Valor antes de IVA</label>
+            <input type="text" [value]="headerForm.value_before_tax !== null ? formatCurrency(headerForm.value_before_tax) : ''" readonly placeholder="—"
+              class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-neutral-500 placeholder-neutral-300 bg-neutral-100 cursor-not-allowed outline-none"/>
+          </div>
+        </div>
+        <div>
+          <label class="flex items-center gap-1.5 cursor-pointer select-none">
+            <input type="checkbox" [ngModel]="headerForm.no_iva" (ngModelChange)="onHeaderFormNoIvaChange($event)"
+              class="w-3.5 h-3.5 rounded border-neutral-300 text-accent focus:ring-accent-200"/>
+            <span class="text-[11px] text-neutral-500">No incluye IVA</span>
+          </label>
+        </div>
+
+        <!-- % de administración: mismo criterio que la factura individual, calculado UNA vez sobre el total -->
+        <div class="rounded-xl border border-neutral-200 px-3 py-3">
+          <div class="flex items-center gap-3">
+            <div class="flex-1">
+              <p class="text-xs font-bold text-primary-700">¿Aplica % de administración?</p>
+              <p class="text-[10px] text-neutral-400">Se calcula una sola vez sobre el valor total; cada línea hereda el mismo %</p>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+              <input type="checkbox" [ngModel]="headerForm.applies_admin_fee" (ngModelChange)="onHeaderFormAdminToggle($event)" class="sr-only peer"/>
+              <div class="w-10 h-5 bg-neutral-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-accent-100 rounded-full peer peer-checked:after:translate-x-[20px] peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-[16px] after:w-[16px] after:transition-all peer-checked:bg-accent shadow-input"></div>
+            </label>
+          </div>
+          @if (headerForm.applies_admin_fee) {
+            <div class="mt-3">
+              <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">% de Administración</label>
+              <div class="relative max-w-[160px]">
+                <input type="number" min="0" max="100" step="0.01" [(ngModel)]="headerForm.admin_fee_percentage" placeholder="Ej: 10"
+                  class="w-full pr-7 pl-3 py-2 rounded-xl border border-neutral-200 text-sm font-semibold text-primary-700 placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+                <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none"><span class="text-xs text-neutral-400 font-semibold">%</span></div>
+              </div>
+              @if (headerAdminFeeEstimate(); as estimate) {
+                <div class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 mt-2">
+                  <div class="flex items-center justify-between text-xs">
+                    <span class="text-amber-700">Retenido: <strong>{{ formatCurrency(estimate.fee) }}</strong></span>
+                    <span class="text-amber-700">Neto disponible: <strong>{{ formatCurrency(estimate.net) }}</strong></span>
+                  </div>
+                </div>
+              }
+            </div>
+          }
+        </div>
+
+        <div class="grid grid-cols-3 gap-3">
+          <div class="col-span-2">
+            <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">N° acta de cobro</label>
+            <input type="text" [(ngModel)]="headerForm.collection_act_number" placeholder="Ej: No FODC 709"
+              class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Fecha</label>
+            <input type="date" [(ngModel)]="headerForm.date"
+              class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Mes a facturar <span class="text-danger">*</span></label>
+            <select [(ngModel)]="headerForm.month"
+              class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors cursor-pointer">
+              @for (m of reportMonthNames; track $index) { <option [ngValue]="$index + 1">{{ m }}</option> }
+            </select>
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Año <span class="text-danger">*</span></label>
+            <select [(ngModel)]="headerForm.year"
+              class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors cursor-pointer">
+              @for (y of reportYearOptions; track y) { <option [ngValue]="y">{{ y }}</option> }
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Estado</label>
+          <div class="flex items-center gap-2">
+            <button type="button" (click)="headerForm.status = 'PEND'"
+              class="flex-1 px-3 py-2 rounded-xl border text-xs font-semibold transition-colors"
+              [class.bg-amber-50]="headerForm.status === 'PEND'" [class.text-amber-700]="headerForm.status === 'PEND'" [class.border-amber-300]="headerForm.status === 'PEND'"
+              [class.bg-neutral-50]="headerForm.status !== 'PEND'" [class.text-neutral-400]="headerForm.status !== 'PEND'" [class.border-neutral-200]="headerForm.status !== 'PEND'">
+              Pendiente
+            </button>
+            <button type="button" (click)="headerForm.status = 'FACT'"
+              class="flex-1 px-3 py-2 rounded-xl border text-xs font-semibold transition-colors"
+              [class.bg-emerald-50]="headerForm.status === 'FACT'" [class.text-emerald-700]="headerForm.status === 'FACT'" [class.border-emerald-300]="headerForm.status === 'FACT'"
+              [class.bg-neutral-50]="headerForm.status !== 'FACT'" [class.text-neutral-400]="headerForm.status !== 'FACT'" [class.border-neutral-200]="headerForm.status !== 'FACT'">
+              Facturada
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Descripción</label>
+          <input type="text" [(ngModel)]="headerForm.description" placeholder="Nota libre (opcional)"
+            class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+        </div>
+
+        <div>
+          <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Comprobante (opcional)</label>
+          @if (headerDocumentFile(); as file) {
+            <div class="flex items-center justify-between gap-2 px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50">
+              <span class="text-xs font-medium text-emerald-700 truncate flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                {{ file.name }}
+              </span>
+              <button type="button" (click)="removeHeaderFile()" class="text-emerald-600 hover:text-danger transition-colors flex-shrink-0">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+          } @else {
+            <label class="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-neutral-300 text-xs font-semibold text-neutral-500 hover:border-accent hover:text-accent hover:bg-accent-50 cursor-pointer transition-colors">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+              Adjuntar comprobante
+              <input type="file" class="hidden" accept="image/*,.pdf" (change)="onHeaderFileSelected($event)"/>
+            </label>
+          }
+        </div>
+
+        <!-- ── Líneas por rubro ─────────────────────────────────────────────── -->
+        <div class="pt-2 border-t border-neutral-100">
+          <div class="flex items-center justify-between gap-3 mb-2">
+            <p class="text-[10px] font-bold text-neutral-500 uppercase tracking-wide">Líneas por rubro <span class="text-danger">*</span></p>
+            <div class="flex items-center gap-2">
+              <button type="button" (click)="distributeHeaderLinesEvenly()" [disabled]="!headerLines().length || !headerForm.value"
+                class="text-[11px] font-semibold text-accent hover:text-accent-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                Distribuir equitativamente
+              </button>
+              <button type="button" (click)="addHeaderLine()"
+                class="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-neutral-200 text-neutral-600 hover:bg-neutral-50 text-[11px] font-semibold transition-colors">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                Agregar línea
+              </button>
+            </div>
+          </div>
+
+          @if (!headerLines().length) {
+            <div class="border border-dashed border-neutral-200 rounded-xl py-6 text-center">
+              <p class="text-xs text-neutral-400">Agrega al menos una línea (rubro + valor).</p>
+            </div>
+          } @else {
+            <div class="space-y-2">
+              @for (line of headerLines(); track trackByHeaderLine($index); let i = $index) {
+                <div class="flex items-center gap-2">
+                  <select [ngModel]="line.budget_item_id" (ngModelChange)="updateHeaderLine(i, 'budget_item_id', $event)"
+                    class="flex-1 min-w-0 px-3 py-2 rounded-xl border border-neutral-200 text-xs text-primary-700 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors cursor-pointer">
+                    <option value="" disabled>Selecciona un rubro</option>
+                    @for (sec of sections; track trackByComp($index, sec)) {
+                      <optgroup [label]="sec.name">
+                        @for (row of sec.rows; track trackByRow($index, row)) {
+                          <option [value]="row.budget_item_id">{{ row.concept || 'Sin nombre' }}</option>
+                        }
+                      </optgroup>
+                    }
+                  </select>
+                  <select [ngModel]="line.month" (ngModelChange)="updateHeaderLine(i, 'month', $event)" title="Mes planificado de este rubro"
+                    class="w-24 flex-shrink-0 px-2 py-2 rounded-xl border border-neutral-200 text-[11px] text-primary-700 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors cursor-pointer">
+                    @for (m of reportMonthNames; track $index) { <option [ngValue]="$index + 1">{{ m }}</option> }
+                  </select>
+                  <select [ngModel]="line.year" (ngModelChange)="updateHeaderLine(i, 'year', $event)" title="Año planificado de este rubro"
+                    class="w-20 flex-shrink-0 px-2 py-2 rounded-xl border border-neutral-200 text-[11px] text-primary-700 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors cursor-pointer">
+                    @for (y of reportYearOptions; track y) { <option [ngValue]="y">{{ y }}</option> }
+                  </select>
+                  <input type="text" inputmode="numeric" appMoneyMask [ngModel]="line.value" (ngModelChange)="updateHeaderLine(i, 'value', $event)" placeholder="0"
+                    class="w-32 flex-shrink-0 px-3 py-2 rounded-xl border border-neutral-200 text-xs text-right text-primary-700 placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+                  <button type="button" (click)="removeHeaderLine(i)" class="p-1.5 rounded-lg text-neutral-400 hover:text-danger hover:bg-danger/10 transition-colors flex-shrink-0">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                  </button>
+                </div>
+              }
+              <p class="text-[10px] text-neutral-400 px-1">Cada línea trae precargado el período de la cabecera — cámbialo si ese rubro tiene su distribución planificada en un mes distinto.</p>
+            </div>
+
+            <div class="flex items-center justify-between gap-3 mt-3 px-3 py-2 rounded-xl bg-neutral-50 border border-neutral-100">
+              <span class="text-[10px] font-bold text-neutral-500 uppercase tracking-wide">Total de líneas</span>
+              <span class="text-xs font-bold" [class.text-danger]="headerLinesMismatch()" [class.text-success]="!headerLinesMismatch()">
+                {{ formatCurrency(headerLinesTotal()) }} / {{ formatCurrency(headerForm.value ?? 0) }}
+              </span>
+            </div>
+            @if (headerLinesMismatch()) {
+              <p class="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2 flex items-start gap-1.5">
+                <svg class="w-3.5 h-3.5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <span>Las líneas deben sumar exactamente el valor total de la cabecera antes de poder guardar.</span>
+              </p>
+            }
+            @if (headerLinesDuplicate()) {
+              <p class="text-xs font-medium text-danger bg-danger/5 border border-danger/20 rounded-lg px-3 py-2 mt-2">
+                No repitas el mismo rubro en dos líneas distintas.
+              </p>
+            }
+          }
+        </div>
+
+        @if (headerFormError()) {
+          <p class="text-xs font-medium text-danger">{{ headerFormError() }}</p>
+        }
+
+        <div class="flex items-center gap-2 pt-1">
+          <button type="button" (click)="submitInvoiceHeader()" [disabled]="locked || headerFormSaving() || !headerLinesValid()"
+            class="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-accent to-accent-700 hover:from-accent-600 hover:to-accent-800 text-white text-xs font-semibold rounded-lg shadow-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+            @if (headerFormSaving()) { Guardando... } @else { Registrar factura general }
+          </button>
+          <button type="button" (click)="cancelHeaderForm()"
             class="px-4 py-2 text-xs font-semibold text-neutral-500 hover:bg-neutral-50 rounded-lg transition-colors">Cancelar</button>
         </div>
       </div>

@@ -257,6 +257,10 @@
   <app-tab-flujo-caja [projectId]="projectId" [locked]="isTabReadOnly('flujo-caja')" />
 }
 
+@if (activeTab() === 'egresos') {
+  <app-tab-egresos [projectId]="projectId" [locked]="isTabReadOnly('egresos')" />
+}
+
 @if (activeTab() === 'equipo') {
   <app-tab-equipo [projectId]="projectId" [locked]="isTabReadOnly('equipo')" />
 }

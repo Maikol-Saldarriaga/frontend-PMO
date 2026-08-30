@@ -92,6 +92,7 @@
               <th class="text-right px-3 py-2.5">Egreso contraparte</th>
               <th class="text-right px-3 py-2.5">Egreso aliado</th>
               <th class="text-right px-3 py-2.5">Egreso total</th>
+              <th class="text-right px-3 py-2.5">Ejecutado real</th>
               <th class="text-right px-3 py-2.5">Flujo neto</th>
               <th class="text-right px-3 py-2.5">Saldo acumulado</th>
               <th class="text-center px-3 py-2.5">Alerta</th>
@@ -115,6 +116,7 @@
                 <td class="px-3 py-3 text-right text-xs text-accent whitespace-nowrap">{{ formatCurrency(m.egreso_contraparte) }}</td>
                 <td class="px-3 py-3 text-right text-xs text-neutral-500 whitespace-nowrap">{{ formatCurrency(m.egreso_aliado) }}</td>
                 <td class="px-3 py-3 text-right text-xs font-semibold text-danger whitespace-nowrap">{{ formatCurrency(m.egreso_total) }}</td>
+                <td class="px-3 py-3 text-right text-xs font-semibold text-rose-600 whitespace-nowrap">{{ formatCurrency(m.egreso_real_registrado) }}</td>
                 <td class="px-3 py-3 text-right text-xs font-bold whitespace-nowrap" [class.text-success]="m.flujo_neto >= 0" [class.text-danger]="m.flujo_neto < 0">
                   {{ formatCurrency(m.flujo_neto) }}
                 </td>
@@ -154,6 +156,7 @@
                 <td></td>
                 <td></td>
                 <td class="px-3 py-2.5 text-right text-xs font-bold text-danger">{{ formatCurrency(r.total_egresos) }}</td>
+                <td class="px-3 py-2.5 text-right text-xs font-bold text-rose-600">{{ formatCurrency(totalEjecutadoReal()) }}</td>
                 <td class="px-3 py-2.5 text-right text-xs font-bold" [class.text-success]="r.total_neto >= 0" [class.text-danger]="r.total_neto < 0">{{ formatCurrency(r.total_neto) }}</td>
                 <td class="px-3 py-2.5 text-right text-xs font-bold" [class.text-success]="r.saldo_final >= 0" [class.text-danger]="r.saldo_final < 0">{{ formatCurrency(r.saldo_final) }}</td>
                 <td></td>
@@ -188,6 +191,8 @@
               <th class="text-right px-3 py-2.5 whitespace-nowrap">Admin. retenida</th>
               <th class="text-right px-3 py-2.5 whitespace-nowrap">Comprometido (abastecimiento)</th>
               <th class="text-right px-3 py-2.5 whitespace-nowrap">Pagado (abastecimiento)</th>
+              <th class="text-right px-3 py-2.5 whitespace-nowrap">Ejecutado (egresos)</th>
+              <th class="text-right px-3 py-2.5 whitespace-nowrap">Disponible para ejecutar</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
@@ -210,6 +215,10 @@
                   {{ formatCurrency(rb.comprometido_abastecimiento) }}
                 </td>
                 <td class="px-3 py-3 text-right whitespace-nowrap text-xs font-semibold text-primary-700">{{ formatCurrency(rb.pagado_abastecimiento) }}</td>
+                <td class="px-3 py-3 text-right whitespace-nowrap text-xs font-semibold text-rose-600">{{ formatCurrency(rb.egreso_real_registrado) }}</td>
+                <td class="px-3 py-3 text-right whitespace-nowrap text-xs font-semibold" [class.text-danger]="rb.disponible_para_ejecutar < 0" [class.text-emerald-600]="rb.disponible_para_ejecutar >= 0">
+                  {{ formatCurrency(rb.disponible_para_ejecutar) }}
+                </td>
               </tr>
             }
           </tbody>

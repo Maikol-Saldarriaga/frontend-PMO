@@ -3,12 +3,14 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { forkJoin, of, switchMap } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { ProjectService } from '../../../../services/project.service';
 import { ContractService } from '../../../../services/contract.service';
 import { ContractResponse } from '../../../../models/contract.model';
 import {
   BudgetEntry, BudgetItem, BudgetMonthlyDistribution, Invoice, InvoiceRequest, InvoiceStatus,
   FundingReceipt, FundingReceiptRequest, FundingReceiptStatus,
+  InvoiceHeader, CreateInvoiceHeaderRequest, InvoiceHeaderLineRequest,
 } from '../../../../models/project.model';
 import { MoneyMaskDirective } from '../../../../../../shared/directives/money-mask.directive';
 import { PortalToBodyDirective } from '../../../../../../shared/directives/portal-to-body.directive';
@@ -18,6 +20,28 @@ import { ConfirmDialogService } from '../../../../../../shared/components/confir
 const AMOUNT_EPSILON = 0.01;
 /** Misma paleta usada en el tab Presupuesto, para que cada componente técnico se vea con el mismo color en ambas pestañas. */
 const PALETTE = ['#0EA5E9', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316'];
+
+/** Reparte `total` en `n` partes iguales redondeadas a centavos, ajustando la última para que
+ * la suma dé exactamente `total` — mismo criterio que budget-item-panel.component.ts, usado
+ * aquí para el botón "Distribuir equitativamente" de las líneas de una factura general. */
+function splitEvenly(total: number, n: number): number[] {
+  if (n <= 0) return [];
+  const base = Math.round((total / n) * 100) / 100;
+  const parts = new Array(n).fill(base);
+  const sumWithoutLast = base * (n - 1);
+  parts[n - 1] = Math.round((total - sumWithoutLast) * 100) / 100;
+  return parts;
+}
+
+interface HeaderLineRow {
+  budget_item_id: string;
+  value:           number;
+  /** Cada rubro puede tener su distribución programada en un mes distinto de los demás —
+   * por eso el período es por línea, no solo de la cabecera (se precarga con el período de
+   * la cabecera al agregar la línea, pero el usuario puede cambiarlo). */
+  year:            number;
+  month:           number;
+}
 
 interface ReceiptFormState {
   value:             number | null;
@@ -225,6 +249,8 @@ export class TabFacturacionComponent implements OnInit {
       error: () => {},
     });
 
+    this.loadInvoiceHeaders();
+
     this.svc.getBudgetWizard(this.projectId).subscribe({
       next: (w) => {
         this.sections = (w.components ?? []).map(comp => ({
@@ -334,6 +360,364 @@ export class TabFacturacionComponent implements OnInit {
       error: () => {},
     });
   }
+
+  // ── Factura general (cabecera con líneas por rubro) ────────────────────────
+  // Camino ADICIONAL al de "Nueva factura" de arriba (que sigue intacto): una sola factura de
+  // proveedor que cubre varios rubros a la vez. Cada línea, al guardarse, se persiste en el
+  // backend como una fila normal de finance_records (misma forma que una factura individual),
+  // por eso aparece luego en la lista "Facturas emitidas" de cada rubro con un badge informativo.
+
+  invoiceHeaders        = signal<InvoiceHeader[]>([]);
+  invoiceHeadersLoading = signal(false);
+  invoiceHeadersError   = signal<string | null>(null);
+  expandedHeaderId       = signal<string | null>(null);
+  headerLinesCache       = signal<Record<string, Invoice[]>>({});
+  headerLinesLoadingId   = signal<string | null>(null);
+  deletingHeaderId       = signal<string | null>(null);
+
+  private loadInvoiceHeaders(): void {
+    this.invoiceHeadersLoading.set(true);
+    this.invoiceHeadersError.set(null);
+    this.svc.listInvoiceHeaders(this.projectId).subscribe({
+      next: list => {
+        this.invoiceHeaders.set(list ?? []);
+        this.invoiceHeadersLoading.set(false);
+      },
+      error: () => {
+        this.invoiceHeadersError.set('No se pudieron cargar las facturas generales.');
+        this.invoiceHeadersLoading.set(false);
+      },
+    });
+  }
+
+  toggleHeaderExpand(h: InvoiceHeader): void {
+    if (this.expandedHeaderId() === h.id) { this.expandedHeaderId.set(null); return; }
+    this.expandedHeaderId.set(h.id);
+    if (this.headerLinesCache()[h.id]) return;
+    this.headerLinesLoadingId.set(h.id);
+    this.svc.getInvoiceHeader(this.projectId, h.id).subscribe({
+      next: res => {
+        this.headerLinesCache.update(m => ({ ...m, [h.id]: res.lines ?? [] }));
+        this.headerLinesLoadingId.set(null);
+      },
+      error: () => this.headerLinesLoadingId.set(null),
+    });
+  }
+
+  /** Líneas ya cargadas (en caché) de una cabecera — [] mientras aún no se ha expandido. */
+  headerLinesFor(headerId: string): Invoice[] {
+    return this.headerLinesCache()[headerId] ?? [];
+  }
+
+  /** Cantidad de líneas de una cabecera para el resumen colapsado — "…" mientras aún no se ha
+   * expandido ni cacheado (evita mostrar "0" engañoso antes de cargar). */
+  headerLineCount(headerId: string): string {
+    const lines = this.headerLinesCache()[headerId];
+    return lines ? String(lines.length) : '…';
+  }
+
+  /** Etiqueta legible de una línea de factura general, cruzando su budget_item_id con los
+   * rubros ya cargados en `sections` (mismo origen que la lista de la izquierda). */
+  rubroLabelForLine(line: Invoice): string {
+    const row = this.allRubroRows().find(r => r.budget_item_id === line.budget_item_id);
+    if (row) return `${row.concept || 'Sin nombre'} · ${row.component_name}`;
+    return line.budget_component_name ?? 'Rubro';
+  }
+
+  /** Solo v1: eliminar borra en cascada la cabecera + todas sus líneas (y cobros ya
+   * registrados contra ellas) — no existe edición de reparto/valor, coherente con el backend
+   * (UpdateInvoiceHeaderMetaRequest solo acepta metadata). */
+  async deleteInvoiceHeader(h: InvoiceHeader): Promise<void> {
+    if (this.deletingHeaderId()) return;
+    const cached = this.headerLinesCache()[h.id];
+    const lines$ = cached ? of(cached) : this.svc.getInvoiceHeader(this.projectId, h.id).pipe(map(res => res.lines ?? []));
+
+    lines$.subscribe({
+      next: async (lines) => {
+        const n = lines.length;
+        const message = n > 0
+          ? `Esta factura general tiene ${n} línea${n === 1 ? '' : 's'} (una por rubro). Al eliminarla se eliminarán también esa${n === 1 ? '' : 's'} línea${n === 1 ? '' : 's'} y cualquier cobro ya registrado contra ella${n === 1 ? '' : 's'}. Esta acción no se puede deshacer. ¿Deseas continuar?`
+          : '¿Eliminar esta factura general? Esta acción no se puede deshacer.';
+        if (!(await this.confirmDialog.confirm({ message, variant: 'danger' }))) return;
+
+        this.deletingHeaderId.set(h.id);
+        this.svc.deleteInvoiceHeader(this.projectId, h.id).subscribe({
+          next: () => {
+            this.deletingHeaderId.set(null);
+            this.headerLinesCache.update(m => {
+              const { [h.id]: _removed, ...rest } = m;
+              return rest;
+            });
+            if (this.expandedHeaderId() === h.id) this.expandedHeaderId.set(null);
+            this.loadInvoiceHeaders();
+            if (this.selectedItem()) this.loadItemAndInvoices(this.selectedItem()!.budget_item_id);
+          },
+          error: () => this.deletingHeaderId.set(null),
+        });
+      },
+    });
+  }
+
+  /** Todos los rubros disponibles del proyecto (mismo origen que la lista de la izquierda),
+   * aplanados para poblar el select de rubro de cada línea del formulario de factura general. */
+  allRubroRows(): InvoiceItemRow[] {
+    return this.sections.flatMap(s => s.rows);
+  }
+
+  showHeaderForm    = signal(false);
+  headerFormSaving  = signal(false);
+  headerFormError   = signal<string | null>(null);
+  headerLines       = signal<HeaderLineRow[]>([]);
+  headerDocumentFile = signal<File | null>(null);
+
+  headerForm: {
+    invoice_number:         string;
+    provider:                string;
+    value:                   number | null;
+    value_before_tax:        number | null;
+    no_iva:                  boolean;
+    date:                    string;
+    year:                    number;
+    month:                   number;
+    collection_act_number:  string;
+    description:             string;
+    status:                  InvoiceStatus;
+    applies_admin_fee:       boolean;
+    admin_fee_percentage:   number | null;
+    iva_percentage:          number;
+  } = this.emptyHeaderForm();
+
+  private emptyHeaderForm() {
+    const now = new Date();
+    return {
+      invoice_number: '',
+      provider: '',
+      value: null as number | null,
+      value_before_tax: null as number | null,
+      no_iva: false,
+      date: this.todayLocalDate(),
+      year: now.getFullYear(),
+      month: now.getMonth() + 1,
+      collection_act_number: '',
+      description: '',
+      status: 'PEND' as InvoiceStatus,
+      applies_admin_fee: this.appliesAdminFee(),
+      admin_fee_percentage: this.adminFeePercentage(),
+      iva_percentage: this.ivaPercentage(),
+    };
+  }
+
+  /** Estimado en vivo del % de administración sobre el TOTAL de la cabecera — misma matemática
+   * que `formAdminFeeEstimate()` (fee lineal = value * pct/100), aplicada una sola vez sobre el
+   * total en lugar de reimplementarse por línea (ver Fase 0 del plan: la suma de los fees de
+   * cada línea calculada con el mismo % es matemáticamente idéntica al fee sobre el total). */
+  headerAdminFeeEstimate(): { fee: number; net: number } | null {
+    if (!this.headerForm.applies_admin_fee || this.headerForm.admin_fee_percentage == null || !this.headerForm.value) return null;
+    const fee = this.headerForm.value * (this.headerForm.admin_fee_percentage / 100);
+    return { fee, net: this.headerForm.value - fee };
+  }
+
+  onHeaderFormValueChange(value: number | null): void {
+    this.headerForm.value = value;
+    const factor = 1 + (this.headerForm.iva_percentage || 0) / 100;
+    this.headerForm.value_before_tax = value ? (this.headerForm.no_iva ? value : Math.round((value / factor) * 100) / 100) : null;
+  }
+
+  onHeaderFormNoIvaChange(noIva: boolean): void {
+    this.headerForm.no_iva = noIva;
+    this.onHeaderFormValueChange(this.headerForm.value);
+  }
+
+  onHeaderFormIvaChange(iva: number | null): void {
+    this.headerForm.iva_percentage = iva ?? 0;
+    this.onHeaderFormValueChange(this.headerForm.value);
+  }
+
+  onHeaderFormAdminToggle(applies: boolean): void {
+    this.headerForm.applies_admin_fee = applies;
+    if (!applies) this.headerForm.admin_fee_percentage = null;
+  }
+
+  startHeaderForm(): void {
+    this.headerForm = this.emptyHeaderForm();
+    this.headerLines.set([{ budget_item_id: '', value: 0, year: this.headerForm.year, month: this.headerForm.month }]);
+    this.headerFormError.set(null);
+    this.headerDocumentFile.set(null);
+    this.showHeaderForm.set(true);
+  }
+
+  cancelHeaderForm(): void {
+    this.showHeaderForm.set(false);
+    this.headerFormError.set(null);
+    this.headerForm = this.emptyHeaderForm();
+    this.headerLines.set([]);
+    this.headerDocumentFile.set(null);
+  }
+
+  addHeaderLine(): void {
+    this.headerLines.update(list => [...list, { budget_item_id: '', value: 0, year: this.headerForm.year, month: this.headerForm.month }]);
+  }
+
+  removeHeaderLine(i: number): void {
+    this.headerLines.update(list => list.filter((_, idx) => idx !== i));
+  }
+
+  updateHeaderLine(i: number, field: 'budget_item_id' | 'value' | 'year' | 'month', value: string | number): void {
+    this.headerLines.update(list => list.map((l, idx) => idx === i ? { ...l, [field]: value } : l));
+  }
+
+  /** Reparte el valor total de la cabecera equitativamente entre las líneas ya agregadas —
+   * puramente local, solo ajusta los valores de línea que ya existen (no agrega ni quita filas). */
+  distributeHeaderLinesEvenly(): void {
+    const total = this.headerForm.value ?? 0;
+    const n = this.headerLines().length;
+    if (n === 0 || !total) return;
+    const parts = splitEvenly(total, n);
+    this.headerLines.update(list => list.map((l, idx) => ({ ...l, value: parts[idx] })));
+  }
+
+  headerLinesTotal(): number {
+    return this.headerLines().reduce((s, l) => s + (l.value || 0), 0);
+  }
+
+  /** true si las líneas no suman exactamente el valor total declarado en la cabecera (con la
+   * misma tolerancia AMOUNT_EPSILON usada en todo el resto de la app) — el backend rechaza la
+   * creación completa si esto no cuadra, así que se avisa y se bloquea el envío aquí también. */
+  headerLinesMismatch(): boolean {
+    if (this.headerForm.value == null) return false;
+    return Math.abs(this.headerLinesTotal() - this.headerForm.value) > AMOUNT_EPSILON;
+  }
+
+  headerLinesDuplicate(): boolean {
+    const ids = this.headerLines().map(l => l.budget_item_id).filter(Boolean);
+    return new Set(ids).size !== ids.length;
+  }
+
+  headerLinesValid(): boolean {
+    return this.headerLines().length > 0 &&
+      this.headerLines().every(l => !!l.budget_item_id && l.value > 0) &&
+      !this.headerLinesDuplicate() &&
+      !this.headerLinesMismatch();
+  }
+
+  onHeaderFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.headerDocumentFile.set(input.files?.[0] ?? null);
+  }
+
+  removeHeaderFile(): void {
+    this.headerDocumentFile.set(null);
+  }
+
+  submitInvoiceHeader(): void {
+    if (this.headerFormSaving()) return;
+
+    if (!this.headerForm.value || this.headerForm.value <= 0) {
+      this.headerFormError.set('El valor total de la factura es requerido y debe ser mayor a 0.');
+      return;
+    }
+    if (!this.headerForm.year || !this.headerForm.month) {
+      this.headerFormError.set('El período (año/mes) es requerido.');
+      return;
+    }
+    if (this.headerForm.iva_percentage == null || this.headerForm.iva_percentage < 0 || this.headerForm.iva_percentage > 100) {
+      this.headerFormError.set('El % de IVA debe estar entre 0 y 100.');
+      return;
+    }
+    if (this.headerForm.applies_admin_fee && (this.headerForm.admin_fee_percentage == null || this.headerForm.admin_fee_percentage < 0 || this.headerForm.admin_fee_percentage > 100)) {
+      this.headerFormError.set('El % de administración debe estar entre 0 y 100.');
+      return;
+    }
+    if (!this.headerLines().length) {
+      this.headerFormError.set('Agrega al menos una línea (rubro).');
+      return;
+    }
+    if (this.headerLines().some(l => !l.budget_item_id)) {
+      this.headerFormError.set('Selecciona un rubro para cada línea.');
+      return;
+    }
+    if (this.headerLines().some(l => !l.value || l.value <= 0)) {
+      this.headerFormError.set('El valor de cada línea debe ser mayor a 0.');
+      return;
+    }
+    if (this.headerLinesDuplicate()) {
+      this.headerFormError.set('No repitas el mismo rubro en dos líneas distintas.');
+      return;
+    }
+    if (this.headerLinesMismatch()) {
+      this.headerFormError.set(`La suma de las líneas (${this.formatCurrency(this.headerLinesTotal())}) debe ser igual al valor total (${this.formatCurrency(this.headerForm.value)}).`);
+      return;
+    }
+
+    this.headerFormSaving.set(true);
+    this.headerFormError.set(null);
+
+    const lines: InvoiceHeaderLineRequest[] = this.headerLines().map(l => ({
+      budget_item_id: l.budget_item_id, value: l.value, year: l.year, month: l.month,
+    }));
+
+    const payload: CreateInvoiceHeaderRequest = {
+      invoice_number: this.headerForm.invoice_number.trim() || undefined,
+      provider: this.headerForm.provider.trim() || undefined,
+      date: `${this.headerForm.date || this.todayLocalDate()}T00:00:00Z`,
+      year: this.headerForm.year,
+      month: this.headerForm.month,
+      value: this.headerForm.value,
+      collection_act_number: this.headerForm.collection_act_number.trim() || undefined,
+      description: this.headerForm.description.trim() || undefined,
+      status: this.headerForm.status,
+      lines,
+    };
+
+    // Mismo flujo que submitInvoice(): si el usuario tocó IVA/administración aquí mismo,
+    // primero se guarda esa configuración a nivel de proyecto y solo después se crea la
+    // cabecera (que ya calculará cada línea con el % nuevo, vía CreateInvoice existente).
+    const configChanged =
+      this.headerForm.applies_admin_fee !== this.appliesAdminFee() ||
+      this.headerForm.admin_fee_percentage !== this.adminFeePercentage() ||
+      this.headerForm.iva_percentage !== this.ivaPercentage();
+
+    const configUpdate$ = configChanged
+      ? this.contractSvc.updateAdminFeeConfig(this.projectId, {
+          applies_admin_fee: this.headerForm.applies_admin_fee,
+          iva_percentage: this.headerForm.iva_percentage,
+          ...(this.headerForm.applies_admin_fee && { admin_fee_percentage: this.headerForm.admin_fee_percentage }),
+        })
+      : of<ContractResponse | null>(null);
+
+    const file = this.headerDocumentFile();
+
+    configUpdate$.pipe(
+      switchMap(res => {
+        if (res) {
+          this.appliesAdminFee.set(res.applies_admin_fee ?? this.headerForm.applies_admin_fee);
+          this.adminFeePercentage.set(res.admin_fee_percentage ?? null);
+          this.ivaPercentage.set(res.iva_percentage ?? this.headerForm.iva_percentage);
+        }
+        return this.svc.createInvoiceHeader(this.projectId, payload);
+      }),
+      switchMap(created => {
+        if (!file) return of(created);
+        const form = new FormData();
+        form.append('file', file);
+        return this.svc.uploadInvoiceHeaderDocument(this.projectId, created.id, form);
+      }),
+    ).subscribe({
+      next: () => {
+        this.headerFormSaving.set(false);
+        this.cancelHeaderForm();
+        this.loadInvoiceHeaders();
+        if (this.selectedItem()) this.loadItemAndInvoices(this.selectedItem()!.budget_item_id);
+      },
+      error: (err) => {
+        this.headerFormSaving.set(false);
+        this.headerFormError.set(err?.error?.error ?? 'Error al registrar la factura general. Verifica que las líneas sumen el valor total.');
+      },
+    });
+  }
+
+  trackByHeader(_: number, h: InvoiceHeader) { return h.id; }
+  trackByHeaderLine(i: number) { return i; }
 
   // ── Nueva factura ────────────────────────────────────────────────────────
 
@@ -649,10 +1033,11 @@ export class TabFacturacionComponent implements OnInit {
     return this.receiptsFor(invoiceId).reduce((s, r) => s + (r.value ?? 0), 0);
   }
 
-  /** Tope real de lo cobrable contra una factura: net_value (facturado menos % de
-   * administración retenido) cuando el contrato aplica ese fee, o el valor bruto si no. */
+  /** Tope real de lo cobrable contra una factura: el valor total facturado, sin importar
+   * los porcentajes de IVA/administración — esos se discriminan solo en el flujo de caja
+   * (informativo), no restringen cuánto se puede registrar como cobrado. */
   collectibleCap(inv: Invoice): number {
-    return inv.net_value ?? inv.value;
+    return inv.value;
   }
 
   /** % de IVA efectivo de una factura, derivado de lo que ya quedó guardado en ella
@@ -761,10 +1146,10 @@ export class TabFacturacionComponent implements OnInit {
       return;
     }
 
-    // El backend topa el cobro contra net_value (facturado menos % de administración
-    // retenido) cuando el contrato aplica ese fee — replicamos el mismo tope aquí para
-    // que el mensaje de error sea preciso antes de golpear al servidor.
-    const collectibleCap = invoice.net_value ?? invoice.value;
+    // El backend topa el cobro contra el valor total facturado (sin descontar IVA/admin) —
+    // replicamos el mismo tope aquí para que el mensaje de error sea preciso antes de
+    // golpear al servidor.
+    const collectibleCap = this.collectibleCap(invoice);
     const alreadyCollected = this.collectedFor(invoice.id);
     if (alreadyCollected + this.receiptForm.value > collectibleCap + AMOUNT_EPSILON) {
       const remaining = Math.max(0, collectibleCap - alreadyCollected);

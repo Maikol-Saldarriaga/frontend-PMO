@@ -35,6 +35,9 @@ import {
   BudgetReconciliation,
   Invoice,
   InvoiceRequest,
+  InvoiceHeader,
+  CreateInvoiceHeaderRequest,
+  UpdateInvoiceHeaderMetaRequest,
   GanttResponse,
   GanttFilters,
   ScopeComponent,
@@ -84,6 +87,9 @@ import {
   FundingReceiptRequest,
   CashFlowReport,
   BudgetReportParams,
+  BudgetExecution,
+  CreateBudgetExecutionRequest,
+  UpdateBudgetExecutionRequest,
   Guarantee,
   GuaranteeRequest,
   ProjectSignatureInfo,
@@ -245,6 +251,33 @@ export class ProjectService {
 
   deleteInvoice(id: string, bid: string, iid: string): Observable<void> {
     return this.http.delete<void>(ENDPOINTS.projects.invoiceById(id, bid, iid));
+  }
+
+  // ── Factura general (cabecera + líneas por rubro) ──────────────────────────
+
+  createInvoiceHeader(id: string, data: CreateInvoiceHeaderRequest): Observable<InvoiceHeader> {
+    return this.http.post<InvoiceHeader>(ENDPOINTS.projects.invoiceHeaders(id), data);
+  }
+
+  listInvoiceHeaders(id: string): Observable<InvoiceHeader[]> {
+    return this.http.get<InvoiceHeader[]>(ENDPOINTS.projects.invoiceHeaders(id));
+  }
+
+  getInvoiceHeader(id: string, hid: string): Observable<InvoiceHeader> {
+    return this.http.get<InvoiceHeader>(ENDPOINTS.projects.invoiceHeaderById(id, hid));
+  }
+
+  updateInvoiceHeaderMeta(id: string, hid: string, data: UpdateInvoiceHeaderMetaRequest): Observable<InvoiceHeader> {
+    return this.http.put<InvoiceHeader>(ENDPOINTS.projects.invoiceHeaderById(id, hid), data);
+  }
+
+  deleteInvoiceHeader(id: string, hid: string): Observable<void> {
+    return this.http.delete<void>(ENDPOINTS.projects.invoiceHeaderById(id, hid));
+  }
+
+  /** Sube el comprobante (archivo) de una factura general — form debe traer un campo "file". */
+  uploadInvoiceHeaderDocument(id: string, hid: string, form: FormData): Observable<InvoiceHeader> {
+    return this.http.post<InvoiceHeader>(ENDPOINTS.projects.invoiceHeaderDocument(id, hid), form);
   }
 
   getGantt(id: string, filters: GanttFilters = {}): Observable<GanttResponse> {
@@ -510,6 +543,30 @@ export class ProjectService {
 
   getCashFlowReport(id: string): Observable<CashFlowReport> {
     return this.http.get<CashFlowReport>(ENDPOINTS.projects.cashFlow(id));
+  }
+
+  // ── Egresos (budget_executions): lo realmente ejecutado, capado por lo cobrado ────────────
+
+  listExecutions(id: string): Observable<BudgetExecution[]> {
+    return this.http.get<BudgetExecution[]>(ENDPOINTS.projects.executions(id));
+  }
+
+  createExecution(id: string, data: CreateBudgetExecutionRequest): Observable<BudgetExecution> {
+    return this.http.post<BudgetExecution>(ENDPOINTS.projects.executions(id), data);
+  }
+
+  updateExecution(id: string, eid: string, data: UpdateBudgetExecutionRequest): Observable<BudgetExecution> {
+    return this.http.put<BudgetExecution>(ENDPOINTS.projects.executionById(id, eid), data);
+  }
+
+  deleteExecution(id: string, eid: string): Observable<void> {
+    return this.http.delete<void>(ENDPOINTS.projects.executionById(id, eid));
+  }
+
+  /** Resumen de egresos reales por rubro y por mes ("YYYY-MM"), para el campo informativo
+   * "presupuesto ejecutado" de la pantalla de distribución mensual. */
+  getExecutionsMonthlySummary(id: string): Observable<Record<string, Record<string, number>>> {
+    return this.http.get<Record<string, Record<string, number>>>(ENDPOINTS.projects.executionsMonthlySummary(id));
   }
 
   // ── Reporte de Presupuesto (planeado/ejecutado/facturación/desembolsos/flujo de caja) ──

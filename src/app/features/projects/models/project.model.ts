@@ -1340,6 +1340,9 @@ export interface Invoice {
   admin_fee_amount?:         number | null;
   /** value - admin_fee_amount: lo que queda disponible para desembolso/ejecución — calculado por el backend. */
   net_value?:                number | null;
+  /** Si esta factura nació como línea de una "factura general" (cabecera con varios rubros),
+   * aquí queda el id de esa cabecera — null/ausente para una factura individual normal. */
+  invoice_header_id?:        string | null;
 }
 
 export interface InvoiceRequest {
@@ -1352,6 +1355,64 @@ export interface InvoiceRequest {
   status?:                InvoiceStatus;
   description?:           string;
   date?:                  string; // ISO 8601 completo, ej. "2026-01-15T00:00:00Z"
+}
+
+// ── Factura general (cabecera con varias líneas, cada una en un rubro distinto) ────────────
+// Cada línea se persiste como una fila normal de `finance_records` (idéntica en forma a una
+// factura individual, ver Invoice arriba), solo que con `invoice_header_id` apuntando a la
+// cabecera. La cabecera solo guarda metadata + el valor total declarado (para validar que las
+// líneas sumen ese total) — el IVA/administración se calculan por línea con la MISMA lógica que
+// una factura individual, no de nuevo aquí.
+
+export interface InvoiceHeaderLineRequest {
+  budget_item_id: string;
+  value:           number;
+  /** Opcional: cuando el rubro tiene su distribución programada en un mes distinto al de la
+   * cabecera (0/omitido = usa el año/mes de la cabecera). */
+  year?:           number;
+  month?:          number;
+}
+
+export interface CreateInvoiceHeaderRequest {
+  invoice_number?:        string | null;
+  provider?:               string | null;
+  date:                    string; // ISO date
+  year:                    number; // aplica a todas las líneas
+  month:                   number; // 1-12, aplica a todas las líneas
+  value:                   number; // total — debe coincidir con la suma de lines[].value
+  collection_act_number?: string | null;
+  description?:            string | null;
+  status?:                 InvoiceStatus; // "PEND" | "FACT", default "PEND"
+  lines:                   InvoiceHeaderLineRequest[];
+}
+
+export interface UpdateInvoiceHeaderMetaRequest {
+  invoice_number?:        string | null;
+  provider?:               string | null;
+  date:                    string;
+  collection_act_number?: string | null;
+  description?:            string | null;
+}
+
+export interface InvoiceHeader {
+  id:                      string;
+  contract_agreement_id:   string;
+  user_id?:                string | null;
+  invoice_number?:         string | null;
+  provider?:               string | null;
+  date:                    string;
+  value:                   number;
+  collection_act_number?:  string | null;
+  description?:            string | null;
+  document_key?:           string | null;
+  document_name?:          string | null;
+  status:                  InvoiceStatus;
+  created_at:              string;
+  updated_at:              string;
+  /** Solo viene poblado al crear la cabecera o al pedirla por id (GET .../invoice-headers/:hid) —
+   * en el listado (GET .../invoice-headers) y en las respuestas de update/upload-document llega
+   * null/ausente. */
+  lines?:                  Invoice[] | null;
 }
 
 // ── Cobros reales recibidos (contra una factura ya registrada) ──────────────
@@ -1405,6 +1466,8 @@ export interface CashFlowMonth {
   flujo_neto:          number;
   saldo_acumulado:     number;
   deficit:             boolean;
+  /** Suma de egresos reales (budget_executions) con fecha dentro de este mes — pestaña Egresos. */
+  egreso_real_registrado: number;
 }
 
 /** Cruce por rubro: cuánto se planeó gastar, cuánto ha entrado realmente del aliado, y cómo
@@ -1419,6 +1482,37 @@ export interface CashFlowRubro {
   pagado_abastecimiento:         number;
   /** % de administración retenido de la facturación de este rubro. */
   admin_fee_retenido:            number;
+  /** Suma de egresos reales (budget_executions) registrados contra este rubro — pestaña Egresos. */
+  egreso_real_registrado:        number;
+  /** ingreso_recibido - egreso_real_registrado: tope real disponible para registrar un nuevo egreso en este rubro. */
+  disponible_para_ejecutar:      number;
+}
+
+// ── Egresos (budget_executions): lo realmente ejecutado, capado por lo cobrado ────────────────
+
+export interface BudgetExecution {
+  id:                     string;
+  company_id:             string;
+  contract_agreement_id:  string;
+  budget_item_id:         string;
+  user_id:                string | null;
+  value:                  number;
+  date:                   string;
+  description:            string | null;
+  created_at:             string;
+}
+
+export interface CreateBudgetExecutionRequest {
+  budget_item_id: string;
+  value:          number;
+  date:           string;
+  description?:   string | null;
+}
+
+export interface UpdateBudgetExecutionRequest {
+  value:        number;
+  date:         string;
+  description?: string | null;
 }
 
 /** Parámetros para /projects/:id/reports/budget — o bien year+month, o bien

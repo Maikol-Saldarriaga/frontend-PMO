@@ -24,6 +24,7 @@ import { TabDocumentosComponent } from './tabs/tab-documentos/tab-documentos.com
 import { TabObligacionesComponent } from './tabs/tab-obligaciones/tab-obligaciones.component';
 import { TabAbastecimientoComponent } from './tabs/tab-abastecimiento/tab-abastecimiento.component';
 import { TabFlujoCajaComponent } from './tabs/tab-flujo-caja/tab-flujo-caja.component';
+import { TabEgresosComponent } from './tabs/tab-egresos/tab-egresos.component';
 import { TabGarantiasComponent } from './tabs/tab-garantias/tab-garantias.component';
 import { TabFirmasComponent } from './tabs/tab-firmas/tab-firmas.component';
 import { FormsModule } from '@angular/forms';
@@ -50,6 +51,7 @@ import { MoneyMaskDirective } from '../../../../shared/directives/money-mask.dir
     TabObligacionesComponent,
     TabAbastecimientoComponent,
     TabFlujoCajaComponent,
+    TabEgresosComponent,
     TabGarantiasComponent,
     TabFirmasComponent,
     TabEquipoComponent,
@@ -180,6 +182,10 @@ export class ProjectDetailComponent implements OnInit {
       icon: `<path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/>`,
     },
     {
+      id: 'egresos', label: 'Egresos', color: 'rose',
+      icon: `<path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5m0 14l-7-7m7 7l7-7"/>`,
+    },
+    {
       id: 'beneficiarios', label: 'Beneficiarios', color: 'cyan',
       icon: `<path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>`,
     },
@@ -223,7 +229,7 @@ export class ProjectDetailComponent implements OnInit {
     cronograma: 'activities', presupuesto: 'budget', facturacion: 'finance', beneficiarios: 'beneficiaries',
     seguimiento: 'checkpoints', riesgos: 'risks', entregables: 'checkpoints', documentos: 'documents',
     indicadores: null, obligaciones: 'compliance_matrix', abastecimiento: 'supply_plan', historial: null,
-    equipo: null, 'flujo-caja': 'finance', garantias: 'documents', firmas: 'signature',
+    equipo: null, 'flujo-caja': 'finance', egresos: 'finance', garantias: 'documents', firmas: 'signature',
   };
 
   private sk(s: string | undefined) {

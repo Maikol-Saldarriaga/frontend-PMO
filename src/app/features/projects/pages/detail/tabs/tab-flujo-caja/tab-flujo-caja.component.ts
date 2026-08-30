@@ -122,6 +122,9 @@ export class TabFlujoCajaComponent implements OnInit {
   /** Total de ingreso antes de IVA (suma de m.ingreso_neto), para el pie de la tabla mensual. */
   totalIngresoAntesIva = computed(() => this.months().reduce((s, m) => s + m.ingreso_neto, 0));
 
+  /** Total de egresos reales registrados (budget_executions), para el pie de la tabla mensual. */
+  totalEjecutadoReal = computed(() => this.months().reduce((s, m) => s + (m.egreso_real_registrado || 0), 0));
+
   /** % de IVA implícito en el ingreso de un mes, derivado de ingreso_bruto vs. ingreso_neto
    * (mismo cálculo que a nivel de factura/cobro, aplicado al agregado mensual). */
   ingresoIvaPercentage(m: CashFlowMonth): number | null {
@@ -129,10 +132,14 @@ export class TabFlujoCajaComponent implements OnInit {
     return Math.round(((m.ingreso_bruto / m.ingreso_neto) - 1) * 10000) / 100;
   }
 
-  /** % que representa la administración retenida sobre el ingreso bruto del mes. */
+  /** % de administración configurado en el contrato — antes se derivaba dividiendo
+   * admin_fee_retenido del mes entre ingreso_bruto del mes, pero esos dos números vienen de
+   * fechas distintas (retenido = fecha de factura, ingreso = fecha de cobro), así que un mes
+   * con varias facturas emitidas y solo una cobrada daba un % sin sentido (ej. 33% en vez del
+   * 10% real). Mostrar directamente el % del contrato es siempre correcto. */
   adminFeePercentageOfMonth(m: CashFlowMonth): number | null {
-    if (!m.admin_fee_retenido || m.ingreso_bruto <= 0) return null;
-    return Math.round((m.admin_fee_retenido / m.ingreso_bruto) * 10000) / 100;
+    if (!m.admin_fee_retenido) return null;
+    return this.adminFeePercentage();
   }
 
   /** % de IVA implícito en el total del reporte (para el pie de la tabla mensual). */
@@ -143,11 +150,11 @@ export class TabFlujoCajaComponent implements OnInit {
     return Math.round(((bruto / neto) - 1) * 10000) / 100;
   }
 
-  /** % que representa el total de administración retenida sobre el total ingresado. */
+  /** % de administración configurado en el contrato — ver nota en adminFeePercentageOfMonth. */
   totalAdminFeePercentage(): number | null {
     const total = this.report();
-    if (!total || !total.total_admin_fee || total.total_ingresos <= 0) return null;
-    return Math.round((total.total_admin_fee / total.total_ingresos) * 10000) / 100;
+    if (!total || !total.total_admin_fee) return null;
+    return this.adminFeePercentage();
   }
 
   /** Rubros ordenados por presupuesto total descendente, solo los que tienen algún movimiento
