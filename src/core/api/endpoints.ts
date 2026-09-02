@@ -205,5 +205,6 @@ export const ENDPOINTS = {
     budgetMonthly:    `${API_URL}/dashboard/budget/monthly`,
     allyCategories:   `${API_URL}/dashboard/allies/categories`,
     alliesList:       `${API_URL}/dashboard/allies/list`,
+    reportPdf:        `${API_URL}/dashboard/report/pdf`,
   },
 };

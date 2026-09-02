@@ -644,12 +644,20 @@ export class HomeComponent implements OnInit {
     });
   }
 
+  // "por_gestionar" totals generalBudget minus everything already committed
+  // (see backend GetAllyCategories) — it goes negative once a company
+  // overcommits past its FODC budget. A pie/donut series can't represent a
+  // negative slice: ApexCharts still sums it into the 100% total, so a large
+  // negative value shrinks (or flips the sign of) that total and blows up
+  // every other slice's percentage — the 120.8%/-0.1% bug. Clamp each slice
+  // at 0 for chart purposes; the raw (possibly negative) amount still shows
+  // in the categoryTable below via `cat.items`, this only affects the ring.
   private categoryTotals = computed(() => {
     return this.allyCategories().map(cat => ({
       key:   cat.key,
       label: cat.label || CATEGORY_LABELS[cat.key],
       color: CATEGORY_COLORS[cat.key],
-      total: cat.items.reduce((s, it) => s + it.budget, 0),
+      total: Math.max(0, cat.items.reduce((s, it) => s + it.budget, 0)),
     }));
   });
 
@@ -763,5 +771,33 @@ export class HomeComponent implements OnInit {
       'Completado':  'badge--accent',
     };
     return map[status] ?? 'badge--neutral';
+  }
+
+  // ════════════════════════════════════════════════
+  // Reporte PDF (GET /dashboard/report/pdf)
+  // ════════════════════════════════════════════════
+
+  generatingReport = signal(false);
+  reportError       = signal<string | null>(null);
+
+  downloadReport(): void {
+    if (this.generatingReport()) return;
+    this.generatingReport.set(true);
+    this.reportError.set(null);
+    this.dashboardSvc.getReportPdf(new Date().getFullYear()).subscribe({
+      next: blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `reporte-dashboard-${new Date().getFullYear()}.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
+        this.generatingReport.set(false);
+      },
+      error: () => {
+        this.reportError.set('No se pudo generar el reporte.');
+        this.generatingReport.set(false);
+      },
+    });
   }
 }

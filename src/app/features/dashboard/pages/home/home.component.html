@@ -4,7 +4,16 @@
     <h1 class="home-header__title">Inicio</h1>
     <p class="home-header__sub">Bienvenido, {{ user?.name }} · {{ today }}</p>
   </div>
+  <button type="button" class="pmo-btn-primary" [disabled]="generatingReport()" (click)="downloadReport()">
+    <svg *ngIf="!generatingReport()" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/>
+    </svg>
+    <span *ngIf="generatingReport()" class="report-btn__spinner"></span>
+    {{ generatingReport() ? 'Generando reporte...' : 'Generar reporte' }}
+  </button>
 </div>
+
+<div *ngIf="reportError()" class="dashboard-error">{{ reportError() }}</div>
 
 <!-- Tabs -->
 <div class="tabs-bar">

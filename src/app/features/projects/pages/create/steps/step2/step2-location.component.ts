@@ -1,8 +1,10 @@
-import { Component, Input, Output, EventEmitter, OnInit, signal, WritableSignal, inject, HostListener } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, signal, WritableSignal, computed, inject, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormArray, FormGroup, Validators } from '@angular/forms';
 import { DivipolaGeoService, LocationResult, DivipolaDept, DivipolaMunicipio } from '../../../../../../core/services/divipola-geo.service';
 import { ContractLocation, ContractLocationItem } from '../../../../models/contract.model';
+import { ColombiaMapComponent } from '../../../../../../shared/components/colombia-map/colombia-map.component';
+import { DeptImpact } from '../../../../../../shared/components/colombia-map/colombia-map.types';
 
 interface DropdownRect {
   top:   number;
@@ -48,7 +50,7 @@ const emptyManual = (): ManualState => ({
 @Component({
   selector: 'app-step2-location',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, ColombiaMapComponent],
   templateUrl: './step2-location.component.html',
 })
 export class Step2LocationComponent implements OnInit {
@@ -71,13 +73,29 @@ export class Step2LocationComponent implements OnInit {
   form = this.fb.group({ locations: this.fb.array<FormGroup>([]) });
   get locationsArray(): FormArray { return this.form.get('locations') as FormArray; }
 
+  private formVersion = signal(0);
+  readonly deptImpacts = computed<DeptImpact[]>(() => {
+    this.formVersion();
+    const counts = new Map<string, number>();
+    for (const ctrl of this.locationsArray.controls) {
+      const dept = (ctrl.get('department')?.value ?? '').trim();
+      if (!dept) continue;
+      counts.set(dept, (counts.get(dept) ?? 0) + 1);
+    }
+    return [...counts.entries()].map(([department, count]) => ({ department, count }));
+  });
+
   ngOnInit(): void {
     if (this.savedLocations?.length) {
       this.savedLocations.forEach(loc => this.addRow(loc));
     } else {
       this.addRow();
     }
-    this.form.valueChanges.subscribe(() => this.dataChange.emit(this.buildPayload()));
+    this.formVersion.set(this.formVersion() + 1);
+    this.form.valueChanges.subscribe(() => {
+      this.dataChange.emit(this.buildPayload());
+      this.formVersion.set(this.formVersion() + 1);
+    });
   }
 
   private newRow(loc?: Partial<ContractLocationItem>): FormGroup {

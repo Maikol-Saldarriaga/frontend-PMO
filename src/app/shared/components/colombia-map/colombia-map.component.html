@@ -1,0 +1,51 @@
+<div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+  <div class="flex items-center justify-between mb-2">
+    <div>
+      <p class="text-sm font-bold text-gray-800">Impacto geográfico</p>
+      <p class="text-xs text-gray-400">Departamentos con ubicaciones registradas en el proyecto</p>
+    </div>
+    @if (hoveredDept(); as hd) {
+      <div class="text-right">
+        <p class="text-xs font-bold text-sky-600">{{ hd.label }}</p>
+        <p class="text-[11px] text-gray-400">{{ hd.count }} ubicación(es)</p>
+      </div>
+    }
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+    <div class="md:col-span-2">
+      <svg [attr.viewBox]="viewBox" class="w-full h-auto max-h-[420px]" (mouseleave)="onLeave()">
+        @for (dept of depts(); track dept.key) {
+          <path
+            [attr.d]="dept.d"
+            [attr.fill]="dept.fill"
+            stroke="#fff"
+            stroke-width="1"
+            (mouseenter)="onEnter(dept.key)"
+            class="transition-colors duration-150 cursor-default"
+            [class.opacity-100]="hovered() === dept.key"
+            [class.opacity-90]="hovered() !== dept.key"
+          >
+            <title>{{ dept.label }}{{ dept.count > 0 ? ' — ' + dept.count + ' ubicación(es)' : '' }}</title>
+          </path>
+        }
+      </svg>
+    </div>
+
+    <div>
+      @if (hasImpacts()) {
+        <ul class="space-y-1.5">
+          @for (dept of rankedDepts(); track dept.key) {
+            <li class="flex items-center gap-2 text-xs">
+              <span class="w-3 h-3 rounded-sm shrink-0" [style.background]="dept.fill"></span>
+              <span class="flex-1 text-gray-600 truncate">{{ dept.label }}</span>
+              <span class="font-bold text-gray-800">{{ dept.count }}</span>
+            </li>
+          }
+        </ul>
+      } @else {
+        <p class="text-xs text-gray-400">Aún no hay ubicaciones registradas.</p>
+      }
+    </div>
+  </div>
+</div>

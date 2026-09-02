@@ -1,9 +1,11 @@
-import { Component, Input, OnInit, OnChanges, SimpleChanges, signal, WritableSignal, inject, HostListener } from '@angular/core';
+import { Component, Input, OnInit, OnChanges, SimpleChanges, signal, WritableSignal, computed, inject, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormArray, FormGroup, Validators } from '@angular/forms';
 import { DivipolaGeoService, LocationResult, DivipolaDept, DivipolaMunicipio } from '../../../../../../core/services/divipola-geo.service';
 import { ContractService } from '../../../../services/contract.service';
 import { ContractLocation, ContractLocationItem } from '../../../../models/contract.model';
+import { ColombiaMapComponent } from '../../../../../../shared/components/colombia-map/colombia-map.component';
+import { DeptImpact } from '../../../../../../shared/components/colombia-map/colombia-map.types';
 
 interface DropdownRect {
   top:   number;
@@ -49,7 +51,7 @@ const emptyManual = (): ManualState => ({
 @Component({
   selector: 'app-tab-ubicaciones',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, ColombiaMapComponent],
   templateUrl: './tab-ubicaciones.component.html',
 })
 export class TabUbicacionesComponent implements OnInit, OnChanges {
@@ -75,6 +77,18 @@ export class TabUbicacionesComponent implements OnInit, OnChanges {
   form = this.fb.group({ locations: this.fb.array<FormGroup>([]) });
   get locationsArray(): FormArray { return this.form.get('locations') as FormArray; }
 
+  private formVersion = signal(0);
+  readonly deptImpacts = computed<DeptImpact[]>(() => {
+    this.formVersion();
+    const counts = new Map<string, number>();
+    for (const ctrl of this.locationsArray.controls) {
+      const dept = (ctrl.get('department')?.value ?? '').trim();
+      if (!dept) continue;
+      counts.set(dept, (counts.get(dept) ?? 0) + 1);
+    }
+    return [...counts.entries()].map(([department, count]) => ({ department, count }));
+  });
+
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['locked'] && !changes['locked'].firstChange) {
       this.locked ? this.form.disable({ emitEvent: false }) : this.form.enable({ emitEvent: false });
@@ -91,6 +105,8 @@ export class TabUbicacionesComponent implements OnInit, OnChanges {
         }
         if (this.locked) this.form.disable({ emitEvent: false });
         this.loading.set(false);
+        this.formVersion.set(this.formVersion() + 1);
+        this.form.valueChanges.subscribe(() => this.formVersion.set(this.formVersion() + 1));
       },
       error: () => {
         this.error.set('No se pudieron cargar las ubicaciones del proyecto.');

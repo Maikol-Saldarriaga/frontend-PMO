@@ -78,4 +78,9 @@ export class DashboardService {
   getAlliesList(): Observable<DashboardAlliesListResponse> {
     return this.http.get<DashboardAlliesListResponse>(ENDPOINTS.dashboard.alliesList);
   }
+
+  getReportPdf(year?: number | null): Observable<Blob> {
+    const params = year ? { year: String(year) } : undefined;
+    return this.http.getBlob(ENDPOINTS.dashboard.reportPdf, { params });
+  }
 }
