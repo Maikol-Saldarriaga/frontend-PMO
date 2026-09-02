@@ -1,0 +1,244 @@
+<div class="px-6 py-6 space-y-5">
+  @if (error()) {
+    <div class="p-4 rounded-xl bg-red-50 border border-red-100 text-sm text-red-600">{{ error() }}</div>
+  }
+
+  <!-- Header -->
+  <div class="flex items-center justify-between gap-4 flex-wrap">
+    <div>
+      <h2 class="text-base font-bold text-gray-900">Solicitud de Desembolsos</h2>
+      <p class="text-xs text-gray-400 mt-0.5">Tramos planeados como % del valor total del proyecto — pasan de "Planeado" a "Pagado" cuando la(s) factura(s) ligada(s) se cobran en Facturación.</p>
+    </div>
+    <button (click)="openCreate()" [disabled]="locked"
+      class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-accent hover:bg-accent-700 text-white text-sm font-semibold shadow-sm transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+      </svg>
+      Nuevo desembolso
+    </button>
+  </div>
+
+  @if (loading()) {
+    <div class="flex flex-col items-center justify-center h-48 gap-3">
+      <div class="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+      <span class="text-sm text-neutral-400">Cargando desembolsos…</span>
+    </div>
+  } @else {
+
+    <!-- ── KPIs ─────────────────────────────────────────────────────────── -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
+        <p class="text-[10px] font-bold text-neutral-400 uppercase tracking-wide">Valor total del proyecto</p>
+        <p class="text-xl font-black text-primary-700 mt-1">{{ formatCompactCurrency(projectValue() ?? 0) }}</p>
+        <p class="text-[10px] text-neutral-400 mt-1">Base sobre la que se calcula el % de cada desembolso.</p>
+      </div>
+      <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
+        <p class="text-[10px] font-bold text-neutral-400 uppercase tracking-wide">Facturado del proyecto ({{ facturadoPct() }}%)</p>
+        <p class="text-xl font-black text-accent mt-1">{{ formatCompactCurrency(totalFacturado()) }}</p>
+        <div class="h-1.5 rounded-full bg-gray-100 overflow-hidden mt-2">
+          <div class="h-full rounded-full bg-accent" [style.width.%]="facturadoPct()"></div>
+        </div>
+      </div>
+      <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
+        <p class="text-[10px] font-bold text-neutral-400 uppercase tracking-wide">% del proyecto solicitado (desembolsos)</p>
+        <p class="text-xl font-black text-primary-700 mt-1">{{ totalPercentage().toFixed(2) }}%</p>
+        <div class="h-1.5 rounded-full bg-gray-100 overflow-hidden mt-2">
+          <div class="h-full rounded-full bg-sky-500" [style.width.%]="totalPercentage()"></div>
+        </div>
+      </div>
+      <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
+        <p class="text-[10px] font-bold text-neutral-400 uppercase tracking-wide">Valor total programado</p>
+        <p class="text-xl font-black text-primary-700 mt-1">{{ formatCompactCurrency(totalPlanned()) }}</p>
+      </div>
+      <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
+        <p class="text-[10px] font-bold text-neutral-400 uppercase tracking-wide">Cobrado ({{ collectionPct() }}%)</p>
+        <p class="text-xl font-black text-success mt-1">{{ formatCompactCurrency(totalPaid()) }}</p>
+      </div>
+      <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
+        <p class="text-[10px] font-bold text-neutral-400 uppercase tracking-wide">Saldo por cobrar</p>
+        <p class="text-xl font-black text-amber-600 mt-1">{{ formatCompactCurrency(totalBalance()) }}</p>
+      </div>
+    </div>
+
+    <!-- ── Tabla de desembolsos (mismo esquema que la ficha de control del cliente) ── -->
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div class="px-5 py-3 border-b border-gray-100">
+        <h3 class="text-sm font-bold text-gray-900">Hitos / Desembolsos</h3>
+        <p class="text-xs text-gray-400 mt-0.5">{{ items().length }} desembolso(s) registrado(s) — el control del total programado debe coincidir con el valor total del presupuesto.</p>
+      </div>
+      <div class="overflow-x-auto scrollbar-thin">
+        <table class="w-full text-sm min-w-[1400px] border-collapse">
+          <thead>
+            <tr class="bg-neutral-50 border-b border-gray-100 text-[10px] font-bold text-neutral-500 uppercase tracking-wide">
+              <th class="text-left px-4 py-2.5">Hitos / Desembolso</th>
+              <th class="text-left px-3 py-2.5 whitespace-nowrap">Mes programado</th>
+              <th class="text-right px-3 py-2.5 whitespace-nowrap">% desembolso</th>
+              <th class="text-right px-3 py-2.5 whitespace-nowrap">Valor programado</th>
+              <th class="text-left px-3 py-2.5 min-w-[220px]">Condición / entregable habilitante</th>
+              <th class="text-left px-3 py-2.5 whitespace-nowrap">Fuente</th>
+              <th class="text-left px-3 py-2.5 whitespace-nowrap">Estado</th>
+              <th class="text-left px-3 py-2.5 whitespace-nowrap">Fecha solicitud</th>
+              <th class="text-left px-3 py-2.5 whitespace-nowrap">Fecha pago</th>
+              <th class="text-right px-3 py-2.5 whitespace-nowrap">Valor pagado</th>
+              <th class="text-right px-3 py-2.5 whitespace-nowrap">Saldo por pagar</th>
+              <th class="text-left px-3 py-2.5 min-w-[160px]">Observaciones</th>
+              <th class="px-3 py-2.5 w-20 text-right">Acciones</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            @for (i of items(); track trackById($index, i)) {
+              <tr class="hover:bg-neutral-50/60 transition-colors align-top">
+                <td class="px-4 py-3 text-xs font-semibold text-primary-700 whitespace-nowrap">{{ i.name }}</td>
+                <td class="px-3 py-3 text-xs text-neutral-500 whitespace-nowrap">{{ monthLabel(i) }}</td>
+                <td class="px-3 py-3 text-right whitespace-nowrap text-xs font-semibold text-neutral-600">{{ i.percentage }}%</td>
+                <td class="px-3 py-3 text-right whitespace-nowrap text-xs font-semibold text-primary-700">{{ formatCurrency(i.planned_amount) }}</td>
+                <td class="px-3 py-3 text-xs text-neutral-600 max-w-[260px]" [title]="i.justification || ''">{{ i.justification || '—' }}</td>
+                <td class="px-3 py-3 text-xs text-neutral-500 whitespace-nowrap capitalize">{{ i.source || '—' }}</td>
+                <td class="px-3 py-3 whitespace-nowrap">
+                  <span class="px-2 py-0.5 rounded-md text-[11px] font-medium whitespace-nowrap"
+                    [class.bg-amber-50]="i.status === 'planeado'" [class.text-amber-700]="i.status === 'planeado'"
+                    [class.bg-sky-50]="i.status === 'parcial'" [class.text-sky-700]="i.status === 'parcial'"
+                    [class.bg-emerald-50]="i.status === 'pagado'" [class.text-emerald-700]="i.status === 'pagado'">
+                    {{ statusLabel(i.status) }}
+                  </span>
+                </td>
+                <td class="px-3 py-3 text-xs text-neutral-500 whitespace-nowrap">{{ formatDate(i.requested_date) }}</td>
+                <td class="px-3 py-3 text-xs text-neutral-500 whitespace-nowrap">{{ formatDate(i.last_payment_date) }}</td>
+                <td class="px-3 py-3 text-right whitespace-nowrap text-xs font-semibold text-success">{{ formatCurrency(i.paid_amount) }}</td>
+                <td class="px-3 py-3 text-right whitespace-nowrap text-xs font-semibold text-amber-600">{{ formatCurrency(i.balance) }}</td>
+                <td class="px-3 py-3 text-xs text-neutral-500 max-w-[200px]" [title]="i.observation || ''">{{ i.observation || '—' }}</td>
+                <td class="px-3 py-3">
+                  <div class="flex items-center justify-end gap-1">
+                    <button type="button" (click)="openEdit(i)" [disabled]="locked" title="Editar"
+                      class="w-8 h-8 flex items-center justify-center rounded-lg text-neutral-500 hover:text-accent hover:bg-accent-50 transition-colors disabled:opacity-40">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                    </button>
+                    <button type="button" (click)="remove(i)" [disabled]="locked || deletingId() === i.id" title="Eliminar"
+                      class="w-8 h-8 flex items-center justify-center rounded-lg text-neutral-500 hover:text-danger hover:bg-danger/10 transition-colors disabled:opacity-40">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+          @if (items().length) {
+            <tfoot>
+              <tr class="bg-neutral-50 border-t-2 border-neutral-200 text-xs font-bold text-primary-700">
+                <td class="px-4 py-3" colspan="2">Total</td>
+                <td class="px-3 py-3 text-right whitespace-nowrap" [class.text-danger]="totalPercentage() > 100.01">{{ totalPercentage().toFixed(2) }}%</td>
+                <td class="px-3 py-3 text-right whitespace-nowrap">{{ formatCurrency(totalPlanned()) }}</td>
+                <td class="px-3 py-3" colspan="4"></td>
+                <td class="px-3 py-3 text-right whitespace-nowrap text-success">{{ formatCurrency(totalPaid()) }}</td>
+                <td class="px-3 py-3 text-right whitespace-nowrap text-amber-600">{{ formatCurrency(totalBalance()) }}</td>
+                <td class="px-3 py-3" colspan="2"></td>
+              </tr>
+            </tfoot>
+          }
+        </table>
+      </div>
+      @if (!items().length) {
+        <div class="flex flex-col items-center justify-center py-12 gap-2">
+          <p class="text-sm font-medium text-gray-500">No hay desembolsos registrados.</p>
+          <p class="text-xs text-gray-400">Usa "Nuevo desembolso" arriba para solicitar el primer tramo (ej. anticipo).</p>
+        </div>
+      }
+    </div>
+
+  }
+</div>
+
+<!-- ══ PANEL LATERAL DE REGISTRO / EDICIÓN ═══════════════════════════════════ -->
+@if (panelOpen()) {
+  <div class="fixed inset-0 z-40 bg-black/30" (click)="closePanel()"></div>
+
+  <div class="fixed top-0 right-0 z-50 h-full w-full sm:w-[480px] max-w-full bg-white shadow-2xl overflow-y-auto">
+    <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
+      <h3 class="text-sm font-bold text-gray-900">{{ form().id ? 'Editar desembolso' : 'Nuevo desembolso' }}</h3>
+      <button (click)="closePanel()" class="text-gray-400 hover:text-gray-600 transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <div class="p-6 space-y-4">
+
+      <div>
+        <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Nombre / Hito <span class="text-danger">*</span></label>
+        <input type="text" [ngModel]="form().name" (ngModelChange)="updateFormField('name', $event)" placeholder="Ej: Desembolso 1 - Anticipo"
+          class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300"/>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">% del valor total <span class="text-danger">*</span></label>
+          <div class="relative">
+            <input type="number" min="0" max="100" step="0.01" [ngModel]="form().percentage" (ngModelChange)="updateFormField('percentage', $event)"
+              class="w-full pr-7 pl-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300"/>
+            <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none"><span class="text-xs text-neutral-400 font-semibold">%</span></div>
+          </div>
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Equivale en pesos</label>
+          <input type="text" inputmode="numeric" appMoneyMask [ngModel]="formPlannedAmount()" (ngModelChange)="updateFormAmount($event)"
+            class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300"/>
+        </div>
+      </div>
+      <p class="text-[10px] -mt-2" [class.text-danger]="formOverPercentage()" [class.text-neutral-400]="!formOverPercentage()">
+        Disponible: {{ availablePercentage().toFixed(2) }}% ({{ formatCurrency((projectValue() ?? 0) * availablePercentage() / 100) }}) del valor total del proyecto ({{ formatCurrency(projectValue() ?? 0) }})
+      </p>
+
+      <div>
+        <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Fecha de solicitud</label>
+        <input type="date" [ngModel]="form().requested_date" (ngModelChange)="updateFormField('requested_date', $event)"
+          class="w-full sm:w-1/2 px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300"/>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Mes programado</label>
+          <select [ngModel]="form().planned_month" (ngModelChange)="updateFormField('planned_month', $event)"
+            class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300 cursor-pointer">
+            <option [ngValue]="null">—</option>
+            @for (m of monthNames; track $index) {
+              @if ($index > 0) {
+                <option [ngValue]="$index">{{ m }}</option>
+              }
+            }
+          </select>
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Año programado</label>
+          <input type="number" [ngModel]="form().planned_year" (ngModelChange)="updateFormField('planned_year', $event)" placeholder="2026"
+            class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300"/>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Condición / entregable habilitante</label>
+        <textarea [ngModel]="form().justification" (ngModelChange)="updateFormField('justification', $event)" rows="2"
+          placeholder="Ej: Firma de acta de inicio y plan operativo aprobado"
+          class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300 resize-none"></textarea>
+        <p class="text-[10px] text-neutral-400 mt-1">Justifica por qué se pide este desembolso — de momento es solo informativo; a futuro se alineará con seguimiento técnico.</p>
+      </div>
+
+      <div>
+        <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Observación</label>
+        <textarea [ngModel]="form().observation" (ngModelChange)="updateFormField('observation', $event)" rows="2"
+          class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300 resize-none"></textarea>
+      </div>
+
+      @if (saveError()) {
+        <div class="p-3 rounded-xl bg-red-50 border border-red-100 text-sm text-red-600">{{ saveError() }}</div>
+      }
+
+      <div class="flex items-center justify-end gap-3 pt-2">
+        <button type="button" (click)="closePanel()" class="px-4 py-2 text-sm text-neutral-500 hover:text-neutral-700 transition-colors">Cancelar</button>
+        <button type="button" (click)="save()" [disabled]="locked || saving() || !canSave()"
+          class="flex items-center gap-2 px-5 py-2.5 bg-sky-500 hover:bg-sky-600 disabled:opacity-50 text-white text-sm font-semibold rounded-xl shadow-sm transition-colors">
+          @if (saving()) { <div class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> }
+          Guardar
+        </button>
+      </div>
+    </div>
+  </div>
+}

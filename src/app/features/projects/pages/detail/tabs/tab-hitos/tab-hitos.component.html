@@ -1,0 +1,252 @@
+<div class="px-6 py-6 space-y-5">
+  @if (error()) {
+    <div class="p-4 rounded-xl bg-red-50 border border-red-100 text-sm text-red-600">{{ error() }}</div>
+  }
+
+  <!-- Header -->
+  <div class="flex items-center justify-between gap-4 flex-wrap">
+    <div>
+      <h2 class="text-base font-bold text-gray-900">Hitos del proyecto</h2>
+      <p class="text-xs text-gray-400 mt-0.5">Cada hito puede marcarse a mano, o llevar una regla automática (avance de proyecto/actividad/componente, % de presupuesto ejecutado, o un tramo de desembolso pagado) que lo marca cumplido solo.</p>
+    </div>
+    <button (click)="openCreate()" [disabled]="locked"
+      class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold shadow-sm transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+      </svg>
+      Registrar hito
+    </button>
+  </div>
+
+  @if (loading()) {
+    <div class="flex flex-col items-center justify-center h-48 gap-3">
+      <div class="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+      <span class="text-sm text-neutral-400">Cargando hitos…</span>
+    </div>
+  } @else {
+
+    <!-- Resumen -->
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+      <div class="flex items-center justify-between mb-2">
+        <p class="text-sm font-bold text-gray-900">{{ completedCount() }} de {{ hitos().length }} hitos cumplidos</p>
+        <p class="text-sm font-black text-amber-600">{{ progressPct() }}%</p>
+      </div>
+      <div class="h-2 rounded-full bg-gray-100 overflow-hidden">
+        <div class="h-full rounded-full bg-amber-500" [style.width.%]="progressPct()"></div>
+      </div>
+      @if (currentProjectProgress() !== null) {
+        <p class="text-[11px] text-gray-400 mt-2">Avance real actual del proyecto: {{ currentProjectProgress() }}% — de referencia para definir umbrales.</p>
+      }
+    </div>
+
+    <!-- Lista de hitos -->
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm min-w-[1200px] border-collapse">
+          <thead>
+            <tr class="bg-neutral-50 border-b border-gray-100 text-[10px] font-bold text-neutral-500 uppercase tracking-wide">
+              <th class="text-left px-4 py-2.5">Descripción</th>
+              <th class="text-left px-3 py-2.5">Medio de verificación</th>
+              <th class="text-left px-3 py-2.5 whitespace-nowrap">Fecha entrega</th>
+              <th class="text-right px-3 py-2.5 whitespace-nowrap">Aporte FODC</th>
+              <th class="text-right px-3 py-2.5 whitespace-nowrap">Aporte Aliado</th>
+              <th class="text-left px-3 py-2.5">Disparo</th>
+              <th class="text-left px-3 py-2.5">Estado</th>
+              <th class="px-3 py-2.5 w-28 text-right">Acciones</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            @for (h of sortedHitos(); track trackById($index, h)) {
+              <tr class="hover:bg-neutral-50/60 transition-colors">
+                <td class="px-4 py-3 max-w-[260px]">
+                  <p class="text-xs font-semibold text-gray-800 truncate" [title]="h.description">{{ h.description }}</p>
+                </td>
+                <td class="px-3 py-3 text-xs text-neutral-500 max-w-[200px] truncate" [title]="h.verification_method || ''">{{ h.verification_method || '—' }}</td>
+                <td class="px-3 py-3 text-xs text-neutral-500 whitespace-nowrap">{{ formatDate(h.planned_date) }}</td>
+                <td class="px-3 py-3 text-right whitespace-nowrap text-xs font-semibold text-neutral-600">{{ formatCurrency(h.fodc_contribution) }}</td>
+                <td class="px-3 py-3 text-right whitespace-nowrap text-xs font-semibold text-neutral-600">{{ formatCurrency(h.ally_contribution) }}</td>
+                <td class="px-3 py-3">
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold"
+                    [class.bg-gray-100]="!h.trigger_type" [class.text-gray-500]="!h.trigger_type"
+                    [class.bg-sky-50]="!!h.trigger_type" [class.text-sky-700]="!!h.trigger_type">
+                    {{ triggerLabel(h) }}
+                  </span>
+                </td>
+                <td class="px-3 py-3">
+                  @if (h.status === 'cumplido') {
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700" [title]="h.completed_at ? formatDate(h.completed_at) : ''">
+                      <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                      Cumplido — {{ formatDate(h.completed_at) }}
+                    </span>
+                  } @else {
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700">Pendiente</span>
+                  }
+                </td>
+                <td class="px-3 py-3">
+                  <div class="flex items-center justify-end gap-1">
+                    @if (!h.trigger_type) {
+                      @if (h.status === 'cumplido') {
+                        <button type="button" (click)="reopenHito(h)" [disabled]="locked" title="Reabrir"
+                          class="w-8 h-8 flex items-center justify-center rounded-lg text-neutral-500 hover:text-amber-600 hover:bg-amber-50 transition-colors disabled:opacity-40">
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        </button>
+                      } @else {
+                        <button type="button" (click)="completeHito(h)" [disabled]="locked" title="Marcar cumplido"
+                          class="w-8 h-8 flex items-center justify-center rounded-lg text-neutral-500 hover:text-emerald-600 hover:bg-emerald-50 transition-colors disabled:opacity-40">
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                        </button>
+                      }
+                    }
+                    <button type="button" (click)="openEdit(h)" [disabled]="locked" title="Editar"
+                      class="w-8 h-8 flex items-center justify-center rounded-lg text-neutral-500 hover:text-accent hover:bg-accent-50 transition-colors disabled:opacity-40">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                    </button>
+                    <button type="button" (click)="deleteHito(h)" [disabled]="locked || deletingId() === h.id" title="Eliminar"
+                      class="w-8 h-8 flex items-center justify-center rounded-lg text-neutral-500 hover:text-danger hover:bg-danger/10 transition-colors disabled:opacity-40">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      @if (!sortedHitos().length) {
+        <div class="flex flex-col items-center justify-center py-12 gap-2">
+          <p class="text-sm font-medium text-gray-500">No hay hitos registrados.</p>
+          <p class="text-xs text-gray-400">Usa "Registrar hito" arriba.</p>
+        </div>
+      }
+    </div>
+
+  }
+</div>
+
+<!-- ══ PANEL LATERAL DE REGISTRO / EDICIÓN ═══════════════════════════════════ -->
+@if (panelOpen()) {
+  <div class="fixed inset-0 z-40 bg-black/30" (click)="closePanel()"></div>
+
+  <div class="fixed top-0 right-0 z-50 h-full w-full sm:w-[480px] max-w-full bg-white shadow-2xl overflow-y-auto">
+    <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
+      <h3 class="text-sm font-bold text-gray-900">{{ form().id ? 'Editar hito' : 'Registrar hito' }}</h3>
+      <button (click)="closePanel()" class="text-gray-400 hover:text-gray-600 transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <div class="p-6 space-y-4">
+
+      <div>
+        <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Descripción <span class="text-danger">*</span></label>
+        <textarea [ngModel]="form().description" (ngModelChange)="updateFormField('description', $event)" rows="2"
+          class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300 resize-none"
+          placeholder="Ej: Selección y contratación de facilitadores especializados"></textarea>
+      </div>
+
+      <div>
+        <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Medio de verificación</label>
+        <input type="text" [ngModel]="form().verification_method" (ngModelChange)="updateFormField('verification_method', $event)"
+          class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300"
+          placeholder="Ej: Contrato firmado, listados de asistencia..."/>
+      </div>
+
+      <div class="grid grid-cols-3 gap-4">
+        <div>
+          <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Fecha entrega</label>
+          <input type="date" [ngModel]="form().planned_date" (ngModelChange)="updateFormField('planned_date', $event)"
+            class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300"/>
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Aporte FODC</label>
+          <input type="number" [ngModel]="form().fodc_contribution" (ngModelChange)="updateFormField('fodc_contribution', $event)"
+            class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300"/>
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Aporte Aliado</label>
+          <input type="number" [ngModel]="form().ally_contribution" (ngModelChange)="updateFormField('ally_contribution', $event)"
+            class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300"/>
+        </div>
+      </div>
+
+      <div class="pt-2 border-t border-gray-100">
+        <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Tipo de disparo</label>
+        <select [ngModel]="form().trigger_type" (ngModelChange)="onTriggerTypeChange($event)"
+          class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300">
+          <option [ngValue]="null">Manual (se marca a mano)</option>
+          <option value="avance_proyecto">Avance del proyecto</option>
+          <option value="avance_componente">Avance de un componente técnico</option>
+          <option value="avance_actividad">Avance de una actividad</option>
+          <option value="presupuesto">Presupuesto ejecutado</option>
+          <option value="desembolso">Desembolso pagado</option>
+        </select>
+        <p class="text-[10px] text-gray-400 mt-1">Sin regla, este hito se marca cumplido a mano desde la lista.</p>
+      </div>
+
+      @if (form().trigger_type === 'avance_componente') {
+        <div>
+          <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Componente técnico <span class="text-danger">*</span></label>
+          <select [ngModel]="form().component_id" (ngModelChange)="updateFormField('component_id', $event)"
+            class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50">
+            <option [ngValue]="null">Selecciona un componente...</option>
+            @for (c of technicalComponents(); track c.id) { <option [ngValue]="c.id">{{ c.name }}</option> }
+          </select>
+        </div>
+      }
+
+      @if (form().trigger_type === 'avance_actividad') {
+        <div>
+          <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Componente técnico (filtra actividades)</label>
+          <select [ngModel]="form().component_id" (ngModelChange)="updateFormField('component_id', $event)"
+            class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 mb-2">
+            <option [ngValue]="null">Todos</option>
+            @for (c of technicalComponents(); track c.id) { <option [ngValue]="c.id">{{ c.name }}</option> }
+          </select>
+          <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Actividad <span class="text-danger">*</span></label>
+          <select [ngModel]="form().activity_id" (ngModelChange)="updateFormField('activity_id', $event)"
+            class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50">
+            <option [ngValue]="null">Selecciona una actividad...</option>
+            @for (a of formActivities(); track a.id) { <option [ngValue]="a.id">{{ a.label }}</option> }
+          </select>
+        </div>
+      }
+
+      @if (form().trigger_type === 'avance_proyecto' || form().trigger_type === 'avance_actividad' || form().trigger_type === 'avance_componente' || form().trigger_type === 'presupuesto') {
+        <div>
+          <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">% Umbral <span class="text-danger">*</span></label>
+          <input type="number" min="0" max="100" [ngModel]="form().trigger_threshold_pct" (ngModelChange)="updateFormField('trigger_threshold_pct', $event)"
+            class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300"
+            placeholder="Ej: 80"/>
+          @if (form().trigger_type === 'avance_proyecto' && currentProjectProgress() !== null) {
+            <p class="text-[10px] text-gray-400 mt-1">Avance real actual del proyecto: {{ currentProjectProgress() }}%</p>
+          }
+        </div>
+      }
+
+      @if (form().trigger_type === 'desembolso') {
+        <div>
+          <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Tramo de desembolso <span class="text-danger">*</span></label>
+          <select [ngModel]="form().disbursement_id" (ngModelChange)="updateFormField('disbursement_id', $event)"
+            class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50">
+            <option [ngValue]="null">Selecciona un tramo...</option>
+            @for (d of disbursements(); track d.id) { <option [ngValue]="d.id">{{ d.name }} ({{ d.percentage }}%)</option> }
+          </select>
+          <p class="text-[10px] text-gray-400 mt-1">Se marca cumplido cuando este tramo quede totalmente cobrado.</p>
+        </div>
+      }
+
+      @if (saveError()) {
+        <div class="p-3 rounded-xl bg-red-50 border border-red-100 text-sm text-red-600">{{ saveError() }}</div>
+      }
+
+      <div class="flex items-center justify-end gap-3 pt-2">
+        <button type="button" (click)="closePanel()" class="px-4 py-2 text-sm text-neutral-500 hover:text-neutral-700 transition-colors">Cancelar</button>
+        <button type="button" (click)="save()" [disabled]="locked || saving() || !canSave()"
+          class="flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white text-sm font-semibold rounded-xl shadow-sm transition-colors">
+          @if (saving()) { <div class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> }
+          Guardar
+        </button>
+      </div>
+    </div>
+  </div>
+}

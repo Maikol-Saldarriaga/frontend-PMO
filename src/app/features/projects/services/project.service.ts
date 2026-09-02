@@ -3,6 +3,7 @@ import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { ApiHttpClient } from '../../../../core/api/http-client';
 import { ENDPOINTS } from '../../../../core/api/endpoints';
+import { PUCAccount } from '../../../../core/puc-accounts/models/puc-account.model';
 import {
   ProjectDetails,
   BudgetItemRequest,
@@ -35,9 +36,8 @@ import {
   BudgetReconciliation,
   Invoice,
   InvoiceRequest,
-  InvoiceHeader,
-  CreateInvoiceHeaderRequest,
-  UpdateInvoiceHeaderMetaRequest,
+  Disbursement,
+  DisbursementRequest,
   GanttResponse,
   GanttFilters,
   ScopeComponent,
@@ -90,6 +90,8 @@ import {
   BudgetExecution,
   CreateBudgetExecutionRequest,
   UpdateBudgetExecutionRequest,
+  Hito,
+  HitoRequest,
   Guarantee,
   GuaranteeRequest,
   ProjectSignatureInfo,
@@ -237,47 +239,63 @@ export class ProjectService {
     return this.http.post<BudgetMonthlyDistribution[]>(ENDPOINTS.projects.monthlyGenerate(id, bid), {});
   }
 
-  listInvoices(id: string, bid: string): Observable<Invoice[]> {
-    return this.http.get<Invoice[]>(ENDPOINTS.projects.invoices(id, bid));
+  // ── Solicitud de Desembolso ──────────────────────────────────────────────
+
+  listDisbursements(id: string): Observable<Disbursement[]> {
+    return this.http.get<Disbursement[]>(ENDPOINTS.projects.disbursements(id));
   }
 
-  createInvoice(id: string, bid: string, data: InvoiceRequest): Observable<Invoice> {
-    return this.http.post<Invoice>(ENDPOINTS.projects.invoices(id, bid), data);
+  createDisbursement(id: string, data: DisbursementRequest): Observable<Disbursement> {
+    return this.http.post<Disbursement>(ENDPOINTS.projects.disbursements(id), data);
   }
 
-  updateInvoice(id: string, bid: string, iid: string, data: InvoiceRequest): Observable<Invoice> {
-    return this.http.put<Invoice>(ENDPOINTS.projects.invoiceById(id, bid, iid), data);
+  updateDisbursement(id: string, did: string, data: DisbursementRequest): Observable<Disbursement> {
+    return this.http.put<Disbursement>(ENDPOINTS.projects.disbursementById(id, did), data);
   }
 
-  deleteInvoice(id: string, bid: string, iid: string): Observable<void> {
-    return this.http.delete<void>(ENDPOINTS.projects.invoiceById(id, bid, iid));
+  deleteDisbursement(id: string, did: string): Observable<void> {
+    return this.http.delete<void>(ENDPOINTS.projects.disbursementById(id, did));
   }
 
-  // ── Factura general (cabecera + líneas por rubro) ──────────────────────────
+  // ── Facturas y cobros ligados a un desembolso (Fase 2b) — la Factura FODC -> Aliado se
+  // emite por tramo de desembolso, no por rubro. Mismas formas que los métodos legacy
+  // por rubro (createInvoice/updateInvoice/listFundingReceipts/...), apuntando a las rutas
+  // anidadas bajo /disbursements/:did en vez de /budget/:bid. ──
 
-  createInvoiceHeader(id: string, data: CreateInvoiceHeaderRequest): Observable<InvoiceHeader> {
-    return this.http.post<InvoiceHeader>(ENDPOINTS.projects.invoiceHeaders(id), data);
+  listInvoicesByDisbursement(id: string, did: string): Observable<Invoice[]> {
+    return this.http.get<Invoice[]>(ENDPOINTS.projects.disbursementInvoices(id, did));
   }
 
-  listInvoiceHeaders(id: string): Observable<InvoiceHeader[]> {
-    return this.http.get<InvoiceHeader[]>(ENDPOINTS.projects.invoiceHeaders(id));
+  createInvoiceForDisbursement(id: string, did: string, data: InvoiceRequest): Observable<Invoice> {
+    return this.http.post<Invoice>(ENDPOINTS.projects.disbursementInvoices(id, did), data);
   }
 
-  getInvoiceHeader(id: string, hid: string): Observable<InvoiceHeader> {
-    return this.http.get<InvoiceHeader>(ENDPOINTS.projects.invoiceHeaderById(id, hid));
+  updateInvoiceForDisbursement(id: string, did: string, iid: string, data: InvoiceRequest): Observable<Invoice> {
+    return this.http.put<Invoice>(ENDPOINTS.projects.disbursementInvoiceById(id, did, iid), data);
   }
 
-  updateInvoiceHeaderMeta(id: string, hid: string, data: UpdateInvoiceHeaderMetaRequest): Observable<InvoiceHeader> {
-    return this.http.put<InvoiceHeader>(ENDPOINTS.projects.invoiceHeaderById(id, hid), data);
+  deleteInvoiceForDisbursement(id: string, did: string, iid: string): Observable<void> {
+    return this.http.delete<void>(ENDPOINTS.projects.disbursementInvoiceById(id, did, iid));
   }
 
-  deleteInvoiceHeader(id: string, hid: string): Observable<void> {
-    return this.http.delete<void>(ENDPOINTS.projects.invoiceHeaderById(id, hid));
+  listFundingReceiptsForDisbursement(id: string, did: string, iid: string): Observable<FundingReceipt[]> {
+    return this.http.get<FundingReceipt[]>(ENDPOINTS.projects.disbursementReceipts(id, did, iid));
   }
 
-  /** Sube el comprobante (archivo) de una factura general — form debe traer un campo "file". */
-  uploadInvoiceHeaderDocument(id: string, hid: string, form: FormData): Observable<InvoiceHeader> {
-    return this.http.post<InvoiceHeader>(ENDPOINTS.projects.invoiceHeaderDocument(id, hid), form);
+  createFundingReceiptForDisbursement(id: string, did: string, iid: string, data: FundingReceiptRequest): Observable<FundingReceipt> {
+    return this.http.post<FundingReceipt>(ENDPOINTS.projects.disbursementReceipts(id, did, iid), data);
+  }
+
+  updateFundingReceiptForDisbursement(id: string, did: string, iid: string, rid: string, data: FundingReceiptRequest): Observable<FundingReceipt> {
+    return this.http.put<FundingReceipt>(ENDPOINTS.projects.disbursementReceiptById(id, did, iid, rid), data);
+  }
+
+  deleteFundingReceiptForDisbursement(id: string, did: string, iid: string, rid: string): Observable<void> {
+    return this.http.delete<void>(ENDPOINTS.projects.disbursementReceiptById(id, did, iid, rid));
+  }
+
+  uploadReceiptDocumentForDisbursement(id: string, did: string, iid: string, rid: string, form: FormData): Observable<FundingReceipt> {
+    return this.http.post<FundingReceipt>(ENDPOINTS.projects.disbursementReceiptDocument(id, did, iid, rid), form);
   }
 
   getGantt(id: string, filters: GanttFilters = {}): Observable<GanttResponse> {
@@ -515,30 +533,6 @@ export class ProjectService {
     return this.http.put<ProjectExtension>(ENDPOINTS.projects.extensionById(id, eid), data);
   }
 
-  // ── Cobros reales recibidos (contra una factura ya registrada) ─────────────
-
-  listFundingReceipts(id: string, budgetItemId: string, invoiceId: string): Observable<FundingReceipt[]> {
-    return this.http.get<FundingReceipt[]>(ENDPOINTS.projects.receipts(id, budgetItemId, invoiceId));
-  }
-
-  createFundingReceipt(id: string, budgetItemId: string, invoiceId: string, data: FundingReceiptRequest): Observable<FundingReceipt> {
-    return this.http.post<FundingReceipt>(ENDPOINTS.projects.receipts(id, budgetItemId, invoiceId), data);
-  }
-
-  updateFundingReceipt(id: string, budgetItemId: string, invoiceId: string, receiptId: string, data: FundingReceiptRequest): Observable<FundingReceipt> {
-    return this.http.put<FundingReceipt>(ENDPOINTS.projects.receiptById(id, budgetItemId, invoiceId, receiptId), data);
-  }
-
-  deleteFundingReceipt(id: string, budgetItemId: string, invoiceId: string, receiptId: string): Observable<void> {
-    return this.http.delete<void>(ENDPOINTS.projects.receiptById(id, budgetItemId, invoiceId, receiptId));
-  }
-
-  /** Sube el comprobante de pago (archivo) de un cobro ya registrado — form debe traer un
-   * campo "file" (mismo patrón que uploadSignatureImage). */
-  uploadReceiptDocument(id: string, budgetItemId: string, invoiceId: string, receiptId: string, form: FormData): Observable<FundingReceipt> {
-    return this.http.post<FundingReceipt>(ENDPOINTS.projects.receiptDocument(id, budgetItemId, invoiceId, receiptId), form);
-  }
-
   // ── Flujo de Caja ────────────────────────────────────────────────────────
 
   getCashFlowReport(id: string): Observable<CashFlowReport> {
@@ -563,10 +557,42 @@ export class ProjectService {
     return this.http.delete<void>(ENDPOINTS.projects.executionById(id, eid));
   }
 
+  // ── Hitos: registro de hitos del proyecto, con disparo automático opcional ────────────────
+
+  listHitos(id: string): Observable<Hito[]> {
+    return this.http.get<Hito[]>(ENDPOINTS.projects.hitos(id));
+  }
+
+  createHito(id: string, data: HitoRequest): Observable<Hito> {
+    return this.http.post<Hito>(ENDPOINTS.projects.hitos(id), data);
+  }
+
+  updateHito(id: string, hid: string, data: HitoRequest): Observable<Hito> {
+    return this.http.put<Hito>(ENDPOINTS.projects.hitoById(id, hid), data);
+  }
+
+  deleteHito(id: string, hid: string): Observable<void> {
+    return this.http.delete<void>(ENDPOINTS.projects.hitoById(id, hid));
+  }
+
+  completeHito(id: string, hid: string): Observable<void> {
+    return this.http.post<void>(ENDPOINTS.projects.hitoComplete(id, hid), {});
+  }
+
+  reopenHito(id: string, hid: string): Observable<void> {
+    return this.http.post<void>(ENDPOINTS.projects.hitoReopen(id, hid), {});
+  }
+
   /** Resumen de egresos reales por rubro y por mes ("YYYY-MM"), para el campo informativo
    * "presupuesto ejecutado" de la pantalla de distribución mensual. */
   getExecutionsMonthlySummary(id: string): Observable<Record<string, Record<string, number>>> {
     return this.http.get<Record<string, Record<string, number>>>(ENDPOINTS.projects.executionsMonthlySummary(id));
+  }
+
+  /** Catálogo PUC (company-scoped, no depende del proyecto) — se usa para el selector
+   * obligatorio de cuenta PUC al registrar un egreso. */
+  listPUCAccounts(): Observable<PUCAccount[]> {
+    return this.http.get<PUCAccount[]>(ENDPOINTS.pucAccounts.list);
   }
 
   // ── Reporte de Presupuesto (planeado/ejecutado/facturación/desembolsos/flujo de caja) ──

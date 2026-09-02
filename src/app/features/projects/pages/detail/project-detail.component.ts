@@ -13,6 +13,7 @@ import { TabAlcanceComponent }    from './tabs/tab-alcance/tab-alcance.component
 import { TabCronogramaComponent } from './tabs/tab-cronograma/tab-cronograma.component';
 import { TabPresupuestoComponent } from './tabs/tab-presupuesto/tab-presupuesto.component';
 import { TabFacturacionComponent } from './tabs/tab-facturacion/tab-facturacion.component';
+import { TabDesembolsosComponent } from './tabs/tab-desembolsos/tab-desembolsos.component';
 import { TabSeguimientoTecnicoComponent } from './tabs/tab-seguimiento-tecnico/tab-seguimiento-tecnico.component';
 import { TabRiesgosComponent } from './tabs/tab-riesgos/tab-riesgos.component';
 import { TabBeneficiariosComponent } from './tabs/tab-beneficiarios/tab-beneficiarios.component';
@@ -25,6 +26,7 @@ import { TabObligacionesComponent } from './tabs/tab-obligaciones/tab-obligacion
 import { TabAbastecimientoComponent } from './tabs/tab-abastecimiento/tab-abastecimiento.component';
 import { TabFlujoCajaComponent } from './tabs/tab-flujo-caja/tab-flujo-caja.component';
 import { TabEgresosComponent } from './tabs/tab-egresos/tab-egresos.component';
+import { TabHitosComponent } from './tabs/tab-hitos/tab-hitos.component';
 import { TabGarantiasComponent } from './tabs/tab-garantias/tab-garantias.component';
 import { TabFirmasComponent } from './tabs/tab-firmas/tab-firmas.component';
 import { FormsModule } from '@angular/forms';
@@ -40,6 +42,7 @@ import { MoneyMaskDirective } from '../../../../shared/directives/money-mask.dir
     TabCronogramaComponent,
     TabPresupuestoComponent,
     TabFacturacionComponent,
+    TabDesembolsosComponent,
     TabSeguimientoTecnicoComponent,
     TabRiesgosComponent,
     TabBeneficiariosComponent,
@@ -52,6 +55,7 @@ import { MoneyMaskDirective } from '../../../../shared/directives/money-mask.dir
     TabAbastecimientoComponent,
     TabFlujoCajaComponent,
     TabEgresosComponent,
+    TabHitosComponent,
     TabGarantiasComponent,
     TabFirmasComponent,
     TabEquipoComponent,
@@ -170,6 +174,10 @@ export class ProjectDetailComponent implements OnInit {
       icon: `<path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>`,
     },
     {
+      id: 'desembolsos', label: 'Desembolsos', color: 'cyan',
+      icon: `<path stroke-linecap="round" stroke-linejoin="round" d="M17 9V7a4 4 0 00-8 0v2m-2 0h12a2 2 0 012 2v8a2 2 0 01-2 2H7a2 2 0 01-2-2v-8a2 2 0 012-2z"/>`,
+    },
+    {
       id: 'facturacion', label: 'Facturación', color: 'lime',
       icon: `<path stroke-linecap="round" stroke-linejoin="round" d="M9 14l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>`,
     },
@@ -184,6 +192,10 @@ export class ProjectDetailComponent implements OnInit {
     {
       id: 'egresos', label: 'Egresos', color: 'rose',
       icon: `<path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5m0 14l-7-7m7 7l7-7"/>`,
+    },
+    {
+      id: 'hitos', label: 'Hitos', color: 'amber',
+      icon: `<path stroke-linecap="round" stroke-linejoin="round" d="M3 3v18h18M9 17V9m4 8V5m4 12v-6"/>`,
     },
     {
       id: 'beneficiarios', label: 'Beneficiarios', color: 'cyan',
@@ -226,10 +238,11 @@ export class ProjectDetailComponent implements OnInit {
   /** Mapea cada tab a la ProjectSection del backend. null = sin match claro (gating por owner/coordinador). */
   private readonly TAB_SECTION: Record<string, ProjectSection | null> = {
     resumen: null, alcance: 'technical_components', ubicaciones: 'locations', condiciones: null,
-    cronograma: 'activities', presupuesto: 'budget', facturacion: 'finance', beneficiarios: 'beneficiaries',
+    cronograma: 'activities', presupuesto: 'budget', desembolsos: 'finance', facturacion: 'finance', beneficiarios: 'beneficiaries',
     seguimiento: 'checkpoints', riesgos: 'risks', entregables: 'checkpoints', documentos: 'documents',
     indicadores: null, obligaciones: 'compliance_matrix', abastecimiento: 'supply_plan', historial: null,
     equipo: null, 'flujo-caja': 'finance', egresos: 'finance', garantias: 'documents', firmas: 'signature',
+    hitos: 'checkpoints',
   };
 
   private sk(s: string | undefined) {

@@ -3,45 +3,19 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { forkJoin, of, switchMap } from 'rxjs';
-import { map } from 'rxjs/operators';
 import { ProjectService } from '../../../../services/project.service';
 import { ContractService } from '../../../../services/contract.service';
 import { ContractResponse } from '../../../../models/contract.model';
 import {
-  BudgetEntry, BudgetItem, BudgetMonthlyDistribution, Invoice, InvoiceRequest, InvoiceStatus,
+  Invoice, InvoiceRequest,
   FundingReceipt, FundingReceiptRequest, FundingReceiptStatus,
-  InvoiceHeader, CreateInvoiceHeaderRequest, InvoiceHeaderLineRequest,
+  Disbursement,
 } from '../../../../models/project.model';
 import { MoneyMaskDirective } from '../../../../../../shared/directives/money-mask.directive';
 import { PortalToBodyDirective } from '../../../../../../shared/directives/portal-to-body.directive';
-import { BudgetPeriodStatusComponent } from '../../../../components/budget-period-status/budget-period-status.component';
 import { ConfirmDialogService } from '../../../../../../shared/components/confirm-dialog/confirm-dialog.service';
 
 const AMOUNT_EPSILON = 0.01;
-/** Misma paleta usada en el tab Presupuesto, para que cada componente técnico se vea con el mismo color en ambas pestañas. */
-const PALETTE = ['#0EA5E9', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316'];
-
-/** Reparte `total` en `n` partes iguales redondeadas a centavos, ajustando la última para que
- * la suma dé exactamente `total` — mismo criterio que budget-item-panel.component.ts, usado
- * aquí para el botón "Distribuir equitativamente" de las líneas de una factura general. */
-function splitEvenly(total: number, n: number): number[] {
-  if (n <= 0) return [];
-  const base = Math.round((total / n) * 100) / 100;
-  const parts = new Array(n).fill(base);
-  const sumWithoutLast = base * (n - 1);
-  parts[n - 1] = Math.round((total - sumWithoutLast) * 100) / 100;
-  return parts;
-}
-
-interface HeaderLineRow {
-  budget_item_id: string;
-  value:           number;
-  /** Cada rubro puede tener su distribución programada en un mes distinto de los demás —
-   * por eso el período es por línea, no solo de la cabecera (se precarga con el período de
-   * la cabecera al agregar la línea, pero el usuario puede cambiarlo). */
-  year:            number;
-  month:           number;
-}
 
 interface ReceiptFormState {
   value:             number | null;
@@ -62,28 +36,16 @@ function emptyReceiptForm(): ReceiptFormState {
   };
 }
 
-export interface InvoiceItemRow {
-  budget_item_id:        string;
-  concept:                string;
-  component_name:         string; // budget_component (financiero)
-  technical_name:         string; // technical_component
-  technical_component_id: string;
-  total_value:            number;
-  unit_measurement:       string | null;
-  quantity:               number | null;
-  monthly_distributions:  BudgetMonthlyDistribution[];
-}
-
-export interface InvoiceSection {
-  component_id: string;
-  name:         string;
-  rows:         InvoiceItemRow[];
-}
-
+/** Facturación — Fase 2b: la Factura FODC -> Aliado se emite por tramo de Solicitud de
+ * Desembolso (ver documento de flujo v9, sección 2.2 "por cada tramo solicitado"), no por
+ * rubro. La lista de la izquierda ya no son los ítems de presupuesto sino los Desembolsos
+ * del proyecto; al seleccionar uno se ven/gestionan sus facturas y, dentro de cada factura,
+ * sus cobros (Recibo de Caja) — mismo mecanismo de cobros de siempre, solo re-anidado bajo
+ * desembolso en vez de bajo rubro. */
 @Component({
   selector: 'app-tab-facturacion',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, MoneyMaskDirective, BudgetPeriodStatusComponent, PortalToBodyDirective],
+  imports: [CommonModule, FormsModule, RouterLink, MoneyMaskDirective, PortalToBodyDirective],
   templateUrl: './tab-facturacion.component.html',
 })
 export class TabFacturacionComponent implements OnInit {
@@ -156,8 +118,33 @@ export class TabFacturacionComponent implements OnInit {
 
   loading  = signal(true);
   error    = signal<string | null>(null);
-  sections: InvoiceSection[] = [];
   search   = '';
+  sidebarCollapsed = signal(false);
+  toggleSidebar(): void {
+    this.sidebarCollapsed.update(v => !v);
+  }
+
+  // ── Solicitud de Desembolsos — lista principal de esta pestaña ── //
+  disbursements = signal<Disbursement[]>([]);
+  disbursementsBalance = computed(() => this.disbursements().reduce((s, d) => s + d.balance, 0));
+  private loadDisbursements(): void {
+    this.svc.listDisbursements(this.projectId).subscribe({
+      next: items => {
+        this.disbursements.set(items ?? []);
+        this.loading.set(false);
+      },
+      error: () => {
+        this.error.set('No se pudieron cargar los desembolsos del proyecto.');
+        this.loading.set(false);
+      },
+    });
+  }
+
+  filteredDisbursements(): Disbursement[] {
+    const q = this.search.trim().toLowerCase();
+    if (!q) return this.disbursements();
+    return this.disbursements().filter(d => d.name.toLowerCase().includes(q));
+  }
 
   // ── Configuración de administración/IVA del proyecto (cargada una vez) ──
   ivaPercentage      = signal(19);
@@ -180,14 +167,13 @@ export class TabFacturacionComponent implements OnInit {
     if (!applies) this.form.admin_fee_percentage = null;
   }
 
-  selectedItem     = signal<InvoiceItemRow | null>(null);
+  selectedDisbursement = signal<Disbursement | null>(null);
   invoices         = signal<Invoice[]>([]);
   invoicesLoading  = signal(false);
   invoicesError    = signal<string | null>(null);
 
-  /** Sub-vista dentro del ítem seleccionado: facturación (emisión), cobros (recaudo real) y
-   * distribución mensual, cada una en su propia pantalla para que ninguna quede oculta por scroll. */
-  facturacionView   = signal<'facturas' | 'cobros' | 'periodo'>('facturas');
+  /** Sub-vista dentro del desembolso seleccionado: facturación (emisión) y cobros (recaudo real). */
+  facturacionView   = signal<'facturas' | 'cobros'>('facturas');
   highlightedInvoiceId = signal<string | null>(null);
 
   goToCobros(inv: Invoice): void {
@@ -195,12 +181,12 @@ export class TabFacturacionComponent implements OnInit {
     this.facturacionView.set('cobros');
   }
 
-  /** Pendiente por cobrar del ítem seleccionado (facturado - cobrado real). */
+  /** Pendiente por cobrar del desembolso seleccionado (facturado - cobrado real). */
   totalPending = computed(() => Math.max(0, this.totalInvoiced() - this.totalCollected()));
 
-  /** Pendiente por facturar del ítem seleccionado (presupuestado - ya facturado) — lo que
-   * todavía se puede facturar contra este rubro sin superar su tope presupuestal. */
-  totalPendingToInvoice = computed(() => Math.max(0, (this.selectedItem()?.total_value ?? 0) - this.totalInvoiced()));
+  /** Pendiente por facturar del desembolso seleccionado (valor programado del tramo - ya
+   * facturado) — lo que todavía se puede facturar contra él sin superar su valor programado. */
+  totalPendingToInvoice = computed(() => Math.max(0, (this.selectedDisbursement()?.planned_amount ?? 0) - this.totalInvoiced()));
 
   showForm    = signal(false);
   formSaving  = signal(false);
@@ -212,8 +198,6 @@ export class TabFacturacionComponent implements OnInit {
     value_before_tax:       number | null;
     no_iva:                 boolean;
     collection_act_number:  string;
-    status:                 InvoiceStatus;
-    period:                 string; // "" = componente completo, o "YYYY-M" tomado de monthly_distributions
     date:                   string;
     description:            string;
     // Configuración de administración/IVA del PROYECTO, editable aquí mismo — se guarda contra
@@ -249,475 +233,52 @@ export class TabFacturacionComponent implements OnInit {
       error: () => {},
     });
 
-    this.loadInvoiceHeaders();
-
-    this.svc.getBudgetWizard(this.projectId).subscribe({
-      next: (w) => {
-        this.sections = (w.components ?? []).map(comp => ({
-          component_id: comp.component_id,
-          name:         comp.name,
-          rows: (comp.budget_entries ?? []).flatMap((entry: BudgetEntry) =>
-            (entry.items ?? []).map((item: BudgetItem) => ({
-              budget_item_id:        item.id,
-              concept:               item.concept ?? '',
-              component_name:        entry.name,
-              technical_name:        comp.name,
-              technical_component_id: comp.component_id,
-              total_value:           item.total_value ?? 0,
-              unit_measurement:      item.unit_measurement ?? null,
-              quantity:              item.quantity ?? null,
-              monthly_distributions: item.monthly_distributions ?? [],
-            } as InvoiceItemRow))
-          ),
-        }));
-        this.loading.set(false);
-      },
-      error: () => {
-        this.error.set('No se pudo cargar el presupuesto del proyecto.');
-        this.loading.set(false);
-      },
-    });
+    this.loadDisbursements();
   }
 
-  filteredSections(): InvoiceSection[] {
-    const q = this.search.trim().toLowerCase();
-    if (!q) return this.sections;
-    return this.sections
-      .map(s => ({ ...s, rows: s.rows.filter(r => r.concept.toLowerCase().includes(q) || r.component_name.toLowerCase().includes(q)) }))
-      .filter(s => s.rows.length > 0);
-  }
-
-  hasAnyRows(): boolean {
-    return this.sections.some(s => s.rows.length > 0);
-  }
-
-  /** Resumen general del presupuesto (todos los componentes/ítems), mostrado bajo la lista
-   * de la izquierda para aprovechar el espacio que deja libre cuando tiene pocos ítems. */
-  totalComponentsCount(): number { return this.sections.filter(s => s.rows.length > 0).length; }
-
-  /** Color estable por componente técnico (mismo índice/orden que en Presupuesto), independiente del filtro de búsqueda. */
-  colorForComponent(componentId: string): string {
-    const i = this.sections.findIndex(s => s.component_id === componentId);
-    return PALETTE[(i < 0 ? 0 : i) % PALETTE.length];
-  }
-  totalItemsCount(): number { return this.sections.reduce((s, sec) => s + sec.rows.length, 0); }
-  totalProjectBudget(): number { return this.sections.reduce((s, sec) => s + sec.rows.reduce((rs, r) => rs + (r.total_value ?? 0), 0), 0); }
-
-  selectItem(row: InvoiceItemRow): void {
-    this.selectedItem.set(row);
+  selectDisbursement(d: Disbursement): void {
+    this.selectedDisbursement.set(d);
     this.editingInvoiceId.set(null);
     this.cancelForm();
     this.facturacionView.set('facturas');
     this.highlightedInvoiceId.set(null);
     this.receiptsByInvoice.set({});
     this.cancelReceiptForm();
-    this.loadItemAndInvoices(row.budget_item_id);
+    this.loadInvoices(d.id);
   }
 
-  /** Carga en paralelo el ítem presupuestal (billed_amount actualizado por mes) y su historial de facturas.
-   * Los cobros de CADA factura también se cargan de una vez aquí (no solo al expandir) para que el chip
-   * "Cobrado $X / $Y" de la lista sea correcto desde el primer render — antes se quedaba en $0 hasta que
-   * el usuario hacía click para expandir esa factura en particular. */
-  private loadItemAndInvoices(bid: string): void {
+  /** Carga el historial de facturas del desembolso y, de una vez, los cobros de CADA una (no
+   * solo al expandir) para que el chip "Cobrado $X / $Y" de la lista sea correcto desde el
+   * primer render. */
+  private loadInvoices(did: string): void {
     this.invoicesLoading.set(true);
     this.invoicesError.set(null);
 
-    forkJoin({
-      item:     this.svc.getBudgetItem(this.projectId, bid),
-      invoices: this.svc.listInvoices(this.projectId, bid),
-    }).subscribe({
-      next: ({ item, invoices }) => {
-        const current = this.selectedItem();
-        if (current && current.budget_item_id === bid) {
-          this.selectedItem.set({
-            ...current,
-            total_value:           item.total_value ?? current.total_value,
-            unit_measurement:      item.unit_measurement ?? null,
-            quantity:              item.quantity ?? null,
-            monthly_distributions: item.monthly_distributions ?? [],
-          });
-        }
+    this.svc.listInvoicesByDisbursement(this.projectId, did).subscribe({
+      next: invoices => {
         this.invoices.set(invoices ?? []);
         this.invoicesLoading.set(false);
-        this.loadAllReceipts(bid, invoices ?? []);
+        this.loadAllReceipts(did, invoices ?? []);
       },
       error: () => {
-        this.invoicesError.set('No se pudo cargar el ítem o su historial de facturas.');
+        this.invoicesError.set('No se pudo cargar el historial de facturas de este desembolso.');
         this.invoicesLoading.set(false);
       },
     });
   }
 
-  private loadAllReceipts(bid: string, invoices: Invoice[]): void {
+  private loadAllReceipts(did: string, invoices: Invoice[]): void {
     if (!invoices.length) { this.receiptsByInvoice.set({}); return; }
     forkJoin(
       invoices.reduce((acc, inv) => {
-        acc[inv.id] = this.svc.listFundingReceipts(this.projectId, bid, inv.id);
+        acc[inv.id] = this.svc.listFundingReceiptsForDisbursement(this.projectId, did, inv.id);
         return acc;
-      }, {} as Record<string, ReturnType<ProjectService['listFundingReceipts']>>)
+      }, {} as Record<string, ReturnType<ProjectService['listFundingReceiptsForDisbursement']>>)
     ).subscribe({
       next: byInvoiceId => this.receiptsByInvoice.set(byInvoiceId as Record<string, FundingReceipt[]>),
       error: () => {},
     });
   }
-
-  // ── Factura general (cabecera con líneas por rubro) ────────────────────────
-  // Camino ADICIONAL al de "Nueva factura" de arriba (que sigue intacto): una sola factura de
-  // proveedor que cubre varios rubros a la vez. Cada línea, al guardarse, se persiste en el
-  // backend como una fila normal de finance_records (misma forma que una factura individual),
-  // por eso aparece luego en la lista "Facturas emitidas" de cada rubro con un badge informativo.
-
-  invoiceHeaders        = signal<InvoiceHeader[]>([]);
-  invoiceHeadersLoading = signal(false);
-  invoiceHeadersError   = signal<string | null>(null);
-  expandedHeaderId       = signal<string | null>(null);
-  headerLinesCache       = signal<Record<string, Invoice[]>>({});
-  headerLinesLoadingId   = signal<string | null>(null);
-  deletingHeaderId       = signal<string | null>(null);
-
-  private loadInvoiceHeaders(): void {
-    this.invoiceHeadersLoading.set(true);
-    this.invoiceHeadersError.set(null);
-    this.svc.listInvoiceHeaders(this.projectId).subscribe({
-      next: list => {
-        this.invoiceHeaders.set(list ?? []);
-        this.invoiceHeadersLoading.set(false);
-      },
-      error: () => {
-        this.invoiceHeadersError.set('No se pudieron cargar las facturas generales.');
-        this.invoiceHeadersLoading.set(false);
-      },
-    });
-  }
-
-  toggleHeaderExpand(h: InvoiceHeader): void {
-    if (this.expandedHeaderId() === h.id) { this.expandedHeaderId.set(null); return; }
-    this.expandedHeaderId.set(h.id);
-    if (this.headerLinesCache()[h.id]) return;
-    this.headerLinesLoadingId.set(h.id);
-    this.svc.getInvoiceHeader(this.projectId, h.id).subscribe({
-      next: res => {
-        this.headerLinesCache.update(m => ({ ...m, [h.id]: res.lines ?? [] }));
-        this.headerLinesLoadingId.set(null);
-      },
-      error: () => this.headerLinesLoadingId.set(null),
-    });
-  }
-
-  /** Líneas ya cargadas (en caché) de una cabecera — [] mientras aún no se ha expandido. */
-  headerLinesFor(headerId: string): Invoice[] {
-    return this.headerLinesCache()[headerId] ?? [];
-  }
-
-  /** Cantidad de líneas de una cabecera para el resumen colapsado — "…" mientras aún no se ha
-   * expandido ni cacheado (evita mostrar "0" engañoso antes de cargar). */
-  headerLineCount(headerId: string): string {
-    const lines = this.headerLinesCache()[headerId];
-    return lines ? String(lines.length) : '…';
-  }
-
-  /** Etiqueta legible de una línea de factura general, cruzando su budget_item_id con los
-   * rubros ya cargados en `sections` (mismo origen que la lista de la izquierda). */
-  rubroLabelForLine(line: Invoice): string {
-    const row = this.allRubroRows().find(r => r.budget_item_id === line.budget_item_id);
-    if (row) return `${row.concept || 'Sin nombre'} · ${row.component_name}`;
-    return line.budget_component_name ?? 'Rubro';
-  }
-
-  /** Solo v1: eliminar borra en cascada la cabecera + todas sus líneas (y cobros ya
-   * registrados contra ellas) — no existe edición de reparto/valor, coherente con el backend
-   * (UpdateInvoiceHeaderMetaRequest solo acepta metadata). */
-  async deleteInvoiceHeader(h: InvoiceHeader): Promise<void> {
-    if (this.deletingHeaderId()) return;
-    const cached = this.headerLinesCache()[h.id];
-    const lines$ = cached ? of(cached) : this.svc.getInvoiceHeader(this.projectId, h.id).pipe(map(res => res.lines ?? []));
-
-    lines$.subscribe({
-      next: async (lines) => {
-        const n = lines.length;
-        const message = n > 0
-          ? `Esta factura general tiene ${n} línea${n === 1 ? '' : 's'} (una por rubro). Al eliminarla se eliminarán también esa${n === 1 ? '' : 's'} línea${n === 1 ? '' : 's'} y cualquier cobro ya registrado contra ella${n === 1 ? '' : 's'}. Esta acción no se puede deshacer. ¿Deseas continuar?`
-          : '¿Eliminar esta factura general? Esta acción no se puede deshacer.';
-        if (!(await this.confirmDialog.confirm({ message, variant: 'danger' }))) return;
-
-        this.deletingHeaderId.set(h.id);
-        this.svc.deleteInvoiceHeader(this.projectId, h.id).subscribe({
-          next: () => {
-            this.deletingHeaderId.set(null);
-            this.headerLinesCache.update(m => {
-              const { [h.id]: _removed, ...rest } = m;
-              return rest;
-            });
-            if (this.expandedHeaderId() === h.id) this.expandedHeaderId.set(null);
-            this.loadInvoiceHeaders();
-            if (this.selectedItem()) this.loadItemAndInvoices(this.selectedItem()!.budget_item_id);
-          },
-          error: () => this.deletingHeaderId.set(null),
-        });
-      },
-    });
-  }
-
-  /** Todos los rubros disponibles del proyecto (mismo origen que la lista de la izquierda),
-   * aplanados para poblar el select de rubro de cada línea del formulario de factura general. */
-  allRubroRows(): InvoiceItemRow[] {
-    return this.sections.flatMap(s => s.rows);
-  }
-
-  showHeaderForm    = signal(false);
-  headerFormSaving  = signal(false);
-  headerFormError   = signal<string | null>(null);
-  headerLines       = signal<HeaderLineRow[]>([]);
-  headerDocumentFile = signal<File | null>(null);
-
-  headerForm: {
-    invoice_number:         string;
-    provider:                string;
-    value:                   number | null;
-    value_before_tax:        number | null;
-    no_iva:                  boolean;
-    date:                    string;
-    year:                    number;
-    month:                   number;
-    collection_act_number:  string;
-    description:             string;
-    status:                  InvoiceStatus;
-    applies_admin_fee:       boolean;
-    admin_fee_percentage:   number | null;
-    iva_percentage:          number;
-  } = this.emptyHeaderForm();
-
-  private emptyHeaderForm() {
-    const now = new Date();
-    return {
-      invoice_number: '',
-      provider: '',
-      value: null as number | null,
-      value_before_tax: null as number | null,
-      no_iva: false,
-      date: this.todayLocalDate(),
-      year: now.getFullYear(),
-      month: now.getMonth() + 1,
-      collection_act_number: '',
-      description: '',
-      status: 'PEND' as InvoiceStatus,
-      applies_admin_fee: this.appliesAdminFee(),
-      admin_fee_percentage: this.adminFeePercentage(),
-      iva_percentage: this.ivaPercentage(),
-    };
-  }
-
-  /** Estimado en vivo del % de administración sobre el TOTAL de la cabecera — misma matemática
-   * que `formAdminFeeEstimate()` (fee lineal = value * pct/100), aplicada una sola vez sobre el
-   * total en lugar de reimplementarse por línea (ver Fase 0 del plan: la suma de los fees de
-   * cada línea calculada con el mismo % es matemáticamente idéntica al fee sobre el total). */
-  headerAdminFeeEstimate(): { fee: number; net: number } | null {
-    if (!this.headerForm.applies_admin_fee || this.headerForm.admin_fee_percentage == null || !this.headerForm.value) return null;
-    const fee = this.headerForm.value * (this.headerForm.admin_fee_percentage / 100);
-    return { fee, net: this.headerForm.value - fee };
-  }
-
-  onHeaderFormValueChange(value: number | null): void {
-    this.headerForm.value = value;
-    const factor = 1 + (this.headerForm.iva_percentage || 0) / 100;
-    this.headerForm.value_before_tax = value ? (this.headerForm.no_iva ? value : Math.round((value / factor) * 100) / 100) : null;
-  }
-
-  onHeaderFormNoIvaChange(noIva: boolean): void {
-    this.headerForm.no_iva = noIva;
-    this.onHeaderFormValueChange(this.headerForm.value);
-  }
-
-  onHeaderFormIvaChange(iva: number | null): void {
-    this.headerForm.iva_percentage = iva ?? 0;
-    this.onHeaderFormValueChange(this.headerForm.value);
-  }
-
-  onHeaderFormAdminToggle(applies: boolean): void {
-    this.headerForm.applies_admin_fee = applies;
-    if (!applies) this.headerForm.admin_fee_percentage = null;
-  }
-
-  startHeaderForm(): void {
-    this.headerForm = this.emptyHeaderForm();
-    this.headerLines.set([{ budget_item_id: '', value: 0, year: this.headerForm.year, month: this.headerForm.month }]);
-    this.headerFormError.set(null);
-    this.headerDocumentFile.set(null);
-    this.showHeaderForm.set(true);
-  }
-
-  cancelHeaderForm(): void {
-    this.showHeaderForm.set(false);
-    this.headerFormError.set(null);
-    this.headerForm = this.emptyHeaderForm();
-    this.headerLines.set([]);
-    this.headerDocumentFile.set(null);
-  }
-
-  addHeaderLine(): void {
-    this.headerLines.update(list => [...list, { budget_item_id: '', value: 0, year: this.headerForm.year, month: this.headerForm.month }]);
-  }
-
-  removeHeaderLine(i: number): void {
-    this.headerLines.update(list => list.filter((_, idx) => idx !== i));
-  }
-
-  updateHeaderLine(i: number, field: 'budget_item_id' | 'value' | 'year' | 'month', value: string | number): void {
-    this.headerLines.update(list => list.map((l, idx) => idx === i ? { ...l, [field]: value } : l));
-  }
-
-  /** Reparte el valor total de la cabecera equitativamente entre las líneas ya agregadas —
-   * puramente local, solo ajusta los valores de línea que ya existen (no agrega ni quita filas). */
-  distributeHeaderLinesEvenly(): void {
-    const total = this.headerForm.value ?? 0;
-    const n = this.headerLines().length;
-    if (n === 0 || !total) return;
-    const parts = splitEvenly(total, n);
-    this.headerLines.update(list => list.map((l, idx) => ({ ...l, value: parts[idx] })));
-  }
-
-  headerLinesTotal(): number {
-    return this.headerLines().reduce((s, l) => s + (l.value || 0), 0);
-  }
-
-  /** true si las líneas no suman exactamente el valor total declarado en la cabecera (con la
-   * misma tolerancia AMOUNT_EPSILON usada en todo el resto de la app) — el backend rechaza la
-   * creación completa si esto no cuadra, así que se avisa y se bloquea el envío aquí también. */
-  headerLinesMismatch(): boolean {
-    if (this.headerForm.value == null) return false;
-    return Math.abs(this.headerLinesTotal() - this.headerForm.value) > AMOUNT_EPSILON;
-  }
-
-  headerLinesDuplicate(): boolean {
-    const ids = this.headerLines().map(l => l.budget_item_id).filter(Boolean);
-    return new Set(ids).size !== ids.length;
-  }
-
-  headerLinesValid(): boolean {
-    return this.headerLines().length > 0 &&
-      this.headerLines().every(l => !!l.budget_item_id && l.value > 0) &&
-      !this.headerLinesDuplicate() &&
-      !this.headerLinesMismatch();
-  }
-
-  onHeaderFileSelected(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    this.headerDocumentFile.set(input.files?.[0] ?? null);
-  }
-
-  removeHeaderFile(): void {
-    this.headerDocumentFile.set(null);
-  }
-
-  submitInvoiceHeader(): void {
-    if (this.headerFormSaving()) return;
-
-    if (!this.headerForm.value || this.headerForm.value <= 0) {
-      this.headerFormError.set('El valor total de la factura es requerido y debe ser mayor a 0.');
-      return;
-    }
-    if (!this.headerForm.year || !this.headerForm.month) {
-      this.headerFormError.set('El período (año/mes) es requerido.');
-      return;
-    }
-    if (this.headerForm.iva_percentage == null || this.headerForm.iva_percentage < 0 || this.headerForm.iva_percentage > 100) {
-      this.headerFormError.set('El % de IVA debe estar entre 0 y 100.');
-      return;
-    }
-    if (this.headerForm.applies_admin_fee && (this.headerForm.admin_fee_percentage == null || this.headerForm.admin_fee_percentage < 0 || this.headerForm.admin_fee_percentage > 100)) {
-      this.headerFormError.set('El % de administración debe estar entre 0 y 100.');
-      return;
-    }
-    if (!this.headerLines().length) {
-      this.headerFormError.set('Agrega al menos una línea (rubro).');
-      return;
-    }
-    if (this.headerLines().some(l => !l.budget_item_id)) {
-      this.headerFormError.set('Selecciona un rubro para cada línea.');
-      return;
-    }
-    if (this.headerLines().some(l => !l.value || l.value <= 0)) {
-      this.headerFormError.set('El valor de cada línea debe ser mayor a 0.');
-      return;
-    }
-    if (this.headerLinesDuplicate()) {
-      this.headerFormError.set('No repitas el mismo rubro en dos líneas distintas.');
-      return;
-    }
-    if (this.headerLinesMismatch()) {
-      this.headerFormError.set(`La suma de las líneas (${this.formatCurrency(this.headerLinesTotal())}) debe ser igual al valor total (${this.formatCurrency(this.headerForm.value)}).`);
-      return;
-    }
-
-    this.headerFormSaving.set(true);
-    this.headerFormError.set(null);
-
-    const lines: InvoiceHeaderLineRequest[] = this.headerLines().map(l => ({
-      budget_item_id: l.budget_item_id, value: l.value, year: l.year, month: l.month,
-    }));
-
-    const payload: CreateInvoiceHeaderRequest = {
-      invoice_number: this.headerForm.invoice_number.trim() || undefined,
-      provider: this.headerForm.provider.trim() || undefined,
-      date: `${this.headerForm.date || this.todayLocalDate()}T00:00:00Z`,
-      year: this.headerForm.year,
-      month: this.headerForm.month,
-      value: this.headerForm.value,
-      collection_act_number: this.headerForm.collection_act_number.trim() || undefined,
-      description: this.headerForm.description.trim() || undefined,
-      status: this.headerForm.status,
-      lines,
-    };
-
-    // Mismo flujo que submitInvoice(): si el usuario tocó IVA/administración aquí mismo,
-    // primero se guarda esa configuración a nivel de proyecto y solo después se crea la
-    // cabecera (que ya calculará cada línea con el % nuevo, vía CreateInvoice existente).
-    const configChanged =
-      this.headerForm.applies_admin_fee !== this.appliesAdminFee() ||
-      this.headerForm.admin_fee_percentage !== this.adminFeePercentage() ||
-      this.headerForm.iva_percentage !== this.ivaPercentage();
-
-    const configUpdate$ = configChanged
-      ? this.contractSvc.updateAdminFeeConfig(this.projectId, {
-          applies_admin_fee: this.headerForm.applies_admin_fee,
-          iva_percentage: this.headerForm.iva_percentage,
-          ...(this.headerForm.applies_admin_fee && { admin_fee_percentage: this.headerForm.admin_fee_percentage }),
-        })
-      : of<ContractResponse | null>(null);
-
-    const file = this.headerDocumentFile();
-
-    configUpdate$.pipe(
-      switchMap(res => {
-        if (res) {
-          this.appliesAdminFee.set(res.applies_admin_fee ?? this.headerForm.applies_admin_fee);
-          this.adminFeePercentage.set(res.admin_fee_percentage ?? null);
-          this.ivaPercentage.set(res.iva_percentage ?? this.headerForm.iva_percentage);
-        }
-        return this.svc.createInvoiceHeader(this.projectId, payload);
-      }),
-      switchMap(created => {
-        if (!file) return of(created);
-        const form = new FormData();
-        form.append('file', file);
-        return this.svc.uploadInvoiceHeaderDocument(this.projectId, created.id, form);
-      }),
-    ).subscribe({
-      next: () => {
-        this.headerFormSaving.set(false);
-        this.cancelHeaderForm();
-        this.loadInvoiceHeaders();
-        if (this.selectedItem()) this.loadItemAndInvoices(this.selectedItem()!.budget_item_id);
-      },
-      error: (err) => {
-        this.headerFormSaving.set(false);
-        this.headerFormError.set(err?.error?.error ?? 'Error al registrar la factura general. Verifica que las líneas sumen el valor total.');
-      },
-    });
-  }
-
-  trackByHeader(_: number, h: InvoiceHeader) { return h.id; }
-  trackByHeaderLine(i: number) { return i; }
 
   // ── Nueva factura ────────────────────────────────────────────────────────
 
@@ -727,8 +288,6 @@ export class TabFacturacionComponent implements OnInit {
       value_before_tax: null as number | null,
       no_iva: false,
       collection_act_number: '',
-      status: 'PEND' as InvoiceStatus,
-      period: '',
       date: this.todayLocalDate(),
       description: '',
       // Precargados con la configuración actual del proyecto — editables en el formulario.
@@ -759,74 +318,20 @@ export class TabFacturacionComponent implements OnInit {
     return `${yyyy}-${mm}-${dd}`;
   }
 
-  periodValue(dist: BudgetMonthlyDistribution): string {
-    return `${dist.year}-${dist.month}`;
-  }
-
-  monthLabel(period: { year: number; month: number }): string {
-    const names = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-    return `${names[period.month - 1] ?? ''} ${period.year}`;
-  }
-
-  /** Todos los meses de distribución del ítem, siempre disponibles para facturar — facturar
-   * más de lo planeado/presupuestado está permitido a propósito (el backend ya no lo bloquea),
-   * así que un mes ya completado no desaparece del selector: se puede seguir facturando sobre
-   * él, y el usuario ve la advertencia correspondiente (ver [invoiceOverageWarning]). */
-  availableMonths = computed(() => this.selectedItem()?.monthly_distributions ?? []);
-
-  /** Ya facturado en un período dado (excluyendo la factura que se está editando, si aplica). */
-  private billedByPeriodMap = computed(() => {
-    const editingId = this.editingInvoiceId();
-    const map = new Map<string, number>();
-    for (const inv of this.invoices()) {
-      if (inv.year == null || inv.month == null || inv.id === editingId) continue;
-      const key = `${inv.year}-${inv.month}`;
-      map.set(key, (map.get(key) ?? 0) + inv.value);
-    }
-    return map;
-  });
-
-  billedForPeriod(dist: BudgetMonthlyDistribution): number {
-    return this.billedByPeriodMap().get(this.periodValue(dist)) ?? 0;
-  }
-
-  programmedForPeriod(dist: BudgetMonthlyDistribution): number {
-    return dist.counterpart_amount + dist.ally_amount;
-  }
-
-  /** true si ese período ya alcanzó o superó lo programado — se usa solo para avisar en el
-   * selector (⚠), nunca para bloquearlo. */
-  periodExceeded(dist: BudgetMonthlyDistribution): boolean {
-    return this.billedForPeriod(dist) >= this.programmedForPeriod(dist) - AMOUNT_EPSILON;
-  }
-
   /** Advertencia NO bloqueante: si el valor que se está por guardar supera lo programado para
-   * el período elegido y/o el total presupuestado del rubro, se avisa aquí — pero la factura
-   * se puede guardar igual (facturar de más está permitido intencionalmente). */
+   * el desembolso seleccionado, se avisa aquí — pero la factura se puede guardar igual
+   * (facturar de más está permitido intencionalmente, igual que antes con el rubro). */
   invoiceOverageWarning(): string | null {
-    const item = this.selectedItem();
-    if (!item || !this.form.value) return null;
-    const messages: string[] = [];
-
-    if (this.form.period) {
-      const dist = item.monthly_distributions.find(d => this.periodValue(d) === this.form.period);
-      if (dist) {
-        const totalPeriod = this.billedForPeriod(dist) + this.form.value;
-        const programmed = this.programmedForPeriod(dist);
-        if (totalPeriod > programmed + AMOUNT_EPSILON) {
-          messages.push(`Supera lo programado para ${this.monthLabel(dist)} por ${this.formatCurrency(totalPeriod - programmed)}.`);
-        }
-      }
-    }
+    const d = this.selectedDisbursement();
+    if (!d || !this.form.value) return null;
 
     const editingId = this.editingInvoiceId();
     const alreadyInvoiced = this.invoices().reduce((s, inv) => inv.id === editingId ? s : s + inv.value, 0);
-    const totalItem = alreadyInvoiced + this.form.value;
-    if (totalItem > item.total_value + AMOUNT_EPSILON) {
-      messages.push(`Supera el presupuesto total del rubro por ${this.formatCurrency(totalItem - item.total_value)}.`);
+    const total = alreadyInvoiced + this.form.value;
+    if (total > d.planned_amount + AMOUNT_EPSILON) {
+      return `Supera el valor programado de este desembolso por ${this.formatCurrency(total - d.planned_amount)}.`;
     }
-
-    return messages.length ? messages.join(' ') : null;
+    return null;
   }
 
   /** Valor antes de IVA = valor / (1 + iva%/100), usando el % de IVA del propio formulario
@@ -864,8 +369,6 @@ export class TabFacturacionComponent implements OnInit {
       value_before_tax: inv.value_before_tax,
       no_iva: inv.value_before_tax != null && Math.abs(inv.value_before_tax - inv.value) < AMOUNT_EPSILON,
       collection_act_number: inv.collection_act_number ?? '',
-      status: inv.status,
-      period: inv.year != null && inv.month != null ? `${inv.year}-${inv.month}` : '',
       date: this.isoToDateInput(inv.date),
       description: inv.description ?? '',
       applies_admin_fee: this.appliesAdminFee(),
@@ -891,8 +394,8 @@ export class TabFacturacionComponent implements OnInit {
   /** Elimina la factura — el backend hace cascada sobre sus cobros (ON DELETE CASCADE), así
    * que se advierte explícitamente al usuario antes de confirmar cuando ya tiene cobros. */
   async deleteInvoice(inv: Invoice): Promise<void> {
-    const item = this.selectedItem();
-    if (!item || this.deletingInvoiceId()) return;
+    const d = this.selectedDisbursement();
+    if (!d || this.deletingInvoiceId()) return;
 
     const receiptCount = this.receiptsFor(inv.id).length;
     const message = receiptCount > 0
@@ -901,11 +404,11 @@ export class TabFacturacionComponent implements OnInit {
     if (!(await this.confirmDialog.confirm({ message, variant: 'danger' }))) return;
 
     this.deletingInvoiceId.set(inv.id);
-    this.svc.deleteInvoice(this.projectId, item.budget_item_id, inv.id).subscribe({
+    this.svc.deleteInvoiceForDisbursement(this.projectId, d.id, inv.id).subscribe({
       next: () => {
         this.deletingInvoiceId.set(null);
         if (this.editingInvoiceId() === inv.id) this.cancelForm();
-        this.loadItemAndInvoices(item.budget_item_id);
+        this.loadInvoices(d.id);
       },
       error: () => this.deletingInvoiceId.set(null),
     });
@@ -919,16 +422,11 @@ export class TabFacturacionComponent implements OnInit {
   }
 
   submitInvoice(): void {
-    const item = this.selectedItem();
-    if (!item || this.formSaving()) return;
+    const d = this.selectedDisbursement();
+    if (!d || this.formSaving()) return;
 
     if (!this.form.value || this.form.value <= 0) {
       this.formError.set('El valor de la factura es requerido y debe ser mayor a 0.');
-      return;
-    }
-
-    if (!this.form.period) {
-      this.formError.set('El mes a facturar es requerido.');
       return;
     }
 
@@ -945,17 +443,8 @@ export class TabFacturacionComponent implements OnInit {
     this.formSaving.set(true);
     this.formError.set(null);
 
-    let year: number | undefined;
-    let month: number | undefined;
-    if (this.form.period) {
-      const [y, m] = this.form.period.split('-').map(Number);
-      year = y; month = m;
-    }
-
     const payload: InvoiceRequest = {
       value: this.form.value,
-      status: this.form.status,
-      year, month,
       value_before_tax: this.form.value_before_tax ?? undefined,
       collection_act_number: this.form.collection_act_number.trim() || undefined,
       description: this.form.description.trim() || undefined,
@@ -964,8 +453,8 @@ export class TabFacturacionComponent implements OnInit {
 
     const editingId = this.editingInvoiceId();
     const request$ = editingId
-      ? this.svc.updateInvoice(this.projectId, item.budget_item_id, editingId, payload)
-      : this.svc.createInvoice(this.projectId, item.budget_item_id, payload);
+      ? this.svc.updateInvoiceForDisbursement(this.projectId, d.id, editingId, payload)
+      : this.svc.createInvoiceForDisbursement(this.projectId, d.id, payload);
 
     // Si el usuario tocó el % de administración/IVA en este mismo formulario, primero se
     // guarda esa configuración a nivel de proyecto (afecta también desembolsos y flujo de
@@ -995,7 +484,8 @@ export class TabFacturacionComponent implements OnInit {
       next: () => {
         this.formSaving.set(false);
         this.cancelForm();
-        this.loadItemAndInvoices(item.budget_item_id);
+        this.loadInvoices(d.id);
+        this.loadDisbursements();
       },
       error: (err) => {
         this.formSaving.set(false);
@@ -1007,10 +497,10 @@ export class TabFacturacionComponent implements OnInit {
   // ── Cobros reales recibidos (por factura) ───────────────────────────────
 
   private loadReceipts(invoice: Invoice): void {
-    const item = this.selectedItem();
-    if (!item) return;
+    const d = this.selectedDisbursement();
+    if (!d) return;
     this.receiptsLoadingId.set(invoice.id);
-    this.svc.listFundingReceipts(this.projectId, item.budget_item_id, invoice.id).subscribe({
+    this.svc.listFundingReceiptsForDisbursement(this.projectId, d.id, invoice.id).subscribe({
       next: list => {
         this.receiptsByInvoice.update(m => ({ ...m, [invoice.id]: list ?? [] }));
         this.receiptsLoadingId.set(null);
@@ -1068,7 +558,7 @@ export class TabFacturacionComponent implements OnInit {
     return cap > 0 ? Math.min(100, (this.collectedFor(inv.id) / cap) * 100) : 0;
   }
 
-  /** Totales del ítem seleccionado, para el resumen de "control de cobros" arriba de la lista. */
+  /** Totales del desembolso seleccionado, para el resumen de "control de cobros" arriba de la lista. */
   totalInvoiced = computed(() => this.invoices().reduce((s, i) => s + (i.value ?? 0), 0));
   totalCollected = computed(() => this.invoices().reduce((s, i) => s + this.collectedFor(i.id), 0));
   collectionPct = computed(() => {
@@ -1102,13 +592,13 @@ export class TabFacturacionComponent implements OnInit {
     const file = input.files?.[0];
     input.value = '';
     if (!file) return;
-    const item = this.selectedItem();
-    if (!item) return;
+    const d = this.selectedDisbursement();
+    if (!d) return;
 
     this.uploadingDocumentId.set(receipt.id);
     const form = new FormData();
     form.append('file', file);
-    this.svc.uploadReceiptDocument(this.projectId, item.budget_item_id, invoice.id, receipt.id, form).subscribe({
+    this.svc.uploadReceiptDocumentForDisbursement(this.projectId, d.id, invoice.id, receipt.id, form).subscribe({
       next: updated => {
         this.uploadingDocumentId.set(null);
         this.receiptsByInvoice.update(m => ({
@@ -1138,8 +628,8 @@ export class TabFacturacionComponent implements OnInit {
   }
 
   submitReceipt(invoice: Invoice): void {
-    const item = this.selectedItem();
-    if (!item || this.receiptSaving()) return;
+    const d = this.selectedDisbursement();
+    if (!d || this.receiptSaving()) return;
 
     if (!this.receiptForm.value || this.receiptForm.value <= 0) {
       this.receiptError.set('El valor del cobro es requerido y debe ser mayor a 0.');
@@ -1170,18 +660,19 @@ export class TabFacturacionComponent implements OnInit {
     };
 
     const file = this.receiptDocumentFile();
-    this.svc.createFundingReceipt(this.projectId, item.budget_item_id, invoice.id, payload).pipe(
+    this.svc.createFundingReceiptForDisbursement(this.projectId, d.id, invoice.id, payload).pipe(
       switchMap(created => {
         if (!file) return of(created);
         const form = new FormData();
         form.append('file', file);
-        return this.svc.uploadReceiptDocument(this.projectId, item.budget_item_id, invoice.id, created.id, form);
+        return this.svc.uploadReceiptDocumentForDisbursement(this.projectId, d.id, invoice.id, created.id, form);
       }),
     ).subscribe({
       next: () => {
         this.receiptSaving.set(false);
         this.cancelReceiptForm();
         this.loadReceipts(invoice);
+        this.loadDisbursements();
       },
       error: err => {
         this.receiptSaving.set(false);
@@ -1191,14 +682,15 @@ export class TabFacturacionComponent implements OnInit {
   }
 
   async deleteReceipt(invoice: Invoice, receipt: FundingReceipt): Promise<void> {
-    const item = this.selectedItem();
-    if (!item) return;
+    const d = this.selectedDisbursement();
+    if (!d) return;
     if (!(await this.confirmDialog.confirm({ message: '¿Eliminar este cobro registrado?', variant: 'danger' }))) return;
     this.deletingReceiptId.set(receipt.id);
-    this.svc.deleteFundingReceipt(this.projectId, item.budget_item_id, invoice.id, receipt.id).subscribe({
+    this.svc.deleteFundingReceiptForDisbursement(this.projectId, d.id, invoice.id, receipt.id).subscribe({
       next: () => {
         this.receiptsByInvoice.update(m => ({ ...m, [invoice.id]: (m[invoice.id] ?? []).filter(r => r.id !== receipt.id) }));
         this.deletingReceiptId.set(null);
+        this.loadDisbursements();
       },
       error: () => this.deletingReceiptId.set(null),
     });
@@ -1208,8 +700,13 @@ export class TabFacturacionComponent implements OnInit {
     return s === 'recibido' ? 'Recibido' : 'Planeado';
   }
 
+  statusLabel(s: Disbursement['status']): string {
+    return s === 'pagado' ? 'Pagado' : s === 'parcial' ? 'Parcial' : 'Planeado';
+  }
+
   trackByInvoiceRow(_: number, i: Invoice) { return i.id; }
   trackByReceipt(_: number, r: FundingReceipt) { return r.id; }
+  trackByDisbursement(_: number, d: Disbursement) { return d.id; }
 
   // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -1222,7 +719,4 @@ export class TabFacturacionComponent implements OnInit {
     if (v >= 1_000) return `$${(v / 1_000).toFixed(0)}K`;
     return `$${v.toFixed(2)}`;
   }
-
-  trackByComp(_: number, s: InvoiceSection)   { return s.component_id; }
-  trackByRow(_: number, r: InvoiceItemRow)    { return r.budget_item_id; }
 }

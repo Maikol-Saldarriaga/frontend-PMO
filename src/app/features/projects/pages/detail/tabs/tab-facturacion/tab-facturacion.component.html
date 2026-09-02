@@ -3,7 +3,7 @@
     <div class="flex items-center justify-center h-48">
       <div class="flex flex-col items-center gap-3">
         <div class="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
-        <p class="text-sm text-gray-400">Cargando presupuesto...</p>
+        <p class="text-sm text-gray-400">Cargando desembolsos...</p>
       </div>
     </div>
   } @else if (error()) {
@@ -16,7 +16,7 @@
     <div class="flex items-center justify-between gap-4 flex-wrap">
       <div>
         <h2 class="text-base font-bold text-gray-900">Facturación</h2>
-        <p class="text-xs text-gray-400 mt-0.5">Selecciona un ítem de presupuesto para ver y registrar sus facturas.</p>
+        <p class="text-xs text-gray-400 mt-0.5">Selecciona un desembolso para ver y registrar sus facturas — la Factura FODC → Aliado se emite por tramo de desembolso, no por rubro.</p>
       </div>
       <div class="flex items-center gap-3 flex-shrink-0">
         @if (!canCreate()) {
@@ -27,6 +27,13 @@
             Solo ADMIN, COORDINADOR o FINANCE pueden registrar facturas
           </span>
         }
+        <button type="button" (click)="toggleSidebar()" [title]="sidebarCollapsed() ? 'Mostrar lista de desembolsos' : 'Ocultar lista de desembolsos y ampliar la tabla'"
+          class="hidden lg:flex items-center gap-2 px-3 py-2.5 rounded-xl bg-white hover:bg-neutral-50 text-primary-700 border border-neutral-200 text-sm font-semibold shadow-sm transition-all active:scale-95">
+          <svg class="w-4 h-4 transition-transform duration-200" [class.rotate-180]="sidebarCollapsed()" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"/>
+          </svg>
+          @if (sidebarCollapsed()) { Mostrar lista } @else { Ampliar tabla }
+        </button>
         <button type="button" [routerLink]="['/projects', projectId, 'movimientos']"
           class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-neutral-50 text-primary-700 border border-neutral-200 text-sm font-semibold shadow-sm transition-all active:scale-95">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -44,110 +51,22 @@
       </div>
     </div>
 
-    <!-- ── Facturas generales (una factura de proveedor que cubre varios rubros) ────────── -->
-    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-      <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h3 class="text-sm font-bold text-gray-900">Facturas generales</h3>
-          <p class="text-xs text-gray-400 mt-0.5">Una sola factura de proveedor repartida entre varios rubros a la vez.</p>
-        </div>
-        @if (canCreate()) {
-          <button type="button" (click)="showHeaderForm() ? cancelHeaderForm() : startHeaderForm()" [disabled]="locked"
-            class="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white hover:bg-neutral-50 text-primary-700 border border-neutral-200 text-xs font-semibold shadow-sm transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0">
-            <svg class="w-3.5 h-3.5 transition-transform duration-300 ease-out" [class.rotate-45]="showHeaderForm()" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
-            </svg>
-            @if (showHeaderForm()) { Cancelar } @else { Factura general (varios rubros) }
-          </button>
-        }
-      </div>
-
-      @if (invoiceHeadersLoading()) {
-        <div class="flex items-center justify-center py-8">
-          <div class="w-6 h-6 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
-        </div>
-      } @else if (invoiceHeadersError()) {
-        <div class="px-5 py-6"><p class="text-xs text-danger">{{ invoiceHeadersError() }}</p></div>
-      } @else if (!invoiceHeaders().length) {
-        <div class="px-5 py-8 text-center">
-          <p class="text-xs text-neutral-400">Aún no hay facturas generales registradas.</p>
-        </div>
-      } @else {
-        <div class="divide-y divide-gray-50">
-          @for (h of invoiceHeaders(); track trackByHeader($index, h)) {
-            <div>
-              <div class="px-5 py-3.5 flex items-center gap-3 hover:bg-neutral-50/60 transition-colors">
-                <button type="button" (click)="toggleHeaderExpand(h)" class="min-w-0 flex-1 text-left flex items-center gap-3">
-                  <div class="min-w-0 flex-1">
-                    <p class="text-xs font-semibold text-primary-700 flex items-center gap-1.5 flex-wrap">
-                      <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-violet-50 text-violet-700 text-[9px] font-bold uppercase tracking-wide flex-shrink-0">
-                        <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                        General
-                      </span>
-                      {{ formatCurrency(h.value) }}
-                      <span class="text-[10px] font-medium text-neutral-400 ml-1">{{ h.date | date:'dd/MM/yyyy':'UTC' }}</span>
-                    </p>
-                    <p class="text-[11px] text-neutral-400 mt-0.5 truncate">
-                      @if (h.provider) { {{ h.provider }} · }
-                      @if (h.invoice_number) { {{ h.invoice_number }} · }
-                      {{ headerLineCount(h.id) }} línea(s)
-                    </p>
-                  </div>
-                  <svg class="w-4 h-4 text-neutral-400 flex-shrink-0 transition-transform" [class.rotate-180]="expandedHeaderId() === h.id" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
-                  </svg>
-                </button>
-                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold flex-shrink-0"
-                  [class.bg-emerald-50]="h.status === 'FACT'" [class.text-emerald-700]="h.status === 'FACT'"
-                  [class.bg-amber-50]="h.status === 'PEND'" [class.text-amber-700]="h.status === 'PEND'">
-                  {{ h.status === 'FACT' ? 'Facturada' : 'Pendiente' }}
-                </span>
-                @if (canCreate()) {
-                  <button type="button" (click)="deleteInvoiceHeader(h)" [disabled]="locked || deletingHeaderId() === h.id" title="Eliminar factura general"
-                    class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-neutral-200 text-[10px] font-semibold text-neutral-500 hover:text-danger hover:border-danger/30 hover:bg-danger/10 transition-colors flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed">
-                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                    Eliminar
-                  </button>
-                }
-              </div>
-
-              @if (expandedHeaderId() === h.id) {
-                <div class="px-5 pb-4 bg-neutral-50/50">
-                  @if (h.description) {
-                    <p class="text-[11px] text-neutral-400 mb-2 italic">{{ h.description }}</p>
-                  }
-                  @if (headerLinesLoadingId() === h.id) {
-                    <div class="flex items-center justify-center py-4">
-                      <div class="w-5 h-5 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
-                    </div>
-                  } @else {
-                    <div class="space-y-1.5">
-                      @for (line of headerLinesFor(h.id); track line.id) {
-                        <div class="flex items-center justify-between gap-3 bg-white rounded-lg border border-gray-100 px-3 py-2">
-                          <span class="text-xs text-neutral-600 truncate">{{ rubroLabelForLine(line) }}</span>
-                          <span class="text-xs font-semibold text-primary-700 flex-shrink-0">{{ formatCurrency(line.value) }}</span>
-                        </div>
-                      }
-                    </div>
-                  }
-                </div>
-              }
-            </div>
-          }
-        </div>
-      }
-    </div>
-
-    @if (!hasAnyRows()) {
+    @if (!disbursements().length) {
       <div class="bg-white rounded-2xl border border-dashed border-gray-200 flex flex-col items-center justify-center py-16 gap-2">
-        <p class="text-sm font-medium text-gray-500">Aún no hay ítems de presupuesto.</p>
-        <p class="text-xs text-gray-400">Crea componentes e ítems en la pestaña "Presupuesto" antes de facturar.</p>
+        <p class="text-sm font-medium text-gray-500">Este proyecto todavía no tiene desembolsos planeados.</p>
+        <p class="text-xs text-gray-400 mb-2">Crea una Solicitud de Desembolso antes de poder facturar.</p>
+        <button type="button" [routerLink]="['/projects', projectId]" [queryParams]="{ tab: 'desembolsos' }"
+          class="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-accent hover:bg-accent-700 text-white text-xs font-semibold shadow-sm transition-all active:scale-95">
+          Ir a Desembolsos
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        </button>
       </div>
     } @else {
 
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
+      <div class="grid grid-cols-1 gap-5 items-start" [class.lg:grid-cols-3]="!sidebarCollapsed()">
 
-        <!-- ── Columna izquierda: lista de ítems (sticky) ────────────────── -->
+        <!-- ── Columna izquierda: lista de desembolsos (sticky) ────────────────── -->
+        @if (!sidebarCollapsed()) {
         <div class="lg:col-span-1 lg:sticky lg:top-24 space-y-4">
 
           <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -156,33 +75,27 @@
                 <svg class="w-4 h-4 text-gray-300 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
                 </svg>
-                <input type="text" [(ngModel)]="search" placeholder="Buscar ítem o componente..."
+                <input type="text" [(ngModel)]="search" placeholder="Buscar desembolso..."
                   class="w-full pl-9 pr-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-300 bg-neutral-50 outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
               </div>
             </div>
 
-            <div class="max-h-[360px] overflow-y-auto divide-y divide-gray-50">
-              @for (sec of filteredSections(); track trackByComp($index, sec)) {
-                <div class="px-4 pt-3 pb-1 flex items-center gap-1.5">
-                  <span class="w-2 h-2 rounded-full flex-shrink-0" [style.background]="colorForComponent(sec.component_id)"></span>
-                  <p class="text-[10px] font-bold text-neutral-400 uppercase tracking-wide truncate">{{ sec.name }}</p>
-                </div>
-                @for (row of sec.rows; track trackByRow($index, row)) {
-                  <button type="button" (click)="selectItem(row)"
-                    class="w-full text-left px-4 py-3 flex items-center justify-between gap-3 transition-colors"
-                    [class.bg-accent-50]="selectedItem()?.budget_item_id === row.budget_item_id"
-                    [class.hover:bg-neutral-50]="selectedItem()?.budget_item_id !== row.budget_item_id">
-                    <div class="min-w-0 flex-1">
-                      <p class="text-xs font-semibold truncate" [class.text-accent]="selectedItem()?.budget_item_id === row.budget_item_id" [class.text-primary-700]="selectedItem()?.budget_item_id !== row.budget_item_id">
-                        {{ row.concept || 'Sin nombre' }}
-                      </p>
-                      <p class="text-[10px] text-neutral-400 truncate">{{ row.component_name }}</p>
-                    </div>
-                    <span class="text-[11px] font-bold text-neutral-500 flex-shrink-0">{{ formatCompact(row.total_value) }}</span>
-                  </button>
-                }
+            <div class="max-h-[420px] overflow-y-auto divide-y divide-gray-50">
+              @for (d of filteredDisbursements(); track trackByDisbursement($index, d)) {
+                <button type="button" (click)="selectDisbursement(d)"
+                  class="w-full text-left px-4 py-3 flex items-center justify-between gap-3 transition-colors"
+                  [class.bg-accent-50]="selectedDisbursement()?.id === d.id"
+                  [class.hover:bg-neutral-50]="selectedDisbursement()?.id !== d.id">
+                  <div class="min-w-0 flex-1">
+                    <p class="text-xs font-semibold truncate" [class.text-accent]="selectedDisbursement()?.id === d.id" [class.text-primary-700]="selectedDisbursement()?.id !== d.id">
+                      {{ d.name }}
+                    </p>
+                    <p class="text-[10px] text-neutral-400 truncate">{{ d.percentage }}% · {{ statusLabel(d.status) }}</p>
+                  </div>
+                  <span class="text-[11px] font-bold text-neutral-500 flex-shrink-0">{{ formatCompact(d.planned_amount) }}</span>
+                </button>
               }
-              @if (!filteredSections().length) {
+              @if (!filteredDisbursements().length) {
                 <div class="px-4 py-8 text-center">
                   <p class="text-xs text-neutral-400">Sin resultados para "{{ search }}".</p>
                 </div>
@@ -190,54 +103,54 @@
             </div>
           </div>
 
-          <!-- ── Resumen general del presupuesto ───────────────────────────── -->
+          <!-- ── Resumen general de desembolsos ───────────────────────────── -->
           <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-            <p class="text-[10px] font-bold text-neutral-400 uppercase tracking-wide mb-3">Resumen del presupuesto</p>
+            <p class="text-[10px] font-bold text-neutral-400 uppercase tracking-wide mb-3">Resumen de desembolsos</p>
             <div class="space-y-2.5">
               <div class="flex items-center justify-between gap-3">
-                <span class="text-xs text-neutral-500">Componentes técnicos</span>
-                <span class="text-xs font-bold text-primary-700">{{ totalComponentsCount() }}</span>
-              </div>
-              <div class="flex items-center justify-between gap-3">
-                <span class="text-xs text-neutral-500">Rubros / ítems</span>
-                <span class="text-xs font-bold text-primary-700">{{ totalItemsCount() }}</span>
+                <span class="text-xs text-neutral-500">Desembolsos planeados</span>
+                <span class="text-xs font-bold text-primary-700">{{ disbursements().length }}</span>
               </div>
               <div class="flex items-center justify-between gap-3 pt-2.5 border-t border-gray-100">
-                <span class="text-xs text-neutral-500">Presupuesto total</span>
-                <span class="text-xs font-bold text-accent">{{ formatCurrency(totalProjectBudget()) }}</span>
+                <span class="text-xs text-neutral-500">Saldo total por cobrar</span>
+                <span class="text-xs font-bold text-accent">{{ formatCurrency(disbursementsBalance()) }}</span>
               </div>
             </div>
             <p class="text-[10px] text-neutral-400 mt-3 pt-3 border-t border-gray-100">
-              Selecciona un ítem para ver su control de cobros, historial de facturas y distribución mensual.
+              Selecciona un desembolso para ver su control de cobros e historial de facturas.
             </p>
           </div>
         </div>
+        }
 
-        <!-- ── Columna derecha: detalle + facturas del ítem seleccionado ─── -->
-        <div class="lg:col-span-2 space-y-5">
+        <!-- ── Columna derecha: detalle + facturas del desembolso seleccionado ─── -->
+        <div class="space-y-5" [class.lg:col-span-2]="!sidebarCollapsed()">
 
-          @if (!selectedItem()) {
+          @if (!selectedDisbursement()) {
             <div class="bg-white rounded-2xl border border-dashed border-gray-200 flex flex-col items-center justify-center py-20 gap-3">
               <div class="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center">
                 <svg class="w-7 h-7 text-gray-300" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                 </svg>
               </div>
-              <p class="text-sm font-medium text-gray-500">Selecciona un ítem a la izquierda</p>
+              <p class="text-sm font-medium text-gray-500">Selecciona un desembolso a la izquierda</p>
               <p class="text-xs text-gray-400">Ahí podrás ver su historial de facturas y registrar una nueva.</p>
             </div>
           } @else {
 
-            <!-- Cabecera del ítem seleccionado -->
+            <!-- Cabecera del desembolso seleccionado -->
             <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
               <div class="flex items-center justify-between gap-4 flex-wrap">
                 <div class="min-w-0">
-                  <p class="text-[10px] font-bold uppercase tracking-wide mb-1 flex items-center gap-1.5" [style.color]="colorForComponent(selectedItem()!.technical_component_id)">
-                    <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" [style.background]="colorForComponent(selectedItem()!.technical_component_id)"></span>
-                    {{ selectedItem()!.technical_name }} · {{ selectedItem()!.component_name }}
+                  <p class="text-[10px] font-bold uppercase tracking-wide mb-1 flex items-center gap-1.5 text-accent">
+                    <span class="w-1.5 h-1.5 rounded-full flex-shrink-0 bg-accent"></span>
+                    {{ selectedDisbursement()!.percentage }}% del valor total · {{ statusLabel(selectedDisbursement()!.status) }}
                   </p>
-                  <h3 class="text-sm font-bold text-gray-900 truncate">{{ selectedItem()!.concept }}</h3>
-                  <p class="text-xs text-gray-400 mt-0.5">Presupuesto total: {{ formatCurrency(selectedItem()!.total_value) }}</p>
+                  <h3 class="text-sm font-bold text-gray-900 truncate">{{ selectedDisbursement()!.name }}</h3>
+                  @if (selectedDisbursement()!.justification) {
+                    <p class="text-xs text-gray-400 mt-0.5">{{ selectedDisbursement()!.justification }}</p>
+                  }
+                  <p class="text-xs text-gray-400 mt-0.5">Valor programado: {{ formatCurrency(selectedDisbursement()!.planned_amount) }}</p>
                 </div>
                 @if (canCreate()) {
                   <button type="button" (click)="showForm() ? cancelForm() : startForm()" [disabled]="locked"
@@ -261,11 +174,11 @@
               </div>
             } @else {
 
-              <!-- ── KPIs del ítem: presupuestado / facturado / pendiente por facturar / cobrado / pendiente por cobrar ── -->
+              <!-- ── KPIs del desembolso: programado / facturado / pendiente por facturar / cobrado / pendiente por cobrar ── -->
               <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                 <div class="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3.5">
-                  <p class="text-[10px] font-bold text-neutral-400 uppercase tracking-wide">Presupuestado</p>
-                  <p class="text-sm font-bold text-gray-900 mt-1">{{ formatCompact(selectedItem()!.total_value) }}</p>
+                  <p class="text-[10px] font-bold text-neutral-400 uppercase tracking-wide">Programado</p>
+                  <p class="text-sm font-bold text-gray-900 mt-1">{{ formatCompact(selectedDisbursement()!.planned_amount) }}</p>
                 </div>
                 <div class="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3.5">
                   <p class="text-[10px] font-bold text-neutral-400 uppercase tracking-wide">Facturado</p>
@@ -299,7 +212,7 @@
                 </div>
               }
 
-              <!-- ── Sub-pestañas: Facturas | Cobros | Detalle por periodo ────── -->
+              <!-- ── Sub-pestañas: Facturas | Cobros ────── -->
               <div class="inline-flex items-center gap-1 bg-gray-100 rounded-xl p-1">
                 <button type="button" (click)="facturacionView.set('facturas')"
                   class="px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors"
@@ -314,12 +227,6 @@
                   [class.text-neutral-400]="facturacionView() !== 'cobros'">
                   Cobros
                 </button>
-                <button type="button" (click)="facturacionView.set('periodo')"
-                  class="px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors"
-                  [class.bg-white]="facturacionView() === 'periodo'" [class.text-primary-700]="facturacionView() === 'periodo'" [class.shadow-sm]="facturacionView() === 'periodo'"
-                  [class.text-neutral-400]="facturacionView() !== 'periodo'">
-                  Detalle por periodo
-                </button>
               </div>
 
               @if (facturacionView() === 'facturas') {
@@ -333,68 +240,72 @@
 
                   @if (!invoices().length) {
                     <div class="px-5 py-8 text-center">
-                      <p class="text-xs text-neutral-400">Aún no hay facturas registradas para este ítem.</p>
+                      <p class="text-xs text-neutral-400">Aún no hay facturas registradas para este desembolso.</p>
                     </div>
                   } @else {
-                    <div class="divide-y divide-gray-50">
-                      @for (inv of invoices(); track trackByInvoiceRow($index, inv)) {
-                        <div class="w-full px-5 py-3.5 flex items-center justify-between gap-3 hover:bg-neutral-50/60 transition-colors border-l-2 border-sky-400">
-                          <div class="min-w-0 flex-1">
-                            <p class="text-xs font-semibold text-primary-700 flex items-center gap-1.5">
-                              <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-sky-50 text-sky-700 text-[9px] font-bold uppercase tracking-wide flex-shrink-0">
-                                <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                                Factura
-                              </span>
-                              {{ formatCurrency(inv.value) }}
-                              <span class="text-[10px] font-medium text-neutral-400 ml-1">{{ inv.date | date:'dd/MM/yyyy':'UTC' }}</span>
-                              @if (inv.invoice_header_id) {
-                                <span class="inline-flex items-center px-1.5 py-0.5 rounded-md bg-violet-50 text-violet-600 text-[9px] font-semibold" title="Esta factura es una línea de una factura general">
-                                  Parte de factura general
-                                </span>
-                              }
-                            </p>
-                            <p class="text-[11px] text-neutral-400 mt-0.5">
-                              {{ inv.year && inv.month ? monthLabel({ year: inv.year, month: inv.month }) : 'Componente completo' }}
-                              @if (inv.collection_act_number) { · {{ inv.collection_act_number }} }
-                            </p>
-                            <p class="text-[10px] text-neutral-400 mt-0.5">
-                              IVA {{ invoiceIvaPercentage(inv) }}%
-                              @if (inv.admin_fee_amount) {
-                                <span class="text-amber-600"> · Admin {{ invoiceAdminFeePercentage(inv) }}%: {{ formatCurrency(inv.admin_fee_amount) }} · Neto: {{ formatCurrency(inv.net_value ?? inv.value) }}</span>
-                              }
-                            </p>
-                          </div>
-                          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold flex-shrink-0"
-                            [class.bg-emerald-50]="inv.status === 'FACT'" [class.text-emerald-700]="inv.status === 'FACT'"
-                            [class.bg-amber-50]="inv.status === 'PEND'" [class.text-amber-700]="inv.status === 'PEND'">
-                            {{ inv.status === 'FACT' ? 'Facturada' : 'Pendiente' }}
-                          </span>
-                          @if (canCreate() && canEditInvoice(inv)) {
-                            <button type="button" (click)="startEditInvoice(inv)" [disabled]="locked" title="Editar factura (aún no cobrada)"
-                              class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-neutral-200 text-[10px] font-semibold text-neutral-500 hover:text-accent hover:border-accent-200 hover:bg-accent-50 transition-colors flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed">
-                              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                              Editar
-                            </button>
+                    <div class="overflow-x-auto scrollbar-thin">
+                      <table class="w-full text-sm border-collapse">
+                        <thead>
+                          <tr class="bg-neutral-50 border-b border-gray-100 text-[10px] font-bold text-neutral-500 uppercase tracking-wide">
+                            <th class="px-4 py-2.5 text-left">Fecha</th>
+                            <th class="px-4 py-2.5 text-left">N° acta de cobro</th>
+                            <th class="px-4 py-2.5 text-right">Valor</th>
+                            <th class="px-4 py-2.5 text-right">IVA</th>
+                            <th class="px-4 py-2.5 text-right">Administración</th>
+                            <th class="px-4 py-2.5 text-right">Neto</th>
+                            <th class="px-4 py-2.5 text-right">Cobrado / Total</th>
+                            <th class="px-4 py-2.5 text-right">Acciones</th>
+                          </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                          @for (inv of invoices(); track trackByInvoiceRow($index, inv)) {
+                            <tr class="hover:bg-neutral-50/60 transition-colors border-l-2 border-sky-400">
+                              <td class="px-4 py-3 whitespace-nowrap text-xs text-neutral-600">{{ inv.date | date:'dd/MM/yyyy':'UTC' }}</td>
+                              <td class="px-4 py-3 text-xs text-neutral-600">
+                                @if (inv.collection_act_number) { {{ inv.collection_act_number }} } @else { <span class="text-neutral-300">Sin N° de acta</span> }
+                              </td>
+                              <td class="px-4 py-3 text-right text-xs font-semibold text-primary-700 whitespace-nowrap">{{ formatCurrency(inv.value) }}</td>
+                              <td class="px-4 py-3 text-right text-xs text-neutral-500 whitespace-nowrap">{{ invoiceIvaPercentage(inv) }}%</td>
+                              <td class="px-4 py-3 text-right text-xs whitespace-nowrap">
+                                @if (inv.admin_fee_amount) {
+                                  <span class="text-amber-600">{{ invoiceAdminFeePercentage(inv) }}% · {{ formatCurrency(inv.admin_fee_amount) }}</span>
+                                } @else {
+                                  <span class="text-neutral-300">—</span>
+                                }
+                              </td>
+                              <td class="px-4 py-3 text-right text-xs text-neutral-600 whitespace-nowrap">{{ formatCurrency(inv.net_value ?? inv.value) }}</td>
+                              <td class="px-4 py-3 text-right whitespace-nowrap">
+                                <button type="button" (click)="goToCobros(inv)" title="Ver cobros de esta factura"
+                                  class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-neutral-200 text-[10px] font-semibold text-neutral-500 hover:text-accent hover:border-accent-200 hover:bg-accent-50 transition-colors">
+                                  {{ formatCompact(collectedFor(inv.id)) }}/{{ formatCompact(collectibleCap(inv)) }}
+                                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                                </button>
+                              </td>
+                              <td class="px-4 py-3 text-right whitespace-nowrap">
+                                <div class="inline-flex items-center gap-1.5">
+                                  @if (canCreate() && canEditInvoice(inv)) {
+                                    <button type="button" (click)="startEditInvoice(inv)" [disabled]="locked" title="Editar factura (aún no cobrada)"
+                                      class="w-6 h-6 flex items-center justify-center rounded-lg text-neutral-400 hover:text-accent hover:bg-accent-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                    </button>
+                                  }
+                                  @if (canCreate()) {
+                                    <button type="button" (click)="deleteInvoice(inv)" [disabled]="locked || deletingInvoiceId() === inv.id" title="Eliminar factura"
+                                      class="w-6 h-6 flex items-center justify-center rounded-lg text-neutral-400 hover:text-danger hover:bg-danger/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                    </button>
+                                  }
+                                </div>
+                              </td>
+                            </tr>
                           }
-                          @if (canCreate()) {
-                            <button type="button" (click)="deleteInvoice(inv)" [disabled]="locked || deletingInvoiceId() === inv.id" title="Eliminar factura"
-                              class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-neutral-200 text-[10px] font-semibold text-neutral-500 hover:text-danger hover:border-danger/30 hover:bg-danger/10 transition-colors flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed">
-                              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                              Eliminar
-                            </button>
-                          }
-                          <button type="button" (click)="goToCobros(inv)" title="Ver cobros de esta factura"
-                            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-neutral-200 text-[10px] font-semibold text-neutral-500 hover:text-accent hover:border-accent-200 hover:bg-accent-50 transition-colors flex-shrink-0">
-                            Cobrado {{ formatCompact(collectedFor(inv.id)) }}/{{ formatCompact(collectibleCap(inv)) }}
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                          </button>
-                        </div>
-                      }
+                        </tbody>
+                      </table>
                     </div>
                   }
                 </div>
 
-              } @else if (facturacionView() === 'cobros') {
+              } @else {
 
                 <!-- ── Cobros recibidos, agrupados por factura ─────────────────── -->
                 <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -447,62 +358,74 @@
                             </div>
                           } @else {
                             @if (receiptsFor(inv.id).length) {
-                              <div class="space-y-1.5 mb-2">
-                                @for (r of receiptsFor(inv.id); track trackByReceipt($index, r)) {
-                                  <div class="flex items-center justify-between gap-3 bg-neutral-50 rounded-lg border border-gray-100 border-l-2 border-l-emerald-400 px-3 py-2">
-                                    <div class="min-w-0">
-                                      <p class="text-xs font-semibold text-gray-900 flex items-center gap-1.5 flex-wrap">
-                                        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[9px] font-bold uppercase tracking-wide flex-shrink-0">
-                                          <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 9V7a4 4 0 00-8 0v2M5 9h14l-1 12H6L5 9z"/></svg>
-                                          Cobro
-                                        </span>
-                                        {{ formatCurrency(r.value) }}
-                                      </p>
-                                      <p class="text-[10px] text-neutral-400">
-                                        {{ r.receipt_date ? (r.receipt_date | date:'dd/MM/yyyy':'UTC') : '—' }}
-                                        @if (r.receipt_reference) { · {{ r.receipt_reference }} }
-                                      </p>
-                                      @if (r.value_before_tax !== null) {
-                                        <p class="text-[10px] text-neutral-400">
-                                          Antes de IVA: {{ formatCurrency(r.value_before_tax) }}
-                                          @if (receiptIvaPercentage(r) !== null) { ({{ receiptIvaPercentage(r) }}%) }
-                                        </p>
-                                      }
-                                    </div>
-                                    <div class="flex items-center gap-2 flex-shrink-0">
-                                      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold"
-                                        [class.bg-emerald-50]="r.status === 'recibido'" [class.text-emerald-700]="r.status === 'recibido'"
-                                        [class.bg-amber-50]="r.status === 'planeado'" [class.text-amber-700]="r.status === 'planeado'">
-                                        {{ receiptStatusLabel(r.status) }}
-                                      </span>
-                                      @if (r.receipt_document_key) {
-                                        <a [href]="r.receipt_document_key" target="_blank" rel="noopener" title="Ver comprobante"
-                                          class="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-emerald-200 text-[10px] font-semibold text-emerald-700 hover:bg-emerald-50 transition-colors flex-shrink-0">
-                                          <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                                          Ver
-                                        </a>
-                                      } @else if (canCreate()) {
-                                        <label title="Adjuntar comprobante"
-                                          class="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-neutral-200 text-[10px] font-semibold text-neutral-500 hover:text-accent hover:border-accent-200 hover:bg-accent-50 transition-colors flex-shrink-0 cursor-pointer"
-                                          [class.opacity-40]="locked || uploadingDocumentId() === r.id" [class.pointer-events-none]="locked || uploadingDocumentId() === r.id">
-                                          @if (uploadingDocumentId() === r.id) {
-                                            <div class="w-3 h-3 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
+                              <div class="overflow-x-auto scrollbar-thin mb-2 rounded-lg border border-gray-100">
+                                <table class="w-full text-sm border-collapse">
+                                  <thead>
+                                    <tr class="bg-neutral-50 border-b border-gray-100 text-[10px] font-bold text-neutral-500 uppercase tracking-wide">
+                                      <th class="px-3 py-2 text-left">Fecha</th>
+                                      <th class="px-3 py-2 text-left">Referencia</th>
+                                      <th class="px-3 py-2 text-right">Valor</th>
+                                      <th class="px-3 py-2 text-right">Antes de IVA</th>
+                                      <th class="px-3 py-2 text-left">Estado</th>
+                                      <th class="px-3 py-2 text-right">Acciones</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody class="divide-y divide-gray-100">
+                                    @for (r of receiptsFor(inv.id); track trackByReceipt($index, r)) {
+                                      <tr class="border-l-2 border-l-emerald-400 hover:bg-neutral-50/60 transition-colors">
+                                        <td class="px-3 py-2 whitespace-nowrap text-xs text-neutral-600">{{ r.receipt_date ? (r.receipt_date | date:'dd/MM/yyyy':'UTC') : '—' }}</td>
+                                        <td class="px-3 py-2 text-xs text-neutral-600">
+                                          @if (r.receipt_reference) { {{ r.receipt_reference }} } @else { <span class="text-neutral-300">—</span> }
+                                        </td>
+                                        <td class="px-3 py-2 text-right text-xs font-semibold text-gray-900 whitespace-nowrap">{{ formatCurrency(r.value) }}</td>
+                                        <td class="px-3 py-2 text-right text-xs text-neutral-500 whitespace-nowrap">
+                                          @if (r.value_before_tax !== null) {
+                                            {{ formatCurrency(r.value_before_tax) }}
+                                            @if (receiptIvaPercentage(r) !== null) { ({{ receiptIvaPercentage(r) }}%) }
                                           } @else {
-                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                                            <span class="text-neutral-300">—</span>
                                           }
-                                          Adjuntar
-                                          <input type="file" class="hidden" accept="image/*,.pdf" [disabled]="locked || uploadingDocumentId() === r.id" (change)="onAttachExistingDocument(inv, r, $event)"/>
-                                        </label>
-                                      }
-                                      @if (canCreate()) {
-                                        <button type="button" (click)="deleteReceipt(inv, r)" [disabled]="locked || deletingReceiptId() === r.id" title="Eliminar"
-                                          class="w-6 h-6 flex items-center justify-center rounded-lg text-neutral-400 hover:text-danger hover:bg-danger/10 transition-colors disabled:opacity-40">
-                                          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                                        </button>
-                                      }
-                                    </div>
-                                  </div>
-                                }
+                                        </td>
+                                        <td class="px-3 py-2 whitespace-nowrap">
+                                          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold"
+                                            [class.bg-emerald-50]="r.status === 'recibido'" [class.text-emerald-700]="r.status === 'recibido'"
+                                            [class.bg-amber-50]="r.status === 'planeado'" [class.text-amber-700]="r.status === 'planeado'">
+                                            {{ receiptStatusLabel(r.status) }}
+                                          </span>
+                                        </td>
+                                        <td class="px-3 py-2 text-right whitespace-nowrap">
+                                          <div class="inline-flex items-center gap-1.5">
+                                            @if (r.receipt_document_key) {
+                                              <a [href]="r.receipt_document_key" target="_blank" rel="noopener" title="Ver comprobante"
+                                                class="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-emerald-200 text-[10px] font-semibold text-emerald-700 hover:bg-emerald-50 transition-colors flex-shrink-0">
+                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                                Ver
+                                              </a>
+                                            } @else if (canCreate()) {
+                                              <label title="Adjuntar comprobante"
+                                                class="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-neutral-200 text-[10px] font-semibold text-neutral-500 hover:text-accent hover:border-accent-200 hover:bg-accent-50 transition-colors flex-shrink-0 cursor-pointer"
+                                                [class.opacity-40]="locked || uploadingDocumentId() === r.id" [class.pointer-events-none]="locked || uploadingDocumentId() === r.id">
+                                                @if (uploadingDocumentId() === r.id) {
+                                                  <div class="w-3 h-3 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
+                                                } @else {
+                                                  <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                                                }
+                                                Adjuntar
+                                                <input type="file" class="hidden" accept="image/*,.pdf" [disabled]="locked || uploadingDocumentId() === r.id" (change)="onAttachExistingDocument(inv, r, $event)"/>
+                                              </label>
+                                            }
+                                            @if (canCreate()) {
+                                              <button type="button" (click)="deleteReceipt(inv, r)" [disabled]="locked || deletingReceiptId() === r.id" title="Eliminar"
+                                                class="w-6 h-6 flex items-center justify-center rounded-lg text-neutral-400 hover:text-danger hover:bg-danger/10 transition-colors disabled:opacity-40">
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                              </button>
+                                            }
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    }
+                                  </tbody>
+                                </table>
                               </div>
                             } @else {
                               <p class="text-[11px] text-neutral-400 mb-2">Sin cobros registrados para esta factura.</p>
@@ -521,20 +444,6 @@
                     </div>
                   }
                 </div>
-
-              } @else {
-
-                <!-- ── Detalle por periodo (distribución mensual) ──────────────── -->
-                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden p-1">
-                  <app-budget-period-status
-                  [technicalComponentName]="selectedItem()!.technical_name"
-                  [budgetComponentName]="selectedItem()!.component_name"
-                  [concept]="selectedItem()!.concept"
-                  [unitMeasurement]="selectedItem()!.unit_measurement"
-                  [quantity]="selectedItem()!.quantity"
-                  [monthlyDistributions]="selectedItem()!.monthly_distributions"
-                  [invoices]="invoices()" />
-                </div>
               }
             }
 
@@ -545,7 +454,7 @@
   }
 
   <!-- Modal lateral: nueva factura -->
-  @if (showForm() && selectedItem(); as item) {
+  @if (showForm() && selectedDisbursement(); as d) {
     <div appPortalToBody class="fixed inset-0 bg-neutral-900/40 z-[200] transition-opacity" (click)="cancelForm()"></div>
 
     <aside appPortalToBody class="fixed top-0 right-0 h-full w-full sm:w-[560px] lg:w-[640px] bg-surface shadow-2xl z-[201] flex flex-col">
@@ -553,7 +462,7 @@
       <div class="flex items-center justify-between gap-3 px-6 py-4 border-b border-neutral-100 flex-shrink-0">
         <div>
           <h2 class="text-base font-bold text-primary-700">{{ editingInvoiceId() ? 'Editar factura' : 'Registrar nueva factura' }}</h2>
-          <p class="text-xs text-neutral-400 mt-0.5">{{ item.concept }}</p>
+          <p class="text-xs text-neutral-400 mt-0.5">{{ d.name }} · {{ d.percentage }}%</p>
         </div>
         <button type="button" (click)="cancelForm()" class="p-2 rounded-lg text-neutral-400 hover:text-neutral-600 hover:bg-neutral-50 transition-colors">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -564,6 +473,7 @@
 
       <!-- Body -->
       <div class="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+
         <div>
           <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Valor <span class="text-danger">*</span></label>
           <input type="text" inputmode="numeric" appMoneyMask [ngModel]="form.value" (ngModelChange)="onFormValueChange($event)" placeholder="0"
@@ -633,33 +543,6 @@
         </div>
 
         <div>
-          <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Mes a facturar <span class="text-danger">*</span></label>
-          <select [(ngModel)]="form.period" required [disabled]="availableMonths().length === 0"
-            class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
-            <option value="" disabled>Selecciona un mes</option>
-            @for (dist of availableMonths(); track dist.id) {
-              <option [value]="periodValue(dist)">{{ monthLabel(dist) }}{{ periodExceeded(dist) ? ' ⚠ ya completado' : '' }}</option>
-            }
-          </select>
-        </div>
-        <div>
-          <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Estado</label>
-          <div class="flex items-center gap-2">
-            <button type="button" (click)="form.status = 'PEND'"
-              class="flex-1 px-3 py-2 rounded-xl border text-xs font-semibold transition-colors"
-              [class.bg-amber-50]="form.status === 'PEND'" [class.text-amber-700]="form.status === 'PEND'" [class.border-amber-300]="form.status === 'PEND'"
-              [class.bg-neutral-50]="form.status !== 'PEND'" [class.text-neutral-400]="form.status !== 'PEND'" [class.border-neutral-200]="form.status !== 'PEND'">
-              Pendiente
-            </button>
-            <button type="button" (click)="form.status = 'FACT'"
-              class="flex-1 px-3 py-2 rounded-xl border text-xs font-semibold transition-colors"
-              [class.bg-emerald-50]="form.status === 'FACT'" [class.text-emerald-700]="form.status === 'FACT'" [class.border-emerald-300]="form.status === 'FACT'"
-              [class.bg-neutral-50]="form.status !== 'FACT'" [class.text-neutral-400]="form.status !== 'FACT'" [class.border-neutral-200]="form.status !== 'FACT'">
-              Facturada
-            </button>
-          </div>
-        </div>
-        <div>
           <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Fecha</label>
           <input type="date" [(ngModel)]="form.date"
             class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
@@ -674,7 +557,7 @@
         @if (invoiceOverageWarning(); as warning) {
           <p class="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex items-start gap-1.5">
             <svg class="w-3.5 h-3.5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            <span>Te estás pasando de lo planeado: {{ warning }} Puedes guardar igual, esto es solo un aviso.</span>
+            <span>{{ warning }} Puedes guardar igual, esto es solo un aviso.</span>
           </p>
         }
 
@@ -800,265 +683,6 @@
             @if (receiptSaving()) { Guardando... } @else { Guardar cobro }
           </button>
           <button type="button" (click)="cancelReceiptForm()"
-            class="px-4 py-2 text-xs font-semibold text-neutral-500 hover:bg-neutral-50 rounded-lg transition-colors">Cancelar</button>
-        </div>
-      </div>
-    </aside>
-  }
-
-  <!-- Modal lateral: nueva factura general (cabecera + líneas por rubro) -->
-  @if (showHeaderForm()) {
-    <div appPortalToBody class="fixed inset-0 bg-neutral-900/40 z-[200] transition-opacity" (click)="cancelHeaderForm()"></div>
-
-    <aside appPortalToBody class="fixed top-0 right-0 h-full w-full sm:w-[600px] lg:w-[680px] bg-surface shadow-2xl z-[201] flex flex-col">
-      <!-- Header -->
-      <div class="flex items-center justify-between gap-3 px-6 py-4 border-b border-neutral-100 flex-shrink-0">
-        <div>
-          <h2 class="text-base font-bold text-primary-700">Factura general</h2>
-          <p class="text-xs text-neutral-400 mt-0.5">Una factura de proveedor repartida entre varios rubros.</p>
-        </div>
-        <button type="button" (click)="cancelHeaderForm()" class="p-2 rounded-lg text-neutral-400 hover:text-neutral-600 hover:bg-neutral-50 transition-colors">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-          </svg>
-        </button>
-      </div>
-
-      <!-- Body -->
-      <div class="flex-1 overflow-y-auto px-6 py-5 space-y-4">
-
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">N° de factura</label>
-            <input type="text" [(ngModel)]="headerForm.invoice_number" placeholder="Ej: FV-1024"
-              class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
-          </div>
-          <div>
-            <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Proveedor</label>
-            <input type="text" [(ngModel)]="headerForm.provider" placeholder="Nombre del proveedor"
-              class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
-          </div>
-        </div>
-
-        <div>
-          <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Valor total <span class="text-danger">*</span></label>
-          <input type="text" inputmode="numeric" appMoneyMask [ngModel]="headerForm.value" (ngModelChange)="onHeaderFormValueChange($event)" placeholder="0"
-            class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">% de IVA</label>
-            <div class="relative">
-              <input type="number" min="0" max="100" step="0.01" [ngModel]="headerForm.iva_percentage" (ngModelChange)="onHeaderFormIvaChange($event)" placeholder="19"
-                class="w-full pr-7 pl-3 py-2 rounded-xl border border-neutral-200 text-sm font-semibold text-primary-700 placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
-              <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none"><span class="text-xs text-neutral-400 font-semibold">%</span></div>
-            </div>
-          </div>
-          <div>
-            <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Valor antes de IVA</label>
-            <input type="text" [value]="headerForm.value_before_tax !== null ? formatCurrency(headerForm.value_before_tax) : ''" readonly placeholder="—"
-              class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-neutral-500 placeholder-neutral-300 bg-neutral-100 cursor-not-allowed outline-none"/>
-          </div>
-        </div>
-        <div>
-          <label class="flex items-center gap-1.5 cursor-pointer select-none">
-            <input type="checkbox" [ngModel]="headerForm.no_iva" (ngModelChange)="onHeaderFormNoIvaChange($event)"
-              class="w-3.5 h-3.5 rounded border-neutral-300 text-accent focus:ring-accent-200"/>
-            <span class="text-[11px] text-neutral-500">No incluye IVA</span>
-          </label>
-        </div>
-
-        <!-- % de administración: mismo criterio que la factura individual, calculado UNA vez sobre el total -->
-        <div class="rounded-xl border border-neutral-200 px-3 py-3">
-          <div class="flex items-center gap-3">
-            <div class="flex-1">
-              <p class="text-xs font-bold text-primary-700">¿Aplica % de administración?</p>
-              <p class="text-[10px] text-neutral-400">Se calcula una sola vez sobre el valor total; cada línea hereda el mismo %</p>
-            </div>
-            <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
-              <input type="checkbox" [ngModel]="headerForm.applies_admin_fee" (ngModelChange)="onHeaderFormAdminToggle($event)" class="sr-only peer"/>
-              <div class="w-10 h-5 bg-neutral-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-accent-100 rounded-full peer peer-checked:after:translate-x-[20px] peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-[16px] after:w-[16px] after:transition-all peer-checked:bg-accent shadow-input"></div>
-            </label>
-          </div>
-          @if (headerForm.applies_admin_fee) {
-            <div class="mt-3">
-              <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">% de Administración</label>
-              <div class="relative max-w-[160px]">
-                <input type="number" min="0" max="100" step="0.01" [(ngModel)]="headerForm.admin_fee_percentage" placeholder="Ej: 10"
-                  class="w-full pr-7 pl-3 py-2 rounded-xl border border-neutral-200 text-sm font-semibold text-primary-700 placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
-                <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none"><span class="text-xs text-neutral-400 font-semibold">%</span></div>
-              </div>
-              @if (headerAdminFeeEstimate(); as estimate) {
-                <div class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 mt-2">
-                  <div class="flex items-center justify-between text-xs">
-                    <span class="text-amber-700">Retenido: <strong>{{ formatCurrency(estimate.fee) }}</strong></span>
-                    <span class="text-amber-700">Neto disponible: <strong>{{ formatCurrency(estimate.net) }}</strong></span>
-                  </div>
-                </div>
-              }
-            </div>
-          }
-        </div>
-
-        <div class="grid grid-cols-3 gap-3">
-          <div class="col-span-2">
-            <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">N° acta de cobro</label>
-            <input type="text" [(ngModel)]="headerForm.collection_act_number" placeholder="Ej: No FODC 709"
-              class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
-          </div>
-          <div>
-            <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Fecha</label>
-            <input type="date" [(ngModel)]="headerForm.date"
-              class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Mes a facturar <span class="text-danger">*</span></label>
-            <select [(ngModel)]="headerForm.month"
-              class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors cursor-pointer">
-              @for (m of reportMonthNames; track $index) { <option [ngValue]="$index + 1">{{ m }}</option> }
-            </select>
-          </div>
-          <div>
-            <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Año <span class="text-danger">*</span></label>
-            <select [(ngModel)]="headerForm.year"
-              class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors cursor-pointer">
-              @for (y of reportYearOptions; track y) { <option [ngValue]="y">{{ y }}</option> }
-            </select>
-          </div>
-        </div>
-
-        <div>
-          <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Estado</label>
-          <div class="flex items-center gap-2">
-            <button type="button" (click)="headerForm.status = 'PEND'"
-              class="flex-1 px-3 py-2 rounded-xl border text-xs font-semibold transition-colors"
-              [class.bg-amber-50]="headerForm.status === 'PEND'" [class.text-amber-700]="headerForm.status === 'PEND'" [class.border-amber-300]="headerForm.status === 'PEND'"
-              [class.bg-neutral-50]="headerForm.status !== 'PEND'" [class.text-neutral-400]="headerForm.status !== 'PEND'" [class.border-neutral-200]="headerForm.status !== 'PEND'">
-              Pendiente
-            </button>
-            <button type="button" (click)="headerForm.status = 'FACT'"
-              class="flex-1 px-3 py-2 rounded-xl border text-xs font-semibold transition-colors"
-              [class.bg-emerald-50]="headerForm.status === 'FACT'" [class.text-emerald-700]="headerForm.status === 'FACT'" [class.border-emerald-300]="headerForm.status === 'FACT'"
-              [class.bg-neutral-50]="headerForm.status !== 'FACT'" [class.text-neutral-400]="headerForm.status !== 'FACT'" [class.border-neutral-200]="headerForm.status !== 'FACT'">
-              Facturada
-            </button>
-          </div>
-        </div>
-
-        <div>
-          <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Descripción</label>
-          <input type="text" [(ngModel)]="headerForm.description" placeholder="Nota libre (opcional)"
-            class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
-        </div>
-
-        <div>
-          <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Comprobante (opcional)</label>
-          @if (headerDocumentFile(); as file) {
-            <div class="flex items-center justify-between gap-2 px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50">
-              <span class="text-xs font-medium text-emerald-700 truncate flex items-center gap-1.5">
-                <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                {{ file.name }}
-              </span>
-              <button type="button" (click)="removeHeaderFile()" class="text-emerald-600 hover:text-danger transition-colors flex-shrink-0">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-              </button>
-            </div>
-          } @else {
-            <label class="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-neutral-300 text-xs font-semibold text-neutral-500 hover:border-accent hover:text-accent hover:bg-accent-50 cursor-pointer transition-colors">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
-              Adjuntar comprobante
-              <input type="file" class="hidden" accept="image/*,.pdf" (change)="onHeaderFileSelected($event)"/>
-            </label>
-          }
-        </div>
-
-        <!-- ── Líneas por rubro ─────────────────────────────────────────────── -->
-        <div class="pt-2 border-t border-neutral-100">
-          <div class="flex items-center justify-between gap-3 mb-2">
-            <p class="text-[10px] font-bold text-neutral-500 uppercase tracking-wide">Líneas por rubro <span class="text-danger">*</span></p>
-            <div class="flex items-center gap-2">
-              <button type="button" (click)="distributeHeaderLinesEvenly()" [disabled]="!headerLines().length || !headerForm.value"
-                class="text-[11px] font-semibold text-accent hover:text-accent-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-                Distribuir equitativamente
-              </button>
-              <button type="button" (click)="addHeaderLine()"
-                class="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-neutral-200 text-neutral-600 hover:bg-neutral-50 text-[11px] font-semibold transition-colors">
-                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
-                Agregar línea
-              </button>
-            </div>
-          </div>
-
-          @if (!headerLines().length) {
-            <div class="border border-dashed border-neutral-200 rounded-xl py-6 text-center">
-              <p class="text-xs text-neutral-400">Agrega al menos una línea (rubro + valor).</p>
-            </div>
-          } @else {
-            <div class="space-y-2">
-              @for (line of headerLines(); track trackByHeaderLine($index); let i = $index) {
-                <div class="flex items-center gap-2">
-                  <select [ngModel]="line.budget_item_id" (ngModelChange)="updateHeaderLine(i, 'budget_item_id', $event)"
-                    class="flex-1 min-w-0 px-3 py-2 rounded-xl border border-neutral-200 text-xs text-primary-700 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors cursor-pointer">
-                    <option value="" disabled>Selecciona un rubro</option>
-                    @for (sec of sections; track trackByComp($index, sec)) {
-                      <optgroup [label]="sec.name">
-                        @for (row of sec.rows; track trackByRow($index, row)) {
-                          <option [value]="row.budget_item_id">{{ row.concept || 'Sin nombre' }}</option>
-                        }
-                      </optgroup>
-                    }
-                  </select>
-                  <select [ngModel]="line.month" (ngModelChange)="updateHeaderLine(i, 'month', $event)" title="Mes planificado de este rubro"
-                    class="w-24 flex-shrink-0 px-2 py-2 rounded-xl border border-neutral-200 text-[11px] text-primary-700 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors cursor-pointer">
-                    @for (m of reportMonthNames; track $index) { <option [ngValue]="$index + 1">{{ m }}</option> }
-                  </select>
-                  <select [ngModel]="line.year" (ngModelChange)="updateHeaderLine(i, 'year', $event)" title="Año planificado de este rubro"
-                    class="w-20 flex-shrink-0 px-2 py-2 rounded-xl border border-neutral-200 text-[11px] text-primary-700 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors cursor-pointer">
-                    @for (y of reportYearOptions; track y) { <option [ngValue]="y">{{ y }}</option> }
-                  </select>
-                  <input type="text" inputmode="numeric" appMoneyMask [ngModel]="line.value" (ngModelChange)="updateHeaderLine(i, 'value', $event)" placeholder="0"
-                    class="w-32 flex-shrink-0 px-3 py-2 rounded-xl border border-neutral-200 text-xs text-right text-primary-700 placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
-                  <button type="button" (click)="removeHeaderLine(i)" class="p-1.5 rounded-lg text-neutral-400 hover:text-danger hover:bg-danger/10 transition-colors flex-shrink-0">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                  </button>
-                </div>
-              }
-              <p class="text-[10px] text-neutral-400 px-1">Cada línea trae precargado el período de la cabecera — cámbialo si ese rubro tiene su distribución planificada en un mes distinto.</p>
-            </div>
-
-            <div class="flex items-center justify-between gap-3 mt-3 px-3 py-2 rounded-xl bg-neutral-50 border border-neutral-100">
-              <span class="text-[10px] font-bold text-neutral-500 uppercase tracking-wide">Total de líneas</span>
-              <span class="text-xs font-bold" [class.text-danger]="headerLinesMismatch()" [class.text-success]="!headerLinesMismatch()">
-                {{ formatCurrency(headerLinesTotal()) }} / {{ formatCurrency(headerForm.value ?? 0) }}
-              </span>
-            </div>
-            @if (headerLinesMismatch()) {
-              <p class="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2 flex items-start gap-1.5">
-                <svg class="w-3.5 h-3.5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                <span>Las líneas deben sumar exactamente el valor total de la cabecera antes de poder guardar.</span>
-              </p>
-            }
-            @if (headerLinesDuplicate()) {
-              <p class="text-xs font-medium text-danger bg-danger/5 border border-danger/20 rounded-lg px-3 py-2 mt-2">
-                No repitas el mismo rubro en dos líneas distintas.
-              </p>
-            }
-          }
-        </div>
-
-        @if (headerFormError()) {
-          <p class="text-xs font-medium text-danger">{{ headerFormError() }}</p>
-        }
-
-        <div class="flex items-center gap-2 pt-1">
-          <button type="button" (click)="submitInvoiceHeader()" [disabled]="locked || headerFormSaving() || !headerLinesValid()"
-            class="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-accent to-accent-700 hover:from-accent-600 hover:to-accent-800 text-white text-xs font-semibold rounded-lg shadow-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed">
-            @if (headerFormSaving()) { Guardando... } @else { Registrar factura general }
-          </button>
-          <button type="button" (click)="cancelHeaderForm()"
             class="px-4 py-2 text-xs font-semibold text-neutral-500 hover:bg-neutral-50 rounded-lg transition-colors">Cancelar</button>
         </div>
       </div>

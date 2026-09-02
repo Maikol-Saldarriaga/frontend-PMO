@@ -1027,6 +1027,16 @@ export interface BudgetItem {
   created_at:               string;
   start_date:               string | null; // usado para generar la distribución mensual automática
   monthly_distributions:    BudgetMonthlyDistribution[];
+  /** Actividades de cronograma amarradas a este rubro (un rubro puede ir ligado a un
+   * componente técnico en general, o específicamente a una o varias de sus actividades). */
+  activities?:              BudgetItemActivity[];
+}
+
+/** Resumen mínimo de una actividad de cronograma amarrada a un rubro — ver BudgetItem.activities. */
+export interface BudgetItemActivity {
+  id:          string;
+  act:         number | null;
+  description: string | null;
 }
 
 // ── Budget Component (sub-componente financiero, agrupa budget_items) ──────
@@ -1340,6 +1350,8 @@ export interface Invoice {
   admin_fee_amount?:         number | null;
   /** value - admin_fee_amount: lo que queda disponible para desembolso/ejecución — calculado por el backend. */
   net_value?:                number | null;
+  /** Tramo de Solicitud de Desembolso al que corresponde esta factura — ver Disbursement. */
+  disbursement_id?:          string | null;
   /** Si esta factura nació como línea de una "factura general" (cabecera con varios rubros),
    * aquí queda el id de esa cabecera — null/ausente para una factura individual normal. */
   invoice_header_id?:        string | null;
@@ -1355,64 +1367,49 @@ export interface InvoiceRequest {
   status?:                InvoiceStatus;
   description?:           string;
   date?:                  string; // ISO 8601 completo, ej. "2026-01-15T00:00:00Z"
+  disbursement_id?:       string | null;
 }
 
-// ── Factura general (cabecera con varias líneas, cada una en un rubro distinto) ────────────
-// Cada línea se persiste como una fila normal de `finance_records` (idéntica en forma a una
-// factura individual, ver Invoice arriba), solo que con `invoice_header_id` apuntando a la
-// cabecera. La cabecera solo guarda metadata + el valor total declarado (para validar que las
-// líneas sumen ese total) — el IVA/administración se calculan por línea con la MISMA lógica que
-// una factura individual, no de nuevo aquí.
+// ── Solicitud de Desembolso ─────────────────────────────────────────────────────────────────
+// Un tramo planeado como % del VALOR TOTAL del proyecto (no de un rubro) — permanece
+// "planeado" hasta que las facturas ligadas a él (Invoice.disbursement_id) se cobran
+// (FundingReceipt). planned_amount/paid_amount/balance/status son calculados por el backend
+// en cada lectura, nunca editables desde el formulario.
 
-export interface InvoiceHeaderLineRequest {
-  budget_item_id: string;
-  value:           number;
-  /** Opcional: cuando el rubro tiene su distribución programada en un mes distinto al de la
-   * cabecera (0/omitido = usa el año/mes de la cabecera). */
-  year?:           number;
-  month?:          number;
+export type DisbursementStatus = 'planeado' | 'parcial' | 'pagado';
+
+export interface Disbursement {
+  id:                    string;
+  company_id:            string;
+  contract_agreement_id: string;
+  name:                  string;
+  percentage:            number;
+  planned_year?:         number | null;
+  planned_month?:        number | null;
+  justification?:        string | null;
+  source:                string;
+  requested_date?:       string | null;
+  sort_order:            number;
+  observation?:          string | null;
+  created_at:            string;
+  updated_at:            string;
+  planned_amount:        number;
+  paid_amount:           number;
+  balance:               number;
+  status:                DisbursementStatus;
+  last_payment_date?:    string | null;
 }
 
-export interface CreateInvoiceHeaderRequest {
-  invoice_number?:        string | null;
-  provider?:               string | null;
-  date:                    string; // ISO date
-  year:                    number; // aplica a todas las líneas
-  month:                   number; // 1-12, aplica a todas las líneas
-  value:                   number; // total — debe coincidir con la suma de lines[].value
-  collection_act_number?: string | null;
-  description?:            string | null;
-  status?:                 InvoiceStatus; // "PEND" | "FACT", default "PEND"
-  lines:                   InvoiceHeaderLineRequest[];
-}
-
-export interface UpdateInvoiceHeaderMetaRequest {
-  invoice_number?:        string | null;
-  provider?:               string | null;
-  date:                    string;
-  collection_act_number?: string | null;
-  description?:            string | null;
-}
-
-export interface InvoiceHeader {
-  id:                      string;
-  contract_agreement_id:   string;
-  user_id?:                string | null;
-  invoice_number?:         string | null;
-  provider?:               string | null;
-  date:                    string;
-  value:                   number;
-  collection_act_number?:  string | null;
-  description?:            string | null;
-  document_key?:           string | null;
-  document_name?:          string | null;
-  status:                  InvoiceStatus;
-  created_at:              string;
-  updated_at:              string;
-  /** Solo viene poblado al crear la cabecera o al pedirla por id (GET .../invoice-headers/:hid) —
-   * en el listado (GET .../invoice-headers) y en las respuestas de update/upload-document llega
-   * null/ausente. */
-  lines?:                  Invoice[] | null;
+export interface DisbursementRequest {
+  name:            string;
+  percentage:      number;
+  planned_year?:   number | null;
+  planned_month?:  number | null;
+  justification?:  string | null;
+  source?:         string;
+  requested_date?: string | null;
+  sort_order?:     number;
+  observation?:    string | null;
 }
 
 // ── Cobros reales recibidos (contra una factura ya registrada) ──────────────
@@ -1435,9 +1432,19 @@ export interface FundingReceipt {
    * lista para abrir directamente — no como una key cruda de storage. */
   receipt_document_key?:  string | null;
   receipt_document_name?: string | null;
-  /** Resuelto desde la factura (finance_record) a la que pertenece este cobro — solo
-   * viene poblado cuando el cobro se obtiene como parte del reporte de Flujo de Caja. */
+  /** Resuelto desde la factura (finance_record) a la que pertenece este cobro. nil para toda
+   * factura posterior a la migración Fase 2b — las facturas ahora se anclan a un Desembolso
+   * (ver disbursement_id), no a un rubro. Se conserva solo por dato histórico. Solo viene
+   * poblado cuando el cobro se obtiene como parte del reporte de Flujo de Caja. */
   budget_item_id?:        string | null;
+  /** Parte proporcional de la administración retenida de la factura, prorrateada según cuánto
+   * de esa factura se cobró en este recibo específico. null si el contrato no aplica administración.
+   * Solo viene poblado cuando el cobro se obtiene como parte del reporte de Flujo de Caja. */
+  admin_fee_amount?:       number | null;
+  /** Resuelto desde la factura (finance_record) a la que pertenece este cobro — el tramo del
+   * cronograma de desembolsos que factura. Reemplazó a budget_item_id desde la Fase 2b. Solo
+   * viene poblado cuando el cobro se obtiene como parte del reporte de Flujo de Caja. */
+  disbursement_id?:        string | null;
 }
 
 export interface FundingReceiptRequest {
@@ -1463,11 +1470,17 @@ export interface CashFlowMonth {
   admin_fee_retenido:  number;
   /** ingreso_bruto - admin_fee_retenido: lo que realmente queda disponible para ejecución del proyecto. */
   ingreso_disponible:  number;
+  /** ingreso_bruto - egreso_real_registrado (NO egreso_total, que es lo planeado). */
   flujo_neto:          number;
   saldo_acumulado:     number;
   deficit:             boolean;
-  /** Suma de egresos reales (budget_executions) con fecha dentro de este mes — pestaña Egresos. */
+  /** Suma de egresos reales (budget_executions) con fecha dentro de este mes — pestaña Egresos.
+   * flujo_neto/saldo_acumulado/deficit se calculan contra ESTE valor, no contra egreso_total
+   * (que es el egreso planeado). */
   egreso_real_registrado: number;
+  /** Ingreso planeado de este mes según el cronograma de desembolsos — contraparte de
+   * egreso_total (que es el egreso planeado). Puramente informativo. */
+  ingreso_planeado:       number;
 }
 
 /** Cruce por rubro: cuánto se planeó gastar, cuánto ha entrado realmente del aliado, y cómo
@@ -1500,19 +1513,74 @@ export interface BudgetExecution {
   date:                   string;
   description:            string | null;
   created_at:             string;
+  /** Cuenta PUC del "Registro de Egresos" — obligatoria desde la Fase 3 del flujo v9. */
+  puc_account_id:         string | null;
+  /** Proveedor/contratista que emitió la factura registrada como este egreso. */
+  provider:               string | null;
+  /** N° de la factura del proveedor/contratista. */
+  invoice_number:         string | null;
 }
 
 export interface CreateBudgetExecutionRequest {
-  budget_item_id: string;
-  value:          number;
-  date:           string;
-  description?:   string | null;
+  budget_item_id:  string;
+  value:           number;
+  date:            string;
+  description?:    string | null;
+  puc_account_id:  string;
+  provider?:       string | null;
+  invoice_number?: string | null;
 }
 
 export interface UpdateBudgetExecutionRequest {
-  value:        number;
-  date:         string;
-  description?: string | null;
+  value:           number;
+  date:            string;
+  description?:    string | null;
+  puc_account_id:  string;
+  provider?:       string | null;
+  invoice_number?: string | null;
+}
+
+// ── Hitos: registro de hitos del proyecto, con disparo automático opcional ─────────────────────
+
+/** null = hito manual (se marca a mano). Los 5 tipos automáticos evalúan una fuente de verdad
+ * distinta — ver tab-hitos.component.ts para el detalle de cada uno. */
+export type HitoTriggerType = 'avance_proyecto' | 'avance_actividad' | 'avance_componente' | 'presupuesto' | 'desembolso' | null;
+export type HitoStatus = 'pendiente' | 'cumplido';
+
+export interface Hito {
+  id:                      string;
+  company_id:              string;
+  contract_agreement_id:   string;
+  description:             string;
+  verification_method:     string | null;
+  planned_date:            string | null;
+  fodc_contribution:       number | null;
+  ally_contribution:       number | null;
+  sort_order:              number;
+  trigger_type:            HitoTriggerType;
+  trigger_threshold_pct:   number | null;
+  activity_id:             string | null;
+  component_id:            string | null;
+  disbursement_id:         string | null;
+  status:                  HitoStatus;
+  completed_at:            string | null;
+  completed_by:            string | null;
+  created_at:              string;
+  updated_at:              string;
+}
+
+export interface HitoRequest {
+  description:             string;
+  verification_method?:    string | null;
+  planned_date?:           string | null;
+  fodc_contribution?:      number | null;
+  ally_contribution?:      number | null;
+  sort_order?:             number;
+  trigger_type?:           HitoTriggerType;
+  trigger_threshold_pct?:  number | null;
+  activity_id?:            string | null;
+  component_id?:           string | null;
+  disbursement_id?:        string | null;
 }
 
 /** Parámetros para /projects/:id/reports/budget — o bien year+month, o bien
@@ -1536,6 +1604,19 @@ export interface CashFlowReport {
   total_admin_fee:  number;
   rubro_breakdown:  CashFlowRubro[];
   receipts:         FundingReceipt[];
+  /** Tope de Egresos a nivel de proyecto (no por rubro) — el dinero entra vía Desembolso, que
+   * es % del valor total del proyecto, no de un rubro específico. */
+  total_cobrado_proyecto:   number;
+  total_ejecutado_proyecto: number;
+  disponible_proyecto:      number;
+  /** Estado "Planeado": línea base del proyecto (cronograma de desembolsos vs presupuesto total). */
+  ingreso_planeado_total:     number;
+  egreso_planeado_total:      number;
+  saldo_planeado:             number;
+  /** Estado "Proyectado": saldo al cierre si lo pendiente se ejecuta según lo planeado. */
+  ingreso_pendiente_cobro:    number;
+  egreso_pendiente_ejecutar:  number;
+  saldo_proyectado_cierre:    number;
 }
 
 // ── Reporte de Seguimiento Técnico ───────────────────────────────────────────

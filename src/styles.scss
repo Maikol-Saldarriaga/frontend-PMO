@@ -227,6 +227,20 @@ html, body {
   &::-webkit-scrollbar { display: none; }
 }
 
+// ─── Scrollbar discreta (tablas anchas con overflow-x-auto): delgada y solo se nota al
+// pasar el mouse, en vez de la barra gruesa gris por defecto del navegador ──
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  &::-webkit-scrollbar { height: 6px; width: 6px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb { background: transparent; border-radius: 9999px; }
+  &:hover {
+    scrollbar-color: $color-neutral-300 transparent;
+    &::-webkit-scrollbar-thumb { background: $color-neutral-300; }
+  }
+}
+
 // ─── Dropdown / menú usuario (Flowbite override) ──────────
 .user-menu-item {
   display: block;
@@ -292,4 +306,15 @@ html, body {
   app-sidebar, app-topbar { display: none !important; }
   .dashboard-main { margin-left: 0 !important; }
   .dashboard-content { padding: 0 !important; overflow: visible !important; }
+}
+
+// ─── Impresión: Reporte Financiero del Proyecto (pestaña Flujo de Caja) —
+// oculta todo salvo #reporte-financiero, para imprimir solo ese resumen.
+@media print {
+  body:has(#reporte-financiero) {
+    #reporte-financiero { visibility: visible; position: absolute; inset: 0; }
+    #reporte-financiero * { visibility: visible; }
+    :not(#reporte-financiero):not(:has(#reporte-financiero)) { visibility: hidden; }
+    .no-print { display: none !important; }
+  }
 }

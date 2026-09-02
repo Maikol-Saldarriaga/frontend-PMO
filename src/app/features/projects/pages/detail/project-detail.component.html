@@ -217,6 +217,10 @@
   <app-tab-presupuesto [projectId]="projectId" [locked]="isTabReadOnly('presupuesto')" />
 }
 
+@if (activeTab() === 'desembolsos') {
+  <app-tab-desembolsos [projectId]="projectId" [locked]="isTabReadOnly('desembolsos')" />
+}
+
 @if (activeTab() === 'facturacion') {
   <app-tab-facturacion [projectId]="projectId" [locked]="isTabReadOnly('facturacion')" />
 }
@@ -261,6 +265,10 @@
   <app-tab-egresos [projectId]="projectId" [locked]="isTabReadOnly('egresos')" />
 }
 
+@if (activeTab() === 'hitos') {
+  <app-tab-hitos [projectId]="projectId" [locked]="isTabReadOnly('hitos')" />
+}
+
 @if (activeTab() === 'equipo') {
   <app-tab-equipo [projectId]="projectId" [locked]="isTabReadOnly('equipo')" />
 }
@@ -273,7 +281,7 @@
   <app-tab-firmas [projectId]="projectId" [locked]="isTabReadOnly('firmas')" />
 }
 
-@if (activeTab() !== 'resumen' && activeTab() !== 'alcance' && activeTab() !== 'ubicaciones' && activeTab() !== 'condiciones' && activeTab() !== 'cronograma' && activeTab() !== 'presupuesto' && activeTab() !== 'facturacion' && activeTab() !== 'beneficiarios' && activeTab() !== 'seguimiento' && activeTab() !== 'riesgos' && activeTab() !== 'entregables' && activeTab() !== 'indicadores' && activeTab() !== 'documentos' && activeTab() !== 'obligaciones' && activeTab() !== 'abastecimiento' && activeTab() !== 'flujo-caja' && activeTab() !== 'equipo' && activeTab() !== 'garantias' && activeTab() !== 'firmas') {
+@if (activeTab() !== 'resumen' && activeTab() !== 'alcance' && activeTab() !== 'ubicaciones' && activeTab() !== 'condiciones' && activeTab() !== 'cronograma' && activeTab() !== 'presupuesto' && activeTab() !== 'desembolsos' && activeTab() !== 'facturacion' && activeTab() !== 'beneficiarios' && activeTab() !== 'seguimiento' && activeTab() !== 'riesgos' && activeTab() !== 'entregables' && activeTab() !== 'indicadores' && activeTab() !== 'documentos' && activeTab() !== 'obligaciones' && activeTab() !== 'abastecimiento' && activeTab() !== 'flujo-caja' && activeTab() !== 'egresos' && activeTab() !== 'equipo' && activeTab() !== 'garantias' && activeTab() !== 'firmas') {
   <div class="px-6 py-20">
     <div class="bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center justify-center py-20 gap-3">
       <div class="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center">

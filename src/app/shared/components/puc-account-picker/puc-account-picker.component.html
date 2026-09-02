@@ -1,0 +1,44 @@
+@if (open) {
+  <div class="fixed inset-0 z-[60] bg-black/40 flex items-start justify-center p-4 pt-[10vh]" (click)="onBackdropClick($event)" (keydown.escape)="close()">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[75vh] flex flex-col overflow-hidden">
+      <div class="p-4 border-b border-gray-100">
+        <h3 class="text-sm font-bold text-gray-900 mb-2">Buscar cuenta PUC</h3>
+        <div class="relative">
+          <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z"/>
+          </svg>
+          <input #searchInput [ngModel]="query()" (ngModelChange)="onQueryChange($event)"
+            (keydown.enter)="selectFirstMatch()"
+            type="text" placeholder="Escribe el código o el nombre..."
+            class="w-full pl-9 pr-3 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-violet-300" />
+        </div>
+        <p class="text-[11px] text-gray-400 mt-1.5">{{ totalResults() }} resultado(s)</p>
+      </div>
+
+      <div class="overflow-y-auto flex-1">
+        @if (!totalResults()) {
+          <p class="text-sm text-gray-400 py-10 text-center">No se encontraron cuentas PUC con ese criterio.</p>
+        } @else {
+          @for (group of groups(); track group.label) {
+            <div>
+              <div class="sticky top-0 px-4 py-1.5 bg-gray-50 text-[10px] font-bold text-gray-500 uppercase tracking-wide">
+                {{ group.label }}
+              </div>
+              @for (item of group.items; track item.id) {
+                <button type="button" (click)="select(item)"
+                  class="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-violet-50 transition-colors border-b border-gray-50 last:border-0">
+                  <span class="font-mono text-xs font-semibold text-violet-700 shrink-0 w-14">{{ item.code }}</span>
+                  <span class="text-sm text-gray-700 truncate">{{ item.name }}</span>
+                </button>
+              }
+            </div>
+          }
+        }
+      </div>
+
+      <div class="p-3 border-t border-gray-100 flex justify-end">
+        <button type="button" (click)="close()" class="px-4 py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:bg-gray-100">Cerrar</button>
+      </div>
+    </div>
+  </div>
+}
