@@ -197,6 +197,16 @@ export class HomeComponent implements OnInit {
   fodcLoading       = signal(true);
   fodcError         = signal<string | null>(null);
 
+  readonly legendVisibleLimit = 7;
+  fodcLegendExpanded = signal(false);
+  visibleFodcProjects = computed(() =>
+    this.fodcLegendExpanded() ? this.fodcProjects() : this.fodcProjects().slice(0, this.legendVisibleLimit)
+  );
+
+  toggleFodcLegend(): void {
+    this.fodcLegendExpanded.update(v => !v);
+  }
+
   private loadFodcProjects(): void {
     this.fodcLoading.set(true);
     this.fodcError.set(null);

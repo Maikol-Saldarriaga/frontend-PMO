@@ -90,6 +90,9 @@ export class ProjectDetailComponent implements OnInit {
 
   isAdmin = computed(() => this.auth.user()?.role === 'ADMIN');
 
+  /** ADMIN y COORDINADOR pueden editar el valor del contrato (presupuesto). */
+  canEditBudget = computed(() => ['ADMIN', 'COORDINADOR'].includes(this.auth.user()?.role ?? ''));
+
   /**
    * Espejo de service.IsProjectFinished en el backend: la fecha efectiva es la
    * extensión más reciente si existe, si no el end_date del contrato. Un proyecto

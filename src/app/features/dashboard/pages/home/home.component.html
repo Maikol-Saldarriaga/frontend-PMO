@@ -71,12 +71,16 @@
         [options]="projectDistributionDonutHc()"
         style="display:block; width:100%; height:320px;"></highcharts-chart>
       <div class="chart-card__legend">
-        <div class="legend-row" *ngFor="let p of fodcProjects()">
+        <div class="legend-row" *ngFor="let p of visibleFodcProjects()">
           <span class="legend-dot" [style.background]="p.color"></span>
           <span class="legend-row__label">{{ p.name }}</span>
           <span class="legend-row__value">{{ formatCop(p.plannedTotal) }}</span>
         </div>
       </div>
+      <button *ngIf="fodcProjects().length > legendVisibleLimit" type="button"
+        class="legend-toggle-btn" (click)="toggleFodcLegend()">
+        {{ fodcLegendExpanded() ? 'Ver menos' : 'Ver más' }}
+      </button>
     </div>
 
   </section>
