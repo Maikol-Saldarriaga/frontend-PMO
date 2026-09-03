@@ -2,7 +2,7 @@ import { Component, ElementRef, EventEmitter, Input, Output, ViewChild, computed
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
-import { PUCAccount } from '../../../../core/puc-accounts/models/puc-account.model';
+import { PUCAccountLite } from '../../../../core/puc-accounts/models/puc-account.model';
 
 /** Nombre de cada Clase del PUC (Decreto 2650/1993) por su primer dígito, para agrupar
  * visualmente los resultados de búsqueda en vez de mostrar una lista plana de 300+ cuentas. */
@@ -20,7 +20,7 @@ const CLASS_LABELS: Record<string, string> = {
 
 interface PucGroup {
   label: string;
-  items: PUCAccount[];
+  items: PUCAccountLite[];
 }
 
 /** Modal de búsqueda de cuentas PUC — escribe código o nombre para filtrar, agrupado por
@@ -33,9 +33,9 @@ interface PucGroup {
 })
 export class PucAccountPickerComponent {
   @Input() open = false;
-  @Input() accounts: PUCAccount[] = [];
+  @Input() accounts: PUCAccountLite[] = [];
   @Output() closed = new EventEmitter<void>();
-  @Output() picked = new EventEmitter<PUCAccount>();
+  @Output() picked = new EventEmitter<PUCAccountLite>();
 
   @ViewChild('searchInput') private searchInputRef?: ElementRef<HTMLInputElement>;
 
@@ -47,7 +47,7 @@ export class PucAccountPickerComponent {
       ? this.accounts.filter(a => a.code.toLowerCase().includes(q) || a.name.toLowerCase().includes(q))
       : this.accounts;
 
-    const byClass = new Map<string, PUCAccount[]>();
+    const byClass = new Map<string, PUCAccountLite[]>();
     for (const a of filtered) {
       const cls = a.code.charAt(0);
       if (!byClass.has(cls)) byClass.set(cls, []);
@@ -71,7 +71,7 @@ export class PucAccountPickerComponent {
     this.query.set(value);
   }
 
-  select(account: PUCAccount): void {
+  select(account: PUCAccountLite): void {
     this.picked.emit(account);
     this.close();
   }

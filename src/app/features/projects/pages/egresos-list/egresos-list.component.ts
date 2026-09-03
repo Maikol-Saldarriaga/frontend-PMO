@@ -9,7 +9,7 @@ import {
   BudgetExecution, CreateBudgetExecutionRequest, UpdateBudgetExecutionRequest, CashFlowReport, CashFlowRubro,
   BudgetEntry, BudgetItem, BudgetItemActivity, BudgetMonthlyDistribution,
 } from '../../models/project.model';
-import { PUCAccount } from '../../../../../core/puc-accounts/models/puc-account.model';
+import { PUCAccountLite } from '../../../../../core/puc-accounts/models/puc-account.model';
 import { PucAccountPickerComponent } from '../../../../shared/components/puc-account-picker/puc-account-picker.component';
 import { RubroPickerComponent, RubroPickerGroup } from '../../../../shared/components/rubro-picker/rubro-picker.component';
 import { Tercero, TerceroRequest } from '../../../../../core/terceros/models/tercero.model';
@@ -84,8 +84,9 @@ export class EgresosListComponent implements OnInit {
   error   = signal<string | null>(null);
   report  = signal<CashFlowReport | null>(null);
   executions = signal<BudgetExecution[]>([]);
-  pucAccounts = signal<PUCAccount[]>([]);
-  activePUCAccounts = computed(() => this.pucAccounts().filter(a => a.is_active));
+  /** /puc-accounts/picker ya devuelve solo activas, ordenadas — sin filtro extra acá. */
+  pucAccounts = signal<PUCAccountLite[]>([]);
+  activePUCAccounts = computed(() => this.pucAccounts());
   terceros = signal<Tercero[]>([]);
   activeTerceros = computed(() => this.terceros().filter(t => t.is_active));
   costCenters = signal<CostCenter[]>([]);
@@ -251,7 +252,7 @@ export class EgresosListComponent implements OnInit {
 
   pucPickerOpen = signal(false);
 
-  onPucPicked(account: PUCAccount): void {
+  onPucPicked(account: PUCAccountLite): void {
     this.updateFormField('puc_account_id', account.id);
     this.pucPickerOpen.set(false);
   }

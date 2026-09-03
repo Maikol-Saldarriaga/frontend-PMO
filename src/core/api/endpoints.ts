@@ -189,6 +189,7 @@ export const ENDPOINTS = {
   },
   pucAccounts: {
     list:       `${API_URL}/puc-accounts`,
+    picker:     `${API_URL}/puc-accounts/picker`,
     create:     `${API_URL}/puc-accounts`,
     update:     (id: string) => `${API_URL}/puc-accounts/${id}`,
     deactivate: (id: string) => `${API_URL}/puc-accounts/${id}`,

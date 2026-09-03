@@ -3,7 +3,8 @@ import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { ApiHttpClient } from '../../../../core/api/http-client';
 import { ENDPOINTS } from '../../../../core/api/endpoints';
-import { PUCAccount } from '../../../../core/puc-accounts/models/puc-account.model';
+import { PUCAccountLite } from '../../../../core/puc-accounts/models/puc-account.model';
+import { PUCAccountService } from '../../../../core/puc-accounts/services/puc-account.service';
 import {
   ProjectDetails,
   BudgetItemRequest,
@@ -109,6 +110,7 @@ export interface ProjectFilters {
 @Injectable({ providedIn: 'root' })
 export class ProjectService {
   private http = inject(ApiHttpClient);
+  private pucAccounts = inject(PUCAccountService);
 
   getProjects(limit = 20, cursor: string | number = 0, filters: ProjectFilters = {}): Observable<ProjectsPageResponse> {
     const params = new URLSearchParams({ limit: String(limit), cursor: String(cursor) });
@@ -595,8 +597,8 @@ export class ProjectService {
 
   /** Catálogo PUC (company-scoped, no depende del proyecto) — se usa para el selector
    * obligatorio de cuenta PUC al registrar un egreso. */
-  listPUCAccounts(): Observable<PUCAccount[]> {
-    return this.http.get<PUCAccount[]>(ENDPOINTS.pucAccounts.list);
+  listPUCAccounts(): Observable<PUCAccountLite[]> {
+    return this.pucAccounts.picker();
   }
 
   // ── Reporte de Presupuesto (planeado/ejecutado/facturación/desembolsos/flujo de caja) ──
