@@ -19,7 +19,7 @@
   <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 grid grid-cols-3 gap-4">
     <div>
       <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">Total de cuentas</p>
-      <p class="text-lg font-bold text-gray-900">{{ items().length }}</p>
+      <p class="text-lg font-bold text-gray-900">{{ stats().total }}</p>
     </div>
     <div>
       <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">Activas</p>
@@ -48,7 +48,7 @@
         <option value="active">Activas</option>
         <option value="inactive">Inactivas</option>
       </select>
-      <span class="text-xs text-gray-400 ml-auto">{{ filteredItems.length }} de {{ items().length }} cuentas</span>
+      <span class="text-xs text-gray-400 ml-auto">{{ items().length }} cuenta(s) cargadas</span>
       @if (loading() && items().length) {
         <span class="text-xs text-gray-400 flex items-center gap-1.5">
           <svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -68,7 +68,7 @@
     </div>
   } @else if (error()) {
     <div class="p-4 rounded-xl bg-red-50 border border-red-100 text-sm text-red-600">{{ error() }}</div>
-  } @else if (!filteredItems.length) {
+  } @else if (!items().length) {
     <div class="bg-white rounded-2xl border border-gray-200 shadow-sm py-12">
       <p class="text-sm text-gray-400 text-center">No hay cuentas PUC que coincidan con el filtro.</p>
     </div>
@@ -121,6 +121,16 @@
         </div>
       }
     </div>
+    @if (loadingMore()) {
+      <div class="flex justify-center py-4">
+        <svg class="w-5 h-5 animate-spin text-violet-500" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+        </svg>
+      </div>
+    } @else if (!hasMore) {
+      <p class="text-center text-xs text-gray-400 py-4">No hay más cuentas.</p>
+    }
   }
 
 </div>

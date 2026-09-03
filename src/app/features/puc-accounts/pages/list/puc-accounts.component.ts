@@ -1,9 +1,11 @@
-import { Component, OnInit, signal, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subject } from 'rxjs';
+import { debounceTime, distinctUntilChanged, takeUntil } from 'rxjs/operators';
 
 import { PUCAccountService } from '../../../../../core/puc-accounts/services/puc-account.service';
-import { PUCAccount, PUCAccountRequest } from '../../../../../core/puc-accounts/models/puc-account.model';
+import { PUCAccount, PUCAccountRequest, PUCAccountStats } from '../../../../../core/puc-accounts/models/puc-account.model';
 import { ConfirmDialogService } from '../../../../shared/components/confirm-dialog/confirm-dialog.service';
 
 interface CatalogForm {
@@ -21,6 +23,8 @@ interface PucClassGroup {
   label:     string;
   items:     PUCAccount[];
 }
+
+const PAGE_SIZE = 40;
 
 /** Nombre de cada Clase del PUC (Decreto 2650/1993) por su primer dígito — la misma
  * agrupación que usa el modal de búsqueda en el formulario de Egresos. */
@@ -42,17 +46,25 @@ const CLASS_LABELS: Record<string, string> = {
   imports: [CommonModule, FormsModule],
   templateUrl: './puc-accounts.component.html',
 })
-export class PUCAccountsComponent implements OnInit {
+export class PUCAccountsComponent implements OnInit, OnDestroy {
   private svc = inject(PUCAccountService);
   private confirmDialog = inject(ConfirmDialogService);
+  private destroy$ = new Subject<void>();
+  private searchInput$ = new Subject<string>();
 
   items       = signal<PUCAccount[]>([]);
   loading     = signal(true);
+  loadingMore = signal(false);
   error       = signal<string | null>(null);
   statusFilter = signal<'all' | 'active' | 'inactive'>('all');
-  /** Búsqueda libre por código o nombre — el catálogo PUC completo puede tener miles de
-   * subcuentas, así que el filtro por texto es la forma principal de encontrar una cuenta. */
+  /** Búsqueda libre por código o nombre — filtra en el backend (catálogo puede tener miles
+   * de subcuentas paginadas). */
   search = signal('');
+
+  private nextCursor = signal<string | null>(null);
+  /** Total/activas/inactivas del catálogo completo de la company — el backend las calcula
+   * sobre todo el catálogo, ignora search/status del query. */
+  stats = signal<PUCAccountStats>({ total: 0, active: 0, inactive: 0 });
 
   showForm     = signal(false);
   editingItem  = signal<PUCAccount | null>(null);
@@ -61,45 +73,87 @@ export class PUCAccountsComponent implements OnInit {
   saveError    = signal<string | null>(null);
 
   ngOnInit(): void {
+    this.searchInput$.pipe(
+      debounceTime(400),
+      distinctUntilChanged(),
+      takeUntil(this.destroy$),
+    ).subscribe(term => {
+      this.search.set(term);
+      this.load();
+    });
     this.load();
   }
 
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  /** Recarga desde el inicio del catálogo (nuevo filtro/búsqueda o primera carga). */
   load(): void {
     this.loading.set(true);
     this.error.set(null);
-    this.svc.list().subscribe({
-      next: items => {
-        this.items.set([...items].sort((a, b) => a.sort_order - b.sort_order || a.code.localeCompare(b.code)));
+    this.nextCursor.set(null);
+    const status = this.statusFilter();
+    this.svc.list({
+      limit:  PAGE_SIZE,
+      search: this.search().trim() || undefined,
+      status: status === 'all' ? undefined : status,
+    }).subscribe({
+      next: page => {
+        this.items.set(page.data);
+        this.nextCursor.set(page.next_cursor);
+        this.stats.set(page.stats);
         this.loading.set(false);
       },
       error: () => { this.error.set('No se pudo cargar el catálogo PUC.'); this.loading.set(false); },
     });
   }
 
+  /** Trae la siguiente página y la agrega al final — se dispara solo al llegar al fondo
+   * del scroll, nunca de forma proactiva. */
+  loadMore(): void {
+    const cursor = this.nextCursor();
+    if (!cursor || this.loading() || this.loadingMore()) return;
+
+    this.loadingMore.set(true);
+    const status = this.statusFilter();
+    this.svc.list({
+      cursor,
+      limit:  PAGE_SIZE,
+      search: this.search().trim() || undefined,
+      status: status === 'all' ? undefined : status,
+    }).subscribe({
+      next: page => {
+        this.items.update(current => [...current, ...page.data]);
+        this.nextCursor.set(page.next_cursor);
+        this.loadingMore.set(false);
+      },
+      error: () => { this.loadingMore.set(false); },
+    });
+  }
+
+  @HostListener('window:scroll')
+  onWindowScroll(): void {
+    const scrolledToBottom =
+      window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 200;
+    if (scrolledToBottom) this.loadMore();
+  }
+
   onStatusFilterChange(status: 'all' | 'active' | 'inactive'): void {
     this.statusFilter.set(status);
+    this.load();
   }
 
   onSearchChange(value: string): void {
-    this.search.set(value);
+    this.searchInput$.next(value);
   }
 
-  get filteredItems(): PUCAccount[] {
-    const status = this.statusFilter();
-    let out = this.items();
-    if (status !== 'all') out = out.filter(i => (status === 'active') === i.is_active);
-
-    const q = this.search().trim().toLowerCase();
-    if (q) {
-      out = out.filter(i => i.code.toLowerCase().includes(q) || i.name.toLowerCase().includes(q));
-    }
-    return out;
-  }
-
-  /** filteredItems agrupado por Clase (primer dígito del código), en el orden 1→9. */
+  /** items() ya viene filtrado/paginado desde el backend — acá solo se agrupa por Clase
+   * (primer dígito del código) en orden 1→9. */
   get filteredGroups(): PucClassGroup[] {
     const byClass = new Map<string, PUCAccount[]>();
-    for (const i of this.filteredItems) {
+    for (const i of this.items()) {
       const cls = i.code.charAt(0) || '?';
       if (!byClass.has(cls)) byClass.set(cls, []);
       byClass.get(cls)!.push(i);
@@ -109,8 +163,10 @@ export class PUCAccountsComponent implements OnInit {
       .map(cls => ({ classCode: cls, label: CLASS_LABELS[cls] ?? `Clase ${cls}`, items: byClass.get(cls)! }));
   }
 
-  get activeCount(): number { return this.items().filter(i => i.is_active).length; }
-  get inactiveCount(): number { return this.items().filter(i => !i.is_active).length; }
+  get hasMore(): boolean { return this.nextCursor() !== null; }
+
+  get activeCount(): number { return this.stats().active; }
+  get inactiveCount(): number { return this.stats().inactive; }
 
   openAddForm(): void {
     this.editingItem.set(null);
