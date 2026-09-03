@@ -78,6 +78,7 @@ export const ENDPOINTS = {
     executions:        (id: string) => `${API_URL}/projects/${id}/executions`,
     executionById:     (id: string, eid: string) => `${API_URL}/projects/${id}/executions/${eid}`,
     executionsMonthlySummary: (id: string) => `${API_URL}/projects/${id}/executions/summary`,
+    executionsBulkImport: (id: string) => `${API_URL}/projects/${id}/executions/bulk-import`,
     hitos:             (id: string) => `${API_URL}/projects/${id}/hitos`,
     hitoById:          (id: string, hid: string) => `${API_URL}/projects/${id}/hitos/${hid}`,
     hitoComplete:      (id: string, hid: string) => `${API_URL}/projects/${id}/hitos/${hid}/complete`,

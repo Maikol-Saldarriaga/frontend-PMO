@@ -1531,6 +1531,22 @@ export interface BudgetExecution {
   tercero_id:             string | null;
   /** Centro de costo — copiado automáticamente del proyecto por el backend, nunca editable desde acá. */
   cost_center_id:         string | null;
+
+  // Campos de auditoría capturados solo cuando el egreso viene de "Importar auxiliares" — nunca
+  // participan en ningún cálculo (salvo saldo, que es puramente informativo), null en un egreso
+  // creado por el formulario normal. Ver BudgetExecutionEntry en el backend.
+  cheque?:                  string | null;
+  doc_num?:                 string | null;
+  mvto?:                    string | null;
+  saldo?:                   number | null;
+  source_account_code?:     string | null;
+  source_account_name?:     string | null;
+  source_mayor_code?:       string | null;
+  source_cost_center_raw?:  string | null;
+  source_mes?:              string | null;
+  source_tercero_raw?:      string | null;
+  source_nota?:             string | null;
+  source_row_number?:       number | null;
 }
 
 export interface CreateBudgetExecutionRequest {
@@ -1552,6 +1568,45 @@ export interface UpdateBudgetExecutionRequest {
   provider?:       string | null;
   invoice_number?: string | null;
   tercero_id?:     string | null;
+}
+
+// ── Importar auxiliares: carga masiva de egresos desde el Excel de auxiliares contables ───────
+
+/** Una fila del Excel de auxiliares ya parseada, filtrada por centro de costos, con el rubro y
+ *  la cuenta PUC asignados por el usuario en la vista previa — lista para enviar al backend. */
+export interface BulkExecutionRowRequest {
+  row_number:              number;
+  budget_item_id:          string;
+  value:                   number;
+  date:                    string;
+  description?:            string | null;
+  puc_account_id?:         string | null;
+  provider?:               string | null;
+  invoice_number?:         string | null;
+  tercero_id?:             string | null;
+  cheque?:                 string | null;
+  doc_num?:                string | null;
+  mvto?:                   string | null;
+  saldo?:                  number | null;
+  source_account_code?:    string | null;
+  source_account_name?:    string | null;
+  source_mayor_code?:      string | null;
+  source_cost_center_raw?: string | null;
+  source_mes?:             string | null;
+  source_tercero_raw?:     string | null;
+  source_nota?:            string | null;
+}
+
+export interface BulkExecutionRowResult {
+  row_number: number;
+  success:    boolean;
+  error?:     string;
+}
+
+export interface BulkExecutionImportResult {
+  committed: boolean;
+  inserted:  number;
+  rows:      BulkExecutionRowResult[];
 }
 
 // ── Hitos: registro de hitos del proyecto, con disparo automático opcional ─────────────────────

@@ -90,6 +90,8 @@ import {
   BudgetExecution,
   CreateBudgetExecutionRequest,
   UpdateBudgetExecutionRequest,
+  BulkExecutionRowRequest,
+  BulkExecutionImportResult,
   Hito,
   HitoRequest,
   Guarantee,
@@ -559,6 +561,12 @@ export class ProjectService {
 
   deleteExecution(id: string, eid: string): Observable<void> {
     return this.http.delete<void>(ENDPOINTS.projects.executionById(id, eid));
+  }
+
+  /** "Importar auxiliares": envía el lote ya filtrado/editado en la vista previa. Todo o nada —
+   * si `committed` viene en false, no se insertó nada y `rows` trae el motivo por fila. */
+  bulkImportExecutions(id: string, rows: BulkExecutionRowRequest[]): Observable<BulkExecutionImportResult> {
+    return this.http.post<BulkExecutionImportResult>(ENDPOINTS.projects.executionsBulkImport(id), { rows });
   }
 
   // ── Hitos: registro de hitos del proyecto, con disparo automático opcional ────────────────

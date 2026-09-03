@@ -1,0 +1,178 @@
+<div class="min-h-screen bg-gray-50/60 px-6 py-6 space-y-5">
+
+  <!-- Header -->
+  <div class="flex items-center gap-4">
+    <button (click)="goBack()"
+      class="shrink-0 w-9 h-9 rounded-lg bg-white border border-gray-200 hover:bg-gray-100 flex items-center justify-center transition-colors shadow-sm">
+      <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+      </svg>
+    </button>
+    <div class="flex-1">
+      <h1 class="text-lg font-bold text-gray-900">Importar auxiliares</h1>
+      <p class="text-xs text-gray-400 mt-0.5">Sube el Excel de auxiliares contables — se filtran automáticamente solo las filas de este proyecto por centro de costos.</p>
+    </div>
+  </div>
+
+  @if (loadError()) {
+    <div class="p-4 rounded-xl bg-red-50 border border-red-100 text-sm text-red-600">{{ loadError() }}</div>
+  }
+
+  @if (loadingProject()) {
+    <div class="flex flex-col items-center justify-center h-48 gap-3">
+      <div class="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+      <span class="text-sm text-neutral-400">Cargando información del proyecto…</span>
+    </div>
+  } @else {
+
+    @if (!projectCostCenterCode()) {
+      <div class="p-4 rounded-xl bg-amber-50 border border-amber-100 text-sm text-amber-700">
+        Este proyecto no tiene un centro de costos configurado en el Formulario Base — no es posible filtrar filas del Excel sin uno.
+      </div>
+    } @else {
+
+      <!-- Paso 1: selección de archivo -->
+      <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 space-y-3">
+        <h3 class="text-xs font-bold text-gray-700 uppercase tracking-wide">1. Selecciona el archivo</h3>
+        <p class="text-xs text-gray-500">
+          Centro de costos de este proyecto: <span class="font-bold text-gray-700">{{ projectCostCenterCode() }}</span> —
+          se conservarán solo las filas cuyo campo "Centro de Costos" contenga este número.
+        </p>
+        <div class="flex items-center gap-3">
+          <label class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-accent hover:bg-accent-700 text-white text-sm font-semibold shadow-sm cursor-pointer transition-all active:scale-95">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4-4m0 0L8 12m4-4v12"/>
+            </svg>
+            Seleccionar Excel
+            <input type="file" accept=".xlsx,.xls" class="hidden" (change)="onFileSelected($event)"/>
+          </label>
+          @if (fileName()) { <span class="text-xs text-gray-500">{{ fileName() }}</span> }
+          @if (parsing()) { <span class="text-xs text-sky-600 font-semibold">Leyendo archivo…</span> }
+        </div>
+        @if (fileError()) {
+          <div class="p-3 rounded-lg bg-red-50 border border-red-100 text-xs text-red-600 font-medium">{{ fileError() }}</div>
+        }
+        @if (skippedByCostCenter() > 0) {
+          <p class="text-xs text-gray-400">{{ skippedByCostCenter() }} fila(s) del archivo pertenecen a otros proyectos y no se muestran.</p>
+        }
+      </div>
+
+      <!-- Paso 2: vista previa editable -->
+      @if (parsedRows().length > 0) {
+        <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <h3 class="text-sm font-bold text-gray-900">2. Revisa y asigna rubro por fila</h3>
+              <p class="text-xs text-gray-400 mt-0.5">{{ parsedRows().length }} fila(s) de este proyecto — {{ rowsNeedingReview().length }} pendiente(s) de completar.</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button type="button" (click)="openRubroPickerForSelection()" [disabled]="!someSelected()"
+                class="px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed">
+                Aplicar rubro a seleccionadas
+              </button>
+            </div>
+          </div>
+          <div class="overflow-x-auto max-h-[520px] overflow-y-auto">
+            <table class="w-full text-xs min-w-[1400px] border-collapse">
+              <thead class="sticky top-0 bg-neutral-50 z-10">
+                <tr class="border-b border-gray-100 text-[10px] font-bold text-neutral-500 uppercase tracking-wide">
+                  <th class="text-left px-3 py-2.5"><input type="checkbox" [checked]="allSelected()" (change)="toggleSelectAll()"/></th>
+                  <th class="text-left px-3 py-2.5">Fila</th>
+                  <th class="text-left px-3 py-2.5">Fecha</th>
+                  <th class="text-left px-3 py-2.5">Tercero</th>
+                  <th class="text-left px-3 py-2.5">Nota / Doc Num</th>
+                  <th class="text-right px-3 py-2.5">Valor</th>
+                  <th class="text-left px-3 py-2.5">Cuenta PUC</th>
+                  <th class="text-left px-3 py-2.5">Rubro</th>
+                  <th class="text-left px-3 py-2.5">Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of parsedRows(); track trackByRow($index, row); let i = $index) {
+                  <tr class="border-b border-gray-50 hover:bg-gray-50/60" [class.bg-red-50]="row.submitError">
+                    <td class="px-3 py-2"><input type="checkbox" [checked]="row.selected" (change)="toggleRowSelected(row)"/></td>
+                    <td class="px-3 py-2 text-gray-400">{{ row.rowNumber }}</td>
+                    <td class="px-3 py-2 text-gray-700">{{ row.date ?? '—' }}</td>
+                    <td class="px-3 py-2 text-gray-700 max-w-[160px] truncate" [title]="row.tercero">{{ row.tercero || '—' }}</td>
+                    <td class="px-3 py-2 text-gray-500 max-w-[220px] truncate" [title]="row.nota + ' ' + row.docNum">{{ row.nota || '—' }} <span class="text-gray-400">{{ row.docNum }}</span></td>
+                    <td class="px-3 py-2 text-right font-semibold" [class.text-rose-600]="row.value < 0" [class.text-gray-900]="row.value >= 0">{{ formatCurrency(row.value) }}</td>
+                    <td class="px-3 py-2">
+                      <button type="button" (click)="openPucPickerForRow(i)"
+                        class="px-2 py-1 rounded-md text-left w-full border text-[11px]"
+                        [class.border-red-300]="row.pucNeedsReview" [class.bg-red-50]="row.pucNeedsReview"
+                        [class.border-gray-200]="!row.pucNeedsReview" [class.bg-gray-50]="!row.pucNeedsReview">
+                        {{ row.pucNeedsReview ? 'Sin coincidencia — click para elegir' : row.sourceAccountCode }}
+                      </button>
+                    </td>
+                    <td class="px-3 py-2">
+                      <button type="button" (click)="openRubroPickerForRow(i)"
+                        class="px-2 py-1 rounded-md text-left w-full border text-[11px]"
+                        [class.border-red-300]="!row.budgetItemId" [class.bg-red-50]="!row.budgetItemId"
+                        [class.border-gray-200]="row.budgetItemId" [class.bg-gray-50]="row.budgetItemId">
+                        {{ rubroLabel(row.budgetItemId) }}
+                      </button>
+                    </td>
+                    <td class="px-3 py-2">
+                      @if (row.submitError) {
+                        <span class="text-red-600 font-semibold" [title]="row.submitError">Error</span>
+                      } @else if (row.pucNeedsReview || !row.budgetItemId) {
+                        <span class="text-amber-600 font-semibold">Pendiente</span>
+                      } @else {
+                        <span class="text-emerald-600 font-semibold">Listo</span>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Paso 3: envío -->
+        <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 space-y-3">
+          <h3 class="text-xs font-bold text-gray-700 uppercase tracking-wide">3. Importar</h3>
+
+          @if (submitGeneralError()) {
+            <div class="p-3 rounded-lg bg-red-50 border border-red-100 text-xs text-red-600 font-medium">{{ submitGeneralError() }}</div>
+          }
+
+          @if (importResultCommitted() === true) {
+            <div class="p-3 rounded-lg bg-emerald-50 border border-emerald-100 text-xs text-emerald-700 font-medium">
+              Se importaron {{ importedCount() }} egreso(s) correctamente.
+            </div>
+          }
+          @if (importResultCommitted() === false) {
+            <div class="p-3 rounded-lg bg-red-50 border border-red-100 text-xs text-red-600 font-medium space-y-2">
+              <p>No se importó nada — todo el lote se rechaza si alguna fila falla. Revisa la columna "Estado" en la tabla para ver el motivo por fila.</p>
+              <button type="button" (click)="downloadErrorReport()" class="px-3 py-1.5 rounded-lg bg-white border border-red-200 text-red-600 text-xs font-semibold hover:bg-red-100">
+                Descargar reporte de errores
+              </button>
+            </div>
+          }
+
+          <div class="flex items-center gap-3">
+            <button type="button" (click)="submit()" [disabled]="!canImport()"
+              class="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-accent hover:bg-accent-700 text-white text-sm font-semibold shadow-sm transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+              @if (importing()) {
+                <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                Importando…
+              } @else {
+                Importar {{ parsedRows().length }} egreso(s)
+              }
+            </button>
+            @if (rowsNeedingReview().length > 0) {
+              <span class="text-xs text-amber-600 font-semibold">Completa cuenta PUC y rubro en todas las filas para poder importar.</span>
+            }
+          </div>
+        </div>
+      }
+    }
+  }
+
+  <app-puc-account-picker [open]="pucPickerOpen()" [accounts]="pucAccounts()"
+    (closed)="pucPickerOpen.set(false)" (picked)="onPucPicked($event)"></app-puc-account-picker>
+
+  <app-rubro-picker [open]="rubroPickerOpen()" [groups]="activeRubroPickerGroups()" [monthLabel]="activeRubroPickerMonthLabel()"
+    (closed)="rubroPickerOpen.set(false)" (picked)="onRubroPicked($event)"></app-rubro-picker>
+
+</div>

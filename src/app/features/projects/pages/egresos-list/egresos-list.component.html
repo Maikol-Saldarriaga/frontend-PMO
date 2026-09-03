@@ -12,6 +12,13 @@
       <h1 class="text-lg font-bold text-gray-900">Egresos registrados</h1>
       <p class="text-xs text-gray-400 mt-0.5">Filtra y administra todos los egresos de este proyecto — vuelve a la pestaña Egresos para ver el resumen por rubro y el disponible del proyecto.</p>
     </div>
+    <a [routerLink]="['/projects', projectId, 'egresos', 'import']" [class.pointer-events-none]="locked" [class.opacity-50]="locked"
+      class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-semibold shadow-sm transition-all active:scale-95">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
+      </svg>
+      Importar auxiliares
+    </a>
     <button (click)="openCreate()" [disabled]="locked"
       class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-accent hover:bg-accent-700 text-white text-sm font-semibold shadow-sm transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -20,6 +27,32 @@
       Registrar egreso
     </button>
   </div>
+
+  <!-- KPIs de lo filtrado en pantalla — se actualizan solos al cambiar cualquier filtro -->
+  @if (!loading()) {
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="relative bg-white rounded-2xl border border-gray-100 shadow-sm p-4 overflow-hidden">
+        <div class="absolute top-0 left-0 w-1 h-full bg-sky-500 rounded-l-2xl"></div>
+        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Egresos filtrados</p>
+        <p class="text-2xl font-black text-gray-900 mt-1">{{ kpiCount() }}</p>
+      </div>
+      <div class="relative bg-white rounded-2xl border border-gray-100 shadow-sm p-4 overflow-hidden">
+        <div class="absolute top-0 left-0 w-1 h-full bg-rose-500 rounded-l-2xl"></div>
+        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Total débitos</p>
+        <p class="text-xl font-black text-gray-900 mt-1">{{ formatCurrency(kpiTotalDebito()) }}</p>
+      </div>
+      <div class="relative bg-white rounded-2xl border border-gray-100 shadow-sm p-4 overflow-hidden">
+        <div class="absolute top-0 left-0 w-1 h-full bg-emerald-500 rounded-l-2xl"></div>
+        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Total créditos</p>
+        <p class="text-xl font-black text-gray-900 mt-1">{{ formatCurrency(kpiTotalCredito()) }}</p>
+      </div>
+      <div class="relative bg-white rounded-2xl border border-gray-100 shadow-sm p-4 overflow-hidden">
+        <div class="absolute top-0 left-0 w-1 h-full bg-accent rounded-l-2xl"></div>
+        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Neto</p>
+        <p class="text-xl font-black text-gray-900 mt-1">{{ formatCurrency(kpiTotalNeto()) }}</p>
+      </div>
+    </div>
+  }
 
   @if (error()) {
     <div class="p-4 rounded-xl bg-red-50 border border-red-100 text-sm text-red-600">{{ error() }}</div>

@@ -16,6 +16,7 @@ import { Tercero, TerceroRequest } from '../../../../../core/terceros/models/ter
 import { TerceroService } from '../../../../../core/terceros/services/tercero.service';
 import { CostCenter } from '../../../../../core/cost-centers/models/cost-center.model';
 import { CostCenterService } from '../../../../../core/cost-centers/services/cost-center.service';
+import { buildRubroPickerGroups } from '../../utils/rubro-picker-groups';
 
 const AMOUNT_EPSILON = 0.01;
 const MESES_ES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
@@ -243,6 +244,17 @@ export class EgresosListComponent implements OnInit {
     });
   });
 
+  // ── KPIs de lo filtrado en pantalla — se recalculan solos al cambiar cualquier filtro ──────
+
+  kpiCount = computed(() => this.filteredExecutions().length);
+  kpiTotalDebito = computed(() =>
+    this.filteredExecutions().filter(e => e.value > 0).reduce((sum, e) => sum + e.value, 0)
+  );
+  kpiTotalCredito = computed(() =>
+    this.filteredExecutions().filter(e => e.value < 0).reduce((sum, e) => sum + Math.abs(e.value), 0)
+  );
+  kpiTotalNeto = computed(() => this.filteredExecutions().reduce((sum, e) => sum + e.value, 0));
+
   pucAccountLabel(id: string | null | undefined): string {
     if (!id) return '—';
     const a = this.pucAccounts().find(x => x.id === id);
@@ -281,25 +293,9 @@ export class EgresosListComponent implements OnInit {
     return `${MESES_ES[month - 1]} ${year}`;
   });
 
-  rubroPickerGroups = computed<RubroPickerGroup[]>(() => {
-    const monthKey = this.selectedMonthKey();
-    const summary = this.executionsMonthlySummary();
-    const byComponent = new Map<string, RubroPickerGroup>();
-
-    for (const info of this.rubroInfos()) {
-      const key = info.technicalComponentName;
-      if (!byComponent.has(key)) byComponent.set(key, { technicalComponentName: key, items: [] });
-
-      const dist = monthKey
-        ? info.monthlyDistributions.find(d => `${d.year}-${String(d.month).padStart(2, '0')}` === monthKey)
-        : undefined;
-      const presupuestadoMes = (dist?.counterpart_amount ?? 0) + (dist?.ally_amount ?? 0);
-      const ejecutadoMes = monthKey ? (summary[info.id]?.[monthKey] ?? 0) : 0;
-
-      byComponent.get(key)!.items.push({ budgetItemId: info.id, concept: info.concept, presupuestadoMes, ejecutadoMes });
-    }
-    return [...byComponent.values()];
-  });
+  rubroPickerGroups = computed<RubroPickerGroup[]>(() =>
+    buildRubroPickerGroups(this.rubroInfos(), this.executionsMonthlySummary(), this.selectedMonthKey())
+  );
 
   onRubroPicked(budgetItemId: string): void {
     this.updateFormField('budget_item_id', budgetItemId);
