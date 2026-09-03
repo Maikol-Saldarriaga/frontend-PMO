@@ -6,6 +6,8 @@ import { ProjectService } from '../../services/project.service';
 import { ContractService } from '../../services/contract.service';
 import { ProjectDetails, ProjectAccess, ProjectSection, ProjectExtensionRequest } from '../../models/project.model';
 import { AuthStore } from '../../../../../core/auth/store/auth.store';
+import { CostCenterService } from '../../../../../core/cost-centers/services/cost-center.service';
+import { CostCenter } from '../../../../../core/cost-centers/models/cost-center.model';
 import { environment } from '../../../../../environments/environment';
 import { TabEquipoComponent } from './tabs/tab-equipo/tab-equipo.component';
 import { TabResumenComponent }    from './tabs/tab-resumen/tab-resumen.component';
@@ -71,6 +73,7 @@ export class ProjectDetailComponent implements OnInit {
   private contractService = inject(ContractService);
   private sanitizer = inject(DomSanitizer);
   private auth      = inject(AuthStore);
+  private costCenterService = inject(CostCenterService);
 
   safeIcon(svgPath: string): SafeHtml {
     return this.sanitizer.bypassSecurityTrustHtml(svgPath);
@@ -289,6 +292,10 @@ export class ProjectDetailComponent implements OnInit {
       },
       error: () => {},
     });
+    this.costCenterService.list().subscribe({
+      next: items => this.costCenters.set(items ?? []),
+      error: () => this.costCenters.set([]),
+    });
   }
 
   private refreshDetails(): void {
@@ -384,6 +391,57 @@ export class ProjectDetailComponent implements OnInit {
           ? 'Solo un administrador puede editar el valor del contrato.'
           : (err?.error?.error ?? err?.error?.message ?? 'Error al actualizar el valor.');
         this.valueError.set(msg);
+      },
+    });
+  }
+
+  // ── Edición centro de costo (solo ADMIN, PATCH /projects/:id/cost-center) ────
+
+  costCenters = signal<CostCenter[]>([]);
+  editingCostCenter = signal(false);
+  costCenterSaving  = signal(false);
+  costCenterError   = signal<string | null>(null);
+  costCenterInput   = '';
+
+  /** "CODIGO — Nombre" del centro de costo actual, o null si el proyecto aún no tiene uno. */
+  currentCostCenterLabel = computed(() => {
+    const id = this.details()?.cost_center_id;
+    if (!id) return null;
+    const cc = this.costCenters().find(c => c.id === id);
+    return cc ? `${cc.code} — ${cc.name}` : null;
+  });
+
+  openCostCenterEdit(): void {
+    this.costCenterInput = this.details()?.cost_center_id ?? '';
+    this.costCenterError.set(null);
+    this.editingCostCenter.set(true);
+  }
+
+  cancelCostCenterEdit(): void {
+    this.editingCostCenter.set(false);
+    this.costCenterError.set(null);
+  }
+
+  saveCostCenter(): void {
+    if (this.costCenterSaving()) return;
+    if (!this.costCenterInput) {
+      this.costCenterError.set('Selecciona un centro de costo.');
+      return;
+    }
+    this.costCenterSaving.set(true);
+    this.costCenterError.set(null);
+    this.contractService.updateCostCenter(this.projectId, this.costCenterInput).subscribe({
+      next: () => {
+        this.costCenterSaving.set(false);
+        this.editingCostCenter.set(false);
+        this.refreshDetails();
+      },
+      error: err => {
+        this.costCenterSaving.set(false);
+        const msg = err?.status === 403
+          ? 'Solo un administrador puede editar el centro de costo.'
+          : (err?.error?.error ?? err?.error?.message ?? 'Error al actualizar el centro de costo.');
+        this.costCenterError.set(msg);
       },
     });
   }

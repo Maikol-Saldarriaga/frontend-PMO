@@ -92,6 +92,32 @@
               </span>
             }
           }
+          @if (editingCostCenter()) {
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-50 border border-amber-300 text-xs">
+              <select [(ngModel)]="costCenterInput"
+                class="bg-white border border-amber-200 rounded px-1.5 py-0.5 text-amber-700 font-semibold focus:outline-none focus:ring-1 focus:ring-amber-400 max-w-[220px]">
+                <option value="" disabled>Selecciona...</option>
+                @for (cc of costCenters(); track cc.id) { <option [value]="cc.id">{{ cc.code }} — {{ cc.name }}</option> }
+              </select>
+              <button (click)="saveCostCenter()" [disabled]="costCenterSaving()" class="text-emerald-600 hover:text-emerald-700 font-bold" title="Guardar">✓</button>
+              <button (click)="cancelCostCenterEdit()" [disabled]="costCenterSaving()" class="text-gray-400 hover:text-gray-600 font-bold" title="Cancelar">✕</button>
+            </span>
+            @if (costCenterError()) {
+              <span class="text-[10px] text-red-600">{{ costCenterError() }}</span>
+            }
+          } @else {
+            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-amber-50 border border-amber-200 text-xs text-amber-700 font-semibold"
+              [class.cursor-pointer]="isAdmin() && !isProjectLocked()" [class.hover:bg-amber-100]="isAdmin() && !isProjectLocked()"
+              (click)="isAdmin() && !isProjectLocked() && openCostCenterEdit()" [title]="isAdmin() && !isProjectLocked() ? 'Editar centro de costo' : ''">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+              {{ currentCostCenterLabel() ?? 'Sin centro de costo' }}
+              @if (isAdmin() && !isProjectLocked()) {
+                <svg class="w-3 h-3 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.5-9.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 8.5-8.5z"/>
+                </svg>
+              }
+            </span>
+          }
           <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold border"
             [ngClass]="statusCls()">
             <span class="w-1.5 h-1.5 rounded-full bg-current"></span>

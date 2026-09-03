@@ -7,6 +7,8 @@ import { ProjectStep1Request } from '../../../../models/project.model';
 import { MoneyMaskDirective } from '../../../../../../shared/directives/money-mask.directive';
 import { AllyService } from '../../../../../allies/services/ally.service';
 import { Ally } from '../../../../../allies/models/ally.model';
+import { CostCenterService } from '../../../../../../../core/cost-centers/services/cost-center.service';
+import { CostCenter } from '../../../../../../../core/cost-centers/models/cost-center.model';
 
 /**
  * Meses "de calendario real" entre dos fechas: cuenta meses completos comparando el día del
@@ -52,6 +54,7 @@ export class Step1GeneralInfoComponent implements OnInit, OnChanges {
     ext_number:         'Número de extensión',
     ext_date:           'Fecha de extensión',
     antecedent:         'Antecedente',
+    cost_center_id:     'Centro de costo',
     worker_order:       'N° Orden de trabajo',
     service_start_date: 'Fecha de inicio del servicio',
     service_end_date:   'Fecha de fin del servicio',
@@ -59,6 +62,7 @@ export class Step1GeneralInfoComponent implements OnInit, OnChanges {
 
   private fb = inject(FormBuilder);
   private allySvc = inject(AllyService);
+  private costCenterSvc = inject(CostCenterService);
 
   readonly projectTypes = ['contrato', 'convenio'];
 
@@ -67,6 +71,8 @@ export class Step1GeneralInfoComponent implements OnInit, OnChanges {
   durationMonths       = signal(0);
   serviceDurationDays  = signal(0);
   allies               = signal<Ally[]>([]);
+  /** Solo los activos — un centro de costo desactivado no debe poder elegirse en proyectos nuevos. */
+  costCenters          = signal<CostCenter[]>([]);
 
   form = this.fb.group({
     project_number:     ['', Validators.required],
@@ -91,12 +97,18 @@ export class Step1GeneralInfoComponent implements OnInit, OnChanges {
     ext_observation:    [''],
     antecedent:         [''],
     ally_id:            [''],
+    cost_center_id:     ['', Validators.required],
   });
 
   ngOnInit(): void {
     this.allySvc.listAll().subscribe({
       next: allies => this.allies.set(allies ?? []),
       error: () => this.allies.set([]),
+    });
+
+    this.costCenterSvc.list().subscribe({
+      next: items => this.costCenters.set((items ?? []).filter(c => c.is_active)),
+      error: () => this.costCenters.set([]),
     });
 
     if (this.savedData) this.patchForm(this.savedData);
@@ -154,6 +166,7 @@ export class Step1GeneralInfoComponent implements OnInit, OnChanges {
       service_end_date:   data.service_end_date?.split('T')[0]   ?? '',
       ext_date:           data.ext_date?.split('T')[0]           ?? '',
       ally_id:            data.ally_id ?? '',
+      cost_center_id:     data.cost_center_id ?? '',
     }, { emitEvent: false });
     this.showExtensionFields.set(data.other_type_if);
     this.showWorkerOrder.set(data.has_worker_order);
@@ -247,6 +260,7 @@ export class Step1GeneralInfoComponent implements OnInit, OnChanges {
       service_end_date:   v.service_end_date   ? `${v.service_end_date}T00:00:00Z`   : '',
       service_duration:   (v.service_duration as number | null) ?? 0,
       ally_id:            v.ally_id || null,
+      cost_center_id:     v.cost_center_id ?? '',
     };
 
     if (v.has_worker_order) {

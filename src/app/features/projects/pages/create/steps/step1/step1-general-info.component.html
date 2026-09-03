@@ -174,6 +174,28 @@
     </div>
   </div>
 
+  <!-- Centro de costo (obligatorio) -->
+  <div class="bg-surface rounded-2xl shadow-card border border-neutral-200 overflow-hidden mb-5">
+    <div class="flex items-center gap-3 px-6 py-4 border-b border-neutral-100 bg-gradient-to-r from-violet-50 to-transparent">
+      <div class="w-9 h-9 rounded-xl bg-violet-100 flex items-center justify-center flex-shrink-0">
+        <svg class="w-4 h-4 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+      </div>
+      <div><h3 class="text-sm font-bold text-primary-700">Centro de Costo <span class="text-danger">*</span></h3><p class="text-xs text-neutral-500">Identificador del proyecto — administrado en el catálogo de Centros de Costo</p></div>
+    </div>
+    <div class="p-6">
+      <label class="block text-xs font-bold text-neutral-600 mb-1.5 uppercase tracking-wide">Código <span class="text-danger">*</span></label>
+      <select formControlName="cost_center_id"
+        class="w-full px-4 py-2.5 rounded-xl border text-sm text-primary-700 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"
+        [class.border-danger]="isInvalid('cost_center_id')" [class.border-neutral-200]="!isInvalid('cost_center_id')">
+        <option value="" disabled>Selecciona un centro de costo...</option>
+        @for (cc of costCenters(); track cc.id) { <option [value]="cc.id">{{ cc.code }} — {{ cc.name }}</option> }
+      </select>
+      @if (!costCenters().length) {
+        <p class="text-[11px] text-danger mt-1.5">Aún no hay centros de costo activos — créalos en el catálogo de Centros de Costo antes de continuar.</p>
+      }
+    </div>
+  </div>
+
   <!-- Alianza (opcional) -->
   <div class="bg-surface rounded-2xl shadow-card border border-neutral-200 overflow-hidden mb-5">
     <div class="flex items-center gap-3 px-6 py-4 border-b border-neutral-100 bg-gradient-to-r from-teal-50 to-transparent">

@@ -9,13 +9,22 @@
       <h2 class="text-base font-bold text-gray-900">Registro de Egresos</h2>
       <p class="text-xs text-gray-400 mt-0.5">Facturas de proveedores/contratistas a FODC — el tope es lo cobrado del proyecto menos lo ya registrado como egreso. Cada registro exige la cuenta PUC correspondiente.</p>
     </div>
-    <button (click)="openCreate()" [disabled]="locked"
-      class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-accent hover:bg-accent-700 text-white text-sm font-semibold shadow-sm transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
-      </svg>
-      Registrar egreso
-    </button>
+    <div class="flex items-center gap-2">
+      <button (click)="openEgresosList()"
+        class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-semibold shadow-sm transition-all active:scale-95">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+        </svg>
+        Ver todos los egresos
+      </button>
+      <button (click)="openRegistrarEgreso()" [disabled]="locked"
+        class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-accent hover:bg-accent-700 text-white text-sm font-semibold shadow-sm transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+        </svg>
+        Registrar egreso
+      </button>
+    </div>
   </div>
 
   @if (loading()) {
@@ -45,9 +54,14 @@
 
     <!-- Resumen agrupado por Componente Técnico → Rubro -->
     <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-      <div class="px-5 py-3 border-b border-gray-100">
-        <h3 class="text-sm font-bold text-gray-900">Egresos por componente técnico y rubro</h3>
-        <p class="text-xs text-gray-400 mt-0.5">Cuántos egresos hay registrados y cuánto suman, agrupados por componente técnico y su rubro. El tope de disponibilidad es a nivel de proyecto (arriba), no por rubro.</p>
+      <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h3 class="text-sm font-bold text-gray-900">Egresos por componente técnico y rubro</h3>
+          <p class="text-xs text-gray-400 mt-0.5">Cuántos egresos hay registrados y cuánto suman, agrupados por componente técnico y su rubro. El tope de disponibilidad es a nivel de proyecto (arriba), no por rubro.</p>
+        </div>
+        <button (click)="openEgresosList()" class="text-xs font-semibold text-accent hover:underline whitespace-nowrap">
+          Ver lista completa y filtrar →
+        </button>
       </div>
       <div class="divide-y divide-gray-100">
         @for (g of groupedByTechnical(); track trackByTechGroup($index, g)) {
@@ -85,244 +99,5 @@
       }
     </div>
 
-    <!-- Filtros de la lista de egresos -->
-    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
-      <div class="flex items-center justify-between mb-3">
-        <h3 class="text-xs font-bold text-gray-700 uppercase tracking-wide">Filtrar egresos</h3>
-        @if (hasActiveFilters()) {
-          <button type="button" (click)="clearFilters()" class="text-xs font-semibold text-accent hover:underline">Limpiar filtros</button>
-        }
-      </div>
-      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <div>
-          <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Componente técnico</label>
-          <select [ngModel]="filterTechnicalComponentId()" (ngModelChange)="filterTechnicalComponentId.set($event || null)"
-            class="w-full px-2.5 py-2 rounded-lg border border-gray-200 text-xs bg-gray-50">
-            <option [ngValue]="null">Todos</option>
-            @for (t of technicalComponentOptions(); track t.id) { <option [ngValue]="t.id">{{ t.name }}</option> }
-          </select>
-        </div>
-        <div>
-          <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Rubro</label>
-          <select [ngModel]="filterBudgetItemId()" (ngModelChange)="filterBudgetItemId.set($event || null)"
-            class="w-full px-2.5 py-2 rounded-lg border border-gray-200 text-xs bg-gray-50">
-            <option [ngValue]="null">Todos</option>
-            @for (r of rubroOptionsForFilter(); track trackByRubro($index, r)) { <option [ngValue]="r.budget_item_id">{{ r.concept }}</option> }
-          </select>
-        </div>
-        <div>
-          <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Actividad</label>
-          <select [ngModel]="filterActivityId()" (ngModelChange)="filterActivityId.set($event || null)"
-            class="w-full px-2.5 py-2 rounded-lg border border-gray-200 text-xs bg-gray-50">
-            <option [ngValue]="null">Todas</option>
-            @for (a of activityOptions(); track a.id) { <option [ngValue]="a.id">{{ a.label }}</option> }
-          </select>
-        </div>
-        <div>
-          <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Cuenta PUC</label>
-          <select [ngModel]="filterPucAccountId()" (ngModelChange)="filterPucAccountId.set($event || null)"
-            class="w-full px-2.5 py-2 rounded-lg border border-gray-200 text-xs bg-gray-50">
-            <option [ngValue]="null">Todas</option>
-            @for (a of pucAccounts(); track a.id) { <option [ngValue]="a.id">{{ a.code }} — {{ a.name }}</option> }
-          </select>
-        </div>
-        <div>
-          <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Proveedor</label>
-          <input type="text" [ngModel]="filterProvider()" (ngModelChange)="filterProvider.set($event)" placeholder="Buscar..."
-            class="w-full px-2.5 py-2 rounded-lg border border-gray-200 text-xs bg-gray-50"/>
-        </div>
-        <div class="flex gap-1.5">
-          <div class="flex-1">
-            <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Desde</label>
-            <input type="date" [ngModel]="filterDateFrom()" (ngModelChange)="filterDateFrom.set($event || null)"
-              class="w-full px-2 py-2 rounded-lg border border-gray-200 text-xs bg-gray-50"/>
-          </div>
-          <div class="flex-1">
-            <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Hasta</label>
-            <input type="date" [ngModel]="filterDateTo()" (ngModelChange)="filterDateTo.set($event || null)"
-              class="w-full px-2 py-2 rounded-lg border border-gray-200 text-xs bg-gray-50"/>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Lista de egresos registrados -->
-    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-      <div class="px-5 py-3 border-b border-gray-100">
-        <h3 class="text-sm font-bold text-gray-900">Egresos registrados</h3>
-        <p class="text-xs text-gray-400 mt-0.5">
-          {{ filteredExecutions().length }} de {{ executions().length }} egreso(s)
-          @if (hasActiveFilters()) { <span class="text-accent font-semibold">(filtrado)</span> }
-        </p>
-      </div>
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm min-w-[1300px] border-collapse">
-          <thead>
-            <tr class="bg-neutral-50 border-b border-gray-100 text-[10px] font-bold text-neutral-500 uppercase tracking-wide">
-              <th class="text-left px-4 py-2.5">Fecha</th>
-              <th class="text-left px-3 py-2.5">Componente técnico</th>
-              <th class="text-left px-3 py-2.5">Rubro</th>
-              <th class="text-left px-3 py-2.5">Proveedor / N° factura</th>
-              <th class="text-left px-3 py-2.5">Cuenta PUC</th>
-              <th class="text-right px-3 py-2.5 whitespace-nowrap">Valor</th>
-              <th class="text-left px-3 py-2.5">Descripción</th>
-              <th class="px-3 py-2.5 w-20 text-right">Acciones</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-100">
-            @for (e of filteredExecutions(); track trackById($index, e)) {
-              <tr class="hover:bg-neutral-50/60 transition-colors">
-                <td class="px-4 py-3 text-xs text-neutral-500 whitespace-nowrap">{{ formatDate(e.date) }}</td>
-                <td class="px-3 py-3">
-                  <span class="text-xs text-neutral-500 truncate max-w-[160px] inline-block" [title]="rubroTechnicalName(e.budget_item_id)">{{ rubroTechnicalName(e.budget_item_id) }}</span>
-                </td>
-                <td class="px-3 py-3">
-                  <span class="inline-flex items-center gap-1.5 max-w-[200px]">
-                    <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" [style.background]="rubroColor(e.budget_item_id)"></span>
-                    <span class="text-xs font-medium text-neutral-600 truncate" [title]="rubroLabel(e.budget_item_id)">{{ rubroLabel(e.budget_item_id) }}</span>
-                  </span>
-                </td>
-                <td class="px-3 py-3 max-w-[200px]">
-                  <p class="text-xs font-medium text-neutral-600 truncate" [title]="e.provider || ''">{{ e.provider || '—' }}</p>
-                  <p class="text-[10px] text-neutral-400 truncate">{{ e.invoice_number || 'Sin N° de factura' }}</p>
-                </td>
-                <td class="px-3 py-3 text-xs text-neutral-500 whitespace-nowrap">{{ pucAccountLabel(e.puc_account_id) }}</td>
-                <td class="px-3 py-3 text-right whitespace-nowrap text-xs font-semibold text-danger">{{ formatCurrency(e.value) }}</td>
-                <td class="px-3 py-3 text-xs text-neutral-600 max-w-[220px] truncate" [title]="e.description || ''">{{ e.description || '—' }}</td>
-                <td class="px-3 py-3">
-                  <div class="flex items-center justify-end gap-1">
-                    <button type="button" (click)="openEdit(e)" [disabled]="locked" title="Editar"
-                      class="w-8 h-8 flex items-center justify-center rounded-lg text-neutral-500 hover:text-accent hover:bg-accent-50 transition-colors disabled:opacity-40">
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                    </button>
-                    <button type="button" (click)="deleteExecution(e)" [disabled]="locked || deletingId() === e.id" title="Eliminar"
-                      class="w-8 h-8 flex items-center justify-center rounded-lg text-neutral-500 hover:text-danger hover:bg-danger/10 transition-colors disabled:opacity-40">
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      </div>
-      @if (!filteredExecutions().length) {
-        <div class="flex flex-col items-center justify-center py-12 gap-2">
-          @if (hasActiveFilters()) {
-            <p class="text-sm font-medium text-gray-500">Ningún egreso coincide con los filtros.</p>
-            <button type="button" (click)="clearFilters()" class="text-xs font-semibold text-accent hover:underline">Limpiar filtros</button>
-          } @else {
-            <p class="text-sm font-medium text-gray-500">No hay egresos registrados.</p>
-            <p class="text-xs text-gray-400">Usa "Registrar egreso" arriba.</p>
-          }
-        </div>
-      }
-    </div>
-
   }
 </div>
-
-<!-- ══ PANEL LATERAL DE REGISTRO / EDICIÓN ═══════════════════════════════════ -->
-@if (panelOpen()) {
-  <div class="fixed inset-0 z-40 bg-black/30" (click)="closePanel()"></div>
-
-  <div class="fixed top-0 right-0 z-50 h-full w-full sm:w-[480px] max-w-full bg-white shadow-2xl overflow-y-auto">
-    <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
-      <h3 class="text-sm font-bold text-gray-900">{{ form().id ? 'Editar egreso' : 'Registrar egreso' }}</h3>
-      <button (click)="closePanel()" class="text-gray-400 hover:text-gray-600 transition-colors">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-      </button>
-    </div>
-
-    <div class="p-6 space-y-4">
-
-      <div>
-        <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Rubro <span class="text-danger">*</span></label>
-        <select [ngModel]="form().budget_item_id" (ngModelChange)="updateFormField('budget_item_id', $event)" [disabled]="!!form().id"
-          class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300 disabled:opacity-60">
-          <option [ngValue]="null">Selecciona un rubro...</option>
-          @for (r of rubros(); track trackByRubro($index, r)) {
-            <option [ngValue]="r.budget_item_id">{{ r.concept }} — presupuestado {{ formatCurrency(r.total_presupuestado) }}</option>
-          }
-        </select>
-        @if (form().id) {
-          <p class="text-[10px] text-gray-400 mt-1">El rubro no se puede cambiar al editar — elimina y crea uno nuevo si te equivocaste.</p>
-        }
-      </div>
-
-      <div class="p-3 rounded-xl bg-sky-50 border border-sky-100 text-xs">
-        <p [class.text-danger]="formOverAvailable()" [class.font-bold]="formOverAvailable()" [class.text-emerald-700]="!formOverAvailable()">
-          Disponible del proyecto para ejecutar: {{ formatCurrency(formAvailable()) }}
-          @if (formOverAvailable()) { — el valor ingresado lo supera }
-        </p>
-      </div>
-
-      <div class="grid grid-cols-2 gap-4">
-        <div>
-          <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Valor <span class="text-danger">*</span></label>
-          <input type="text" inputmode="decimal" appMoneyMask [ngModel]="form().value" (ngModelChange)="updateFormField('value', $event)"
-            class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300"/>
-        </div>
-        <div>
-          <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Fecha <span class="text-danger">*</span></label>
-          <input type="date" [ngModel]="form().date" (ngModelChange)="updateFormField('date', $event)"
-            class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300"/>
-        </div>
-      </div>
-
-      <div>
-        <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Cuenta PUC <span class="text-danger">*</span></label>
-        <button type="button" (click)="pucPickerOpen.set(true)" [disabled]="!activePUCAccounts().length"
-          class="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 hover:bg-white hover:border-sky-300 outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-left">
-          <span [class.text-gray-400]="!form().puc_account_id" [class.text-gray-800]="!!form().puc_account_id" [class.font-semibold]="!!form().puc_account_id" class="truncate">
-            {{ form().puc_account_id ? pucAccountLabel(form().puc_account_id) : 'Selecciona una cuenta PUC...' }}
-          </span>
-          <svg class="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z"/>
-          </svg>
-        </button>
-        @if (!activePUCAccounts().length) {
-          <p class="text-[10px] text-danger mt-1">Aún no hay cuentas PUC activas — créalas en <a routerLink="/puc-accounts" class="underline font-semibold">Catálogo PUC</a> antes de registrar un egreso.</p>
-        }
-      </div>
-
-      <app-puc-account-picker [open]="pucPickerOpen()" [accounts]="activePUCAccounts()"
-        (closed)="pucPickerOpen.set(false)" (picked)="onPucPicked($event)" />
-
-      <div class="grid grid-cols-2 gap-4">
-        <div>
-          <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Proveedor / contratista</label>
-          <input type="text" [ngModel]="form().provider" (ngModelChange)="updateFormField('provider', $event)"
-            class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300"
-            placeholder="Nombre del proveedor..."/>
-        </div>
-        <div>
-          <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">N° de factura</label>
-          <input type="text" [ngModel]="form().invoice_number" (ngModelChange)="updateFormField('invoice_number', $event)"
-            class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300"
-            placeholder="Ej: FV-1042"/>
-        </div>
-      </div>
-
-      <div>
-        <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Descripción</label>
-        <textarea [ngModel]="form().description" (ngModelChange)="updateFormField('description', $event)" rows="3"
-          class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-sky-300 resize-none"
-          placeholder="En qué se ejecutó este gasto..."></textarea>
-      </div>
-
-      @if (saveError()) {
-        <div class="p-3 rounded-xl bg-red-50 border border-red-100 text-sm text-red-600">{{ saveError() }}</div>
-      }
-
-      <div class="flex items-center justify-end gap-3 pt-2">
-        <button type="button" (click)="closePanel()" class="px-4 py-2 text-sm text-neutral-500 hover:text-neutral-700 transition-colors">Cancelar</button>
-        <button type="button" (click)="save()" [disabled]="locked || saving() || !canSave()"
-          class="flex items-center gap-2 px-5 py-2.5 bg-sky-500 hover:bg-sky-600 disabled:opacity-50 text-white text-sm font-semibold rounded-xl shadow-sm transition-colors">
-          @if (saving()) { <div class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> }
-          Guardar
-        </button>
-      </div>
-    </div>
-  </div>
-}

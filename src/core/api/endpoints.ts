@@ -73,6 +73,7 @@ export const ENDPOINTS = {
     disbursementReceipts:    (id: string, did: string, iid: string) => `${API_URL}/projects/${id}/disbursements/${did}/invoices/${iid}/receipts`,
     disbursementReceiptById: (id: string, did: string, iid: string, rid: string) => `${API_URL}/projects/${id}/disbursements/${did}/invoices/${iid}/receipts/${rid}`,
     disbursementReceiptDocument: (id: string, did: string, iid: string, rid: string) => `${API_URL}/projects/${id}/disbursements/${did}/invoices/${iid}/receipts/${rid}/document`,
+    disbursementInvoiceDocument: (id: string, did: string, iid: string) => `${API_URL}/projects/${id}/disbursements/${did}/invoices/${iid}/document`,
     cashFlow:          (id: string) => `${API_URL}/projects/${id}/cash-flow`,
     executions:        (id: string) => `${API_URL}/projects/${id}/executions`,
     executionById:     (id: string, eid: string) => `${API_URL}/projects/${id}/executions/${eid}`,
@@ -102,6 +103,7 @@ export const ENDPOINTS = {
     supports:       (id: string, sid: string) => `${API_URL}/projects/${id}/services/${sid}/supports`,
     supportById:    (id: string, sid: string, spid: string) => `${API_URL}/projects/${id}/services/${sid}/supports/${spid}`,
     updateValue:    (id: string) => `${API_URL}/projects/${id}/value`,
+    updateCostCenter: (id: string) => `${API_URL}/projects/${id}/cost-center`,
   },
   obligations: {
     list:           (id: string) => `${API_URL}/projects/${id}/obligations`,
@@ -190,6 +192,18 @@ export const ENDPOINTS = {
     create:     `${API_URL}/puc-accounts`,
     update:     (id: string) => `${API_URL}/puc-accounts/${id}`,
     deactivate: (id: string) => `${API_URL}/puc-accounts/${id}`,
+  },
+  costCenters: {
+    list:       `${API_URL}/cost-centers`,
+    create:     `${API_URL}/cost-centers`,
+    update:     (id: string) => `${API_URL}/cost-centers/${id}`,
+    deactivate: (id: string) => `${API_URL}/cost-centers/${id}`,
+  },
+  terceros: {
+    list:       (id: string) => `${API_URL}/projects/${id}/terceros`,
+    create:     (id: string) => `${API_URL}/projects/${id}/terceros`,
+    update:     (id: string, tid: string) => `${API_URL}/projects/${id}/terceros/${tid}`,
+    deactivate: (id: string, tid: string) => `${API_URL}/projects/${id}/terceros/${tid}`,
   },
   allies: {
     list:        `${API_URL}/allies`,

@@ -298,6 +298,10 @@ export class ProjectService {
     return this.http.post<FundingReceipt>(ENDPOINTS.projects.disbursementReceiptDocument(id, did, iid, rid), form);
   }
 
+  uploadInvoiceDocumentForDisbursement(id: string, did: string, iid: string, form: FormData): Observable<Invoice> {
+    return this.http.post<Invoice>(ENDPOINTS.projects.disbursementInvoiceDocument(id, did, iid), form);
+  }
+
   getGantt(id: string, filters: GanttFilters = {}): Observable<GanttResponse> {
     const params = new URLSearchParams();
     if (filters.year)     params.set('year',     String(filters.year));

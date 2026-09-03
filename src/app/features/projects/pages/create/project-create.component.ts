@@ -193,6 +193,7 @@ export class ProjectCreateComponent implements OnInit, OnDestroy {
             other_type_if:      c.other_type_if                ?? false,
             antecedent:         svc.antecedent                 ?? '',
             ally_id:            sup?.ally_id                   ?? null,
+            cost_center_id:     c.cost_center_id                ?? '',
           } as ProjectStep1Request;
         }
 
@@ -700,6 +701,7 @@ export class ProjectCreateComponent implements OnInit, OnDestroy {
         number_work_order: data.worker_order || null,
       }),
       ally_id: data.ally_id || null,
+      cost_center_id: data.cost_center_id,
     };
 
     const existingId = this.projectId();

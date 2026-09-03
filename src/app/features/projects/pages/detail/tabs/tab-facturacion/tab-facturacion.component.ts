@@ -192,6 +192,9 @@ export class TabFacturacionComponent implements OnInit {
   formSaving  = signal(false);
   formError   = signal<string | null>(null);
   editingInvoiceId = signal<string | null>(null);
+  /** La factura completa que se está editando (para mostrar/adjuntar su soporte) — null al
+   * crear una nueva, ya que el soporte solo se puede subir contra una factura que ya existe. */
+  editingInvoice = computed<Invoice | null>(() => this.invoices().find(i => i.id === this.editingInvoiceId()) ?? null);
 
   form: {
     value:                  number | null;
@@ -351,6 +354,14 @@ export class TabFacturacionComponent implements OnInit {
   onFormIvaChange(iva: number | null): void {
     this.form.iva_percentage = iva ?? 0;
     this.onFormValueChange(this.form.value);
+  }
+
+  /** Valor del IVA en pesos = valor - antes de IVA. Puramente informativo — el flujo de caja
+   * sigue usando el valor bruto (con IVA) como ingreso real; esto solo discrimina cuánto de ese
+   * valor es IVA, no se resta de nada. */
+  formIvaAmount(): number | null {
+    if (this.form.value == null || this.form.value_before_tax == null) return null;
+    return this.form.value - this.form.value_before_tax;
   }
 
   startForm(): void {
@@ -571,6 +582,31 @@ export class TabFacturacionComponent implements OnInit {
     this.receiptForm = emptyReceiptForm();
     this.receiptError.set(null);
     this.receiptDocumentFile.set(null);
+  }
+
+  // ── Soporte de la factura adjunto ────────────────────────────────────────
+  uploadingInvoiceDocumentId = signal<string | null>(null);
+
+  /** Adjuntar el soporte de una factura que ya existe — solo aplica al editar (la factura
+   * necesita existir primero para tener un id contra el que subir el archivo). */
+  onAttachInvoiceDocument(invoice: Invoice, event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    const d = this.selectedDisbursement();
+    if (!d) return;
+
+    this.uploadingInvoiceDocumentId.set(invoice.id);
+    const form = new FormData();
+    form.append('file', file);
+    this.svc.uploadInvoiceDocumentForDisbursement(this.projectId, d.id, invoice.id, form).subscribe({
+      next: updated => {
+        this.uploadingInvoiceDocumentId.set(null);
+        this.invoices.update(list => list.map(inv => inv.id === updated.id ? updated : inv));
+      },
+      error: () => this.uploadingInvoiceDocumentId.set(null),
+    });
   }
 
   // ── Comprobante de pago adjunto ──────────────────────────────────────────

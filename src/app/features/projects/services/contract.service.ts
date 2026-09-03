@@ -49,6 +49,10 @@ export class ContractService {
     return this.http.patch<void>(ENDPOINTS.contracts.updateValue(id), { value });
   }
 
+  updateCostCenter(id: string, costCenterId: string): Observable<void> {
+    return this.http.patch<void>(ENDPOINTS.contracts.updateCostCenter(id), { cost_center_id: costCenterId });
+  }
+
   /** Actualización parcial genérica (PUT /projects/:id) usada solo para configurar
    * applies_admin_fee/admin_fee_percentage/iva_percentage desde la pestaña Facturación,
    * sin tener que reenviar el payload completo del step 1 del wizard. */

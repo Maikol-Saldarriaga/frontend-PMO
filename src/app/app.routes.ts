@@ -13,6 +13,7 @@ import { ProjectDetailComponent } from './features/projects/pages/detail/project
 import { ProjectSummaryComponent } from './features/projects/pages/summary/project-summary.component';
 import { MonthlyComponent } from './features/projects/pages/monthly/monthly.component';
 import { MovimientosComponent } from './features/projects/pages/movimientos/movimientos.component';
+import { EgresosListComponent } from './features/projects/pages/egresos-list/egresos-list.component';
 import { TrackingReportComponent } from './features/projects/pages/tracking-report/tracking-report.component';
 import { DocumentsListComponent } from './features/documents/pages/list/documents-list.component';
 import { ScheduleListComponent } from './features/schedule/pages/list/schedule-list.component';
@@ -23,6 +24,7 @@ import { FoundationUsersComponent } from './features/foundation/pages/list/found
 import { ApoyoListComponent } from './features/apoyo/pages/list/apoyo-list.component';
 import { BudgetCatalogComponent } from './features/budget-catalog/pages/list/budget-catalog.component';
 import { PUCAccountsComponent } from './features/puc-accounts/pages/list/puc-accounts.component';
+import { CostCentersComponent } from './features/cost-centers/pages/list/cost-centers.component';
 import { authGuard, rootRedirectGuard, canCreateProjectGuard, adminGuard } from '../core/auth/guards/auth.guard';
 
 export const routes: Routes = [
@@ -46,6 +48,7 @@ export const routes: Routes = [
       { path: 'projects/:id/summary',  component: ProjectSummaryComponent },
       { path: 'projects/:id/monthly',  component: MonthlyComponent },
       { path: 'projects/:id/movimientos', component: MovimientosComponent },
+      { path: 'projects/:id/egresos',   component: EgresosListComponent },
       { path: 'projects/:id/tracking-report', component: TrackingReportComponent },
       { path: 'documents',             component: DocumentsListComponent },
       { path: 'schedule',              component: ScheduleListComponent },
@@ -55,6 +58,7 @@ export const routes: Routes = [
       { path: 'apoyo',                 component: ApoyoListComponent, canActivate: [adminGuard] },
       { path: 'budget-catalog',        component: BudgetCatalogComponent, canActivate: [adminGuard] },
       { path: 'puc-accounts',          component: PUCAccountsComponent, canActivate: [adminGuard] },
+      { path: 'cost-centers',          component: CostCentersComponent, canActivate: [adminGuard] },
       { path: 'reports',               component: ReportsComponent },
     ]
   },

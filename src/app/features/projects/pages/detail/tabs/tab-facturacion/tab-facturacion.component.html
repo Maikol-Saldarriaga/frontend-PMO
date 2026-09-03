@@ -479,7 +479,7 @@
           <input type="text" inputmode="numeric" appMoneyMask [ngModel]="form.value" (ngModelChange)="onFormValueChange($event)" placeholder="0"
             class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
         </div>
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-3 gap-3">
           <div>
             <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">% de IVA</label>
             <div class="relative">
@@ -493,6 +493,11 @@
             <input type="text" [value]="form.value_before_tax !== null ? formatCurrency(form.value_before_tax) : ''" readonly placeholder="—"
               class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-neutral-500 placeholder-neutral-300 bg-neutral-100 cursor-not-allowed outline-none"/>
           </div>
+          <div>
+            <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Valor del IVA</label>
+            <input type="text" [value]="formIvaAmount() !== null ? formatCurrency(formIvaAmount()!) : ''" readonly placeholder="—"
+              class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-amber-600 font-semibold placeholder-neutral-300 bg-neutral-100 cursor-not-allowed outline-none"/>
+          </div>
         </div>
         <div>
           <label class="flex items-center gap-1.5 cursor-pointer select-none">
@@ -500,7 +505,7 @@
               class="w-3.5 h-3.5 rounded border-neutral-300 text-accent focus:ring-accent-200"/>
             <span class="text-[11px] text-neutral-500">No incluye IVA</span>
           </label>
-          <p class="text-[10px] text-neutral-400 mt-1">{{ form.no_iva ? 'Sin IVA: valor antes de IVA = valor' : 'Calculado automáticamente (valor sin ' + form.iva_percentage + '% de IVA)' }}</p>
+          <p class="text-[10px] text-neutral-400 mt-1">{{ form.no_iva ? 'Sin IVA: valor antes de IVA = valor' : 'Calculado automáticamente (valor sin ' + form.iva_percentage + '% de IVA)' }} — el IVA es solo informativo, no se resta del ingreso en Flujo de Caja.</p>
         </div>
 
         <!-- % de administración: configurable aquí mismo, aplica a todo el proyecto (no solo a esta factura) -->
@@ -537,7 +542,7 @@
         </div>
 
         <div>
-          <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">N° acta de cobro</label>
+          <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">N° de factura</label>
           <input type="text" [(ngModel)]="form.collection_act_number" placeholder="Ej: No FODC 709"
             class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
         </div>
@@ -552,6 +557,33 @@
           <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Descripción</label>
           <input type="text" [(ngModel)]="form.description" placeholder="Nota libre (opcional)"
             class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+        </div>
+
+        <div>
+          <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Soporte de la factura</label>
+          @if (editingInvoice(); as inv) {
+            <div class="flex items-center gap-2">
+              @if (inv.document_key) {
+                <a [href]="inv.document_key" target="_blank" rel="noopener"
+                  class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-emerald-200 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 transition-colors">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                  Ver soporte adjunto
+                </a>
+              }
+              <label class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-neutral-200 text-xs font-semibold text-neutral-500 hover:text-accent hover:border-accent-200 hover:bg-accent-50 transition-colors cursor-pointer"
+                [class.opacity-40]="locked || uploadingInvoiceDocumentId() === inv.id" [class.pointer-events-none]="locked || uploadingInvoiceDocumentId() === inv.id">
+                @if (uploadingInvoiceDocumentId() === inv.id) {
+                  <div class="w-3.5 h-3.5 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
+                } @else {
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                }
+                {{ inv.document_key ? 'Reemplazar' : 'Adjuntar archivo' }}
+                <input type="file" class="hidden" accept="image/*,.pdf" [disabled]="locked || uploadingInvoiceDocumentId() === inv.id" (change)="onAttachInvoiceDocument(inv, $event)"/>
+              </label>
+            </div>
+          } @else {
+            <p class="text-[11px] text-neutral-400">Guarda la factura primero; luego podrás adjuntar el soporte desde "Editar".</p>
+          }
         </div>
 
         @if (invoiceOverageWarning(); as warning) {

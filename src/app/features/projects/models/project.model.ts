@@ -35,6 +35,8 @@ export interface ProjectStep1Request {
   antecedent:           string;
   /** Alianza (organización aliada) opcional del proyecto. */
   ally_id?:             string | null;
+  /** Centro de costo — obligatorio, identifica el proyecto. Catálogo en /cost-centers. */
+  cost_center_id:       string;
   // La configuración de administración/IVA (applies_admin_fee, admin_fee_percentage,
   // iva_percentage) NO se pide aquí — se edita directamente en la pestaña Facturación.
   // El backend aplica sus propios defaults (sin admin fee, IVA 19%) si no se envían.
@@ -577,6 +579,8 @@ export interface ProjectDetails {
   previous_end_date:        string | null;
   duration:                 number;
   value:                    number | null;
+  /** Centro de costo — identificador del proyecto. Catálogo en /cost-centers. */
+  cost_center_id:           string | null;
   status:                   string;
 
   overall_progress:         number;
@@ -1355,6 +1359,10 @@ export interface Invoice {
   /** Si esta factura nació como línea de una "factura general" (cabecera con varios rubros),
    * aquí queda el id de esa cabecera — null/ausente para una factura individual normal. */
   invoice_header_id?:        string | null;
+  /** Soporte adjunto de la factura (no el comprobante de la "factura general"). document_key
+   * ya viene como URL firmada lista para abrir cuando está poblado. */
+  document_key?:             string | null;
+  document_name?:            string | null;
 }
 
 export interface InvoiceRequest {
@@ -1519,6 +1527,10 @@ export interface BudgetExecution {
   provider:               string | null;
   /** N° de la factura del proveedor/contratista. */
   invoice_number:         string | null;
+  /** Tercero del catálogo (si se eligió uno) — provider se sincroniza automáticamente con su nombre. */
+  tercero_id:             string | null;
+  /** Centro de costo — copiado automáticamente del proyecto por el backend, nunca editable desde acá. */
+  cost_center_id:         string | null;
 }
 
 export interface CreateBudgetExecutionRequest {
@@ -1529,6 +1541,7 @@ export interface CreateBudgetExecutionRequest {
   puc_account_id:  string;
   provider?:       string | null;
   invoice_number?: string | null;
+  tercero_id?:     string | null;
 }
 
 export interface UpdateBudgetExecutionRequest {
@@ -1538,6 +1551,7 @@ export interface UpdateBudgetExecutionRequest {
   puc_account_id:  string;
   provider?:       string | null;
   invoice_number?: string | null;
+  tercero_id?:     string | null;
 }
 
 // ── Hitos: registro de hitos del proyecto, con disparo automático opcional ─────────────────────

@@ -37,6 +37,8 @@ export interface ContractStep1Request {
   number_work_order?: string | null;
   // Alianza (organización aliada) opcional del proyecto.
   ally_id?:           string | null;
+  // Centro de costo — obligatorio, identifica el proyecto. Catálogo en /cost-centers.
+  cost_center_id:     string;
   // La configuración de administración/IVA se edita en la pestaña Facturación
   // (ver UpdateAdminFeeConfigRequest), no en este step del wizard.
 }
@@ -78,6 +80,7 @@ export interface ContractResponse {
   applies_admin_fee?:    boolean;
   admin_fee_percentage?: number | null;
   iva_percentage?:       number;
+  cost_center_id?:       string | null;
 }
 
 export interface SupervisorRef {
