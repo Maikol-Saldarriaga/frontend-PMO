@@ -205,6 +205,11 @@ export const ENDPOINTS = {
     update:     (id: string, tid: string) => `${API_URL}/projects/${id}/terceros/${tid}`,
     deactivate: (id: string, tid: string) => `${API_URL}/projects/${id}/terceros/${tid}`,
   },
+  notifications: {
+    list:        `${API_URL}/notifications`,
+    markRead:    (id: string) => `${API_URL}/notifications/${id}/read`,
+    markAllRead: `${API_URL}/notifications/read-all`,
+  },
   allies: {
     list:        `${API_URL}/allies`,
     create:      `${API_URL}/allies`,

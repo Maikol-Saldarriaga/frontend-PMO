@@ -163,9 +163,11 @@
   &--accent   { background: $color-accent; }
   &--warning  { background: $color-warning; }
   &--primary  { background: $color-primary-700; }
+  &--read     { background: $color-neutral-300; }
 }
 
 .notif-item__text { font-size: 0.8125rem; color: $color-neutral-800; margin: 0; line-height: 1.4; }
+.notif-item__text--read { color: $color-neutral-400; }
 .notif-item__time { font-size: 0.7rem; color: $color-neutral-400; margin: 0.15rem 0 0; }
 
 // ── Dropdown usuario ──────────────────────────

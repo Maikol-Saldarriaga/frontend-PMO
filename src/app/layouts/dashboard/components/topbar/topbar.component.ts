@@ -1,10 +1,15 @@
-import { Component, EventEmitter, inject, Input, Output } from '@angular/core';
+import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 import { AuthStore } from '../../../../../core/auth/store/auth.store';
 import { AuthService } from '../../../../../core/auth/services/auth.service';
 import { API_BASE_URL } from '../../../../../core/config/api.config';
 import { UserService } from '../../../../../core/users/services/user.service';
 import { PortalToBodyDirective } from '../../../../shared/directives/portal-to-body.directive';
+import { NotificationStoreService } from '../../../../../core/notifications/services/notification-store.service';
+import { Notification } from '../../../../../core/notifications/models/notification.model';
+
+const NOTIFICATIONS_POLL_MS = 30000;
 
 @Component({
   selector: 'app-topbar',
@@ -13,17 +18,48 @@ import { PortalToBodyDirective } from '../../../../shared/directives/portal-to-b
   templateUrl: './topbar.component.html',
   styleUrl: './topbar.component.scss'
 })
-export class TopbarComponent {
+export class TopbarComponent implements OnInit, OnDestroy {
   @Input() sidebarCollapsed = false;
   @Output() toggleSidebar = new EventEmitter<void>();
 
   private authStore   = inject(AuthStore);
   private authService = inject(AuthService);
   private userService  = inject(UserService);
+  private router       = inject(Router);
+  notificationStore     = inject(NotificationStoreService);
 
   pageTitle     = 'Inicio';
-  notifications = 3;
   private avatarRetried = false;
+  private pollHandle?: ReturnType<typeof setInterval>;
+
+  ngOnInit(): void {
+    this.notificationStore.refresh();
+    this.pollHandle = setInterval(() => this.notificationStore.refresh(), NOTIFICATIONS_POLL_MS);
+  }
+
+  ngOnDestroy(): void {
+    if (this.pollHandle) clearInterval(this.pollHandle);
+  }
+
+  onNotificationClick(n: Notification): void {
+    this.notificationStore.markRead(n.id);
+    this.router.navigate(['/projects', n.contract_agreement_id], { queryParams: { tab: n.tab } });
+  }
+
+  markAllRead(): void {
+    this.notificationStore.markAllRead();
+  }
+
+  timeAgo(iso: string): string {
+    const diffMs = Date.now() - new Date(iso).getTime();
+    const min = Math.floor(diffMs / 60000);
+    if (min < 1) return 'Ahora';
+    if (min < 60) return `Hace ${min} min`;
+    const hrs = Math.floor(min / 60);
+    if (hrs < 24) return `Hace ${hrs} h`;
+    const days = Math.floor(hrs / 24);
+    return `Hace ${days} d`;
+  }
 
   get user()      { return this.authStore.user(); }
   get avatarUrl() {
