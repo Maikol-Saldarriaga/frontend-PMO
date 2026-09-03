@@ -99,17 +99,20 @@
           </select>
         </div>
         <div>
-          <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Cuenta PUC</label>
-          <select [ngModel]="filterPucAccountId()" (ngModelChange)="filterPucAccountId.set($event || null)"
+          <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Cuenta</label>
+          <select [ngModel]="filterAccountCode()" (ngModelChange)="filterAccountCode.set($event || null)"
             class="w-full px-2.5 py-2 rounded-lg border border-gray-200 text-xs bg-gray-50">
             <option [ngValue]="null">Todas</option>
-            @for (a of pucAccounts(); track a.id) { <option [ngValue]="a.id">{{ a.code }} — {{ a.name }}</option> }
+            @for (a of accountOptions(); track a.key) { <option [ngValue]="a.key">{{ a.label }}</option> }
           </select>
         </div>
         <div>
           <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Proveedor</label>
-          <input type="text" [ngModel]="filterProvider()" (ngModelChange)="filterProvider.set($event)" placeholder="Buscar..."
-            class="w-full px-2.5 py-2 rounded-lg border border-gray-200 text-xs bg-gray-50"/>
+          <select [ngModel]="filterProvider()" (ngModelChange)="filterProvider.set($event || null)"
+            class="w-full px-2.5 py-2 rounded-lg border border-gray-200 text-xs bg-gray-50">
+            <option [ngValue]="null">Todos</option>
+            @for (p of providerOptions(); track p) { <option [ngValue]="p">{{ p }}</option> }
+          </select>
         </div>
         <div class="flex gap-1.5">
           <div class="flex-1">
@@ -143,7 +146,7 @@
               <th class="text-left px-3 py-2.5">Componente técnico</th>
               <th class="text-left px-3 py-2.5">Rubro</th>
               <th class="text-left px-3 py-2.5">Proveedor / N° factura</th>
-              <th class="text-left px-3 py-2.5">Cuenta PUC</th>
+              <th class="text-left px-3 py-2.5">Cuenta</th>
               <th class="text-left px-3 py-2.5">Centro de costo</th>
               <th class="text-right px-3 py-2.5 whitespace-nowrap">Débito</th>
               <th class="text-left px-3 py-2.5">Descripción</th>
@@ -167,7 +170,7 @@
                   <p class="text-xs font-medium text-neutral-600 truncate" [title]="e.provider || ''">{{ e.provider || '—' }}</p>
                   <p class="text-[10px] text-neutral-400 truncate">{{ e.invoice_number || 'Sin N° de factura' }}</p>
                 </td>
-                <td class="px-3 py-3 text-xs text-neutral-500 whitespace-nowrap">{{ pucAccountLabel(e.puc_account_id) }}</td>
+                <td class="px-3 py-3 text-xs text-neutral-500 whitespace-nowrap">{{ accountLabel(e) }}</td>
                 <td class="px-3 py-3 text-xs text-neutral-500 whitespace-nowrap">{{ costCenterLabel(e.cost_center_id) }}</td>
                 <td class="px-3 py-3 text-right whitespace-nowrap text-xs font-semibold text-danger">{{ formatCurrency(e.value) }}</td>
                 <td class="px-3 py-3 text-xs text-neutral-600 max-w-[220px] truncate" [title]="e.description || ''">{{ e.description || '—' }}</td>

@@ -5,16 +5,14 @@ import { Router, ActivatedRoute } from '@angular/router';
 import * as XLSX from 'xlsx';
 
 import { ProjectService } from '../../services/project.service';
-import { PucAccountPickerComponent } from '../../../../shared/components/puc-account-picker/puc-account-picker.component';
 import { RubroPickerComponent, RubroPickerGroup } from '../../../../shared/components/rubro-picker/rubro-picker.component';
-import { PUCAccount } from '../../../../../core/puc-accounts/models/puc-account.model';
 import { CostCenterService } from '../../../../../core/cost-centers/services/cost-center.service';
 import { CostCenter } from '../../../../../core/cost-centers/models/cost-center.model';
 import { buildRubroPickerGroups, RubroPickerRubroInfo } from '../../utils/rubro-picker-groups';
 import { BudgetEntry, BudgetItem, BulkExecutionRowRequest, BulkExecutionRowResult } from '../../models/project.model';
 
 /** Orden EXACTO esperado del Excel de auxiliares contables — "Cuenta" aparece dos veces (la
- * primera es la cuenta PUC detallada, la segunda es el código de mayor) y esa repetición es
+ * primera es la cuenta detallada, la segunda es el código de mayor) y esa repetición es
  * justo por lo que la validación compara posición por posición, no como un conjunto de nombres. */
 const EXPECTED_HEADERS = [
   'Cuenta', 'Tercero', 'Fecha', 'Nota', 'Cheque', 'Doc Num', 'Debitos', 'Creditos',
@@ -35,8 +33,6 @@ interface ParsedRow {
   rowNumber: number;           // fila real del Excel (1-based, contando el header)
   selected: boolean;
   budgetItemId: string | null;
-  pucAccountId: string | null;
-  pucNeedsReview: boolean;     // sin match o match ambiguo — el usuario debe corregirlo a mano
   value: number;
   date: string | null;         // ISO yyyy-mm-dd
   tercero: string;
@@ -45,6 +41,7 @@ interface ParsedRow {
   cheque: string;
   mvto: string;
   saldo: number | null;
+  /** Cuenta tal cual viene del Excel — no se enlaza con el catálogo PUC, solo auditoría. */
   sourceAccountCode: string;
   sourceAccountName: string;
   sourceMayorCode: string;
@@ -56,7 +53,7 @@ interface ParsedRow {
 @Component({
   selector: 'app-egresos-import',
   standalone: true,
-  imports: [CommonModule, FormsModule, PucAccountPickerComponent, RubroPickerComponent],
+  imports: [CommonModule, FormsModule, RubroPickerComponent],
   templateUrl: './egresos-import.component.html',
 })
 export class EgresosImportComponent implements OnInit {
@@ -71,7 +68,6 @@ export class EgresosImportComponent implements OnInit {
   loadingProject = signal(true);
   loadError = signal<string | null>(null);
   projectCostCenterCode = signal<string | null>(null);
-  pucAccounts = signal<PUCAccount[]>([]);
   costCenters = signal<CostCenter[]>([]);
   rubroInfos = signal<RubroPickerRubroInfo[]>([]);
   executionsMonthlySummary = signal<Record<string, Record<string, number>>>({});
@@ -90,7 +86,6 @@ export class EgresosImportComponent implements OnInit {
     this.loadingProject.set(true);
     this.loadError.set(null);
 
-    this.svc.listPUCAccounts().subscribe({ next: items => this.pucAccounts.set(items ?? []), error: () => {} });
     this.svc.getExecutionsMonthlySummary(this.projectId).subscribe({
       next: s => this.executionsMonthlySummary.set(s ?? {}), error: () => {},
     });
@@ -148,7 +143,9 @@ export class EgresosImportComponent implements OnInit {
 
     this.fileError.set(null);
     this.parsedRows.set([]);
+    this.selectedMonthKey.set(null);
     this.skippedByCostCenter.set(0);
+    this.sampleRawCostCenters.set([]);
     this.fileName.set(file.name);
     this.parsing.set(true);
 
@@ -171,9 +168,10 @@ export class EgresosImportComponent implements OnInit {
         }
 
         const dataRows = allRows.slice(headerRowIndex + 1);
-        const { rows, skipped } = this.parseDataRows(dataRows, headerRowIndex);
+        const { rows, skipped, sampleRawCostCenters } = this.parseDataRows(dataRows, headerRowIndex);
         this.parsedRows.set(rows);
         this.skippedByCostCenter.set(skipped);
+        this.sampleRawCostCenters.set(sampleRawCostCenters);
         if (rows.length === 0) {
           this.fileError.set(
             skipped > 0
@@ -181,8 +179,11 @@ export class EgresosImportComponent implements OnInit {
               : 'No se encontraron filas de datos en el archivo.'
           );
         }
-      } catch {
-        this.fileError.set('No se pudo leer el archivo. Verifica que sea un Excel válido (.xlsx).');
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('Error al parsear el Excel de auxiliares:', err);
+        const detail = err instanceof Error ? err.message : String(err);
+        this.fileError.set(`No se pudo leer el archivo: ${detail}`);
       } finally {
         this.parsing.set(false);
       }
@@ -233,36 +234,32 @@ export class EgresosImportComponent implements OnInit {
     return null;
   }
 
-  private matchesProjectCostCenter(cell: string): boolean {
+  matchesProjectCostCenter(cell: string): boolean {
     const code = this.projectCostCenterCode();
     if (!code) return false;
     const numbers: string[] = cell.match(/\d+/g) ?? [];
     return numbers.includes(code);
   }
 
-  private matchPucAccount(sourceCode: string): { id: string | null; needsReview: boolean } {
-    if (!sourceCode) return { id: null, needsReview: true };
-    const matches = this.pucAccounts().filter(a => a.code === sourceCode);
-    if (matches.length === 1) return { id: matches[0].id, needsReview: false };
-    return { id: null, needsReview: true };
-  }
-
-  private parseDataRows(rows: unknown[][], headerRowIndex: number): { rows: ParsedRow[]; skipped: number } {
+  private parseDataRows(rows: unknown[][], headerRowIndex: number): { rows: ParsedRow[]; skipped: number; sampleRawCostCenters: string[] } {
     const out: ParsedRow[] = [];
     let skipped = 0;
+    const sampleRawCostCenters: string[] = []; // primeros valores crudos de "Centro de Costos" vistos, para diagnóstico
 
     rows.forEach((row, idx) => {
       const cell = (i: number) => String(row[i] ?? '').trim();
       if (row.every(c => String(c ?? '').trim() === '')) return; // fila totalmente vacía
 
       const costCenterRaw = cell(9);
+      if (costCenterRaw && sampleRawCostCenters.length < 8 && !sampleRawCostCenters.includes(costCenterRaw)) {
+        sampleRawCostCenters.push(costCenterRaw);
+      }
       if (!this.matchesProjectCostCenter(costCenterRaw)) { skipped++; return; }
 
       const cuentaCell = cell(0);
       const accountMatch = cuentaCell.match(/^(\d+)\s*(.*)$/);
       const sourceAccountCode = accountMatch ? accountMatch[1] : '';
       const sourceAccountName = accountMatch ? accountMatch[2].trim() : cuentaCell;
-      const { id: pucAccountId, needsReview: pucNeedsReview } = this.matchPucAccount(sourceAccountCode);
 
       const debitos = this.parseColombianNumber(row[6]);
       const creditos = this.parseColombianNumber(row[7]);
@@ -275,8 +272,6 @@ export class EgresosImportComponent implements OnInit {
         rowNumber: headerRowIndex + idx + 2, // +1 por el header, +1 porque Excel es 1-based
         selected: false,
         budgetItemId: null,
-        pucAccountId,
-        pucNeedsReview,
         value,
         date: this.parseDate(row[2]),
         tercero: cell(1),
@@ -293,54 +288,122 @@ export class EgresosImportComponent implements OnInit {
       });
     });
 
-    return { rows: out, skipped };
+    return { rows: out, skipped, sampleRawCostCenters };
   }
 
   // ── Paso 2: vista previa editable ──────────────────────────────────────────
 
   parsedRows = signal<ParsedRow[]>([]);
   skippedByCostCenter = signal(0);
+  /** Muestra cruda de valores de "Centro de Costos" vistos en el archivo — para que se pueda
+   * verificar a simple vista, sin abrir la consola, por qué una fila calzó o no calzó. */
+  sampleRawCostCenters = signal<string[]>([]);
 
-  allSelected = computed(() => this.parsedRows().length > 0 && this.parsedRows().every(r => r.selected));
-  someSelected = computed(() => this.parsedRows().some(r => r.selected));
+  /** Clave de mes de una fila: prioriza la fecha (más confiable) y cae al "Mes" crudo del Excel
+   * si la fecha no se pudo parsear — así ninguna fila queda fuera del selector de mes. */
+  monthKeyForRow(row: ParsedRow): string {
+    if (row.date) return row.date.slice(0, 7);
+    return row.sourceMes ? `mes-${row.sourceMes}` : 'sin-fecha';
+  }
+
+  monthKeyLabel(key: string): string {
+    const m = key.match(/^(\d{4})-(\d{2})$/);
+    if (m) {
+      const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+      return `${meses[Number(m[2]) - 1]} ${m[1]}`;
+    }
+    if (key === 'sin-fecha') return 'Sin fecha reconocible';
+    return key.replace('mes-', 'Mes ');
+  }
+
+  /** Meses presentes en el archivo ya filtrado por centro de costos, con cuántas filas tiene
+   * cada uno — el usuario elige uno para traer solo ese lote a la vista previa. */
+  availableMonths = computed(() => {
+    const counts = new Map<string, number>();
+    for (const row of this.parsedRows()) {
+      const key = this.monthKeyForRow(row);
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    return [...counts.entries()]
+      .map(([key, count]) => ({ key, count, label: this.monthKeyLabel(key) }))
+      .sort((a, b) => a.key.localeCompare(b.key));
+  });
+
+  selectedMonthKey = signal<string | null>(null);
+
+  selectMonth(key: string): void {
+    this.selectedMonthKey.set(key);
+    this.previewAccountFilter.set(null);
+    this.previewProviderFilter.set(null);
+  }
+
+  backToMonthSelection(): void {
+    this.selectedMonthKey.set(null);
+  }
+
+  /** Solo las filas del mes elegido — sobre este subconjunto opera todo lo demás (revisión
+   * pendiente, "puede importar", envío) para importar de a un mes a la vez. */
+  visibleRows = computed(() => {
+    const key = this.selectedMonthKey();
+    if (!key) return [];
+    return this.parsedRows().filter(r => this.monthKeyForRow(r) === key);
+  });
+
+  // ── Filtros de la vista previa (solo para ubicar filas y asignar rubro más fácil — no
+  // restringen qué se importa, eso sigue siendo TODO el mes elegido) ─────────────────────
+
+  previewAccountFilter = signal<string | null>(null);
+  previewProviderFilter = signal<string | null>(null);
+
+  previewAccountOptions = computed(() => {
+    const map = new Map<string, string>();
+    for (const r of this.visibleRows()) {
+      if (r.sourceAccountCode && !map.has(r.sourceAccountCode)) {
+        map.set(r.sourceAccountCode, `${r.sourceAccountCode} — ${r.sourceAccountName}`.trim().replace(/—\s*$/, '—'));
+      }
+    }
+    return [...map.entries()].map(([key, label]) => ({ key, label })).sort((a, b) => a.label.localeCompare(b.label));
+  });
+
+  previewProviderOptions = computed(() => {
+    const set = new Set<string>();
+    for (const r of this.visibleRows()) { if (r.tercero) set.add(r.tercero); }
+    return [...set].sort((a, b) => a.localeCompare(b));
+  });
+
+  /** Filas del mes elegido, acotadas además por los filtros de cuenta/proveedor de la vista
+   * previa — es sobre este subconjunto que operan "seleccionar todas"/tabla, así se puede filtrar
+   * a un grupo de auxiliares y asignarles el rubro de una sola vez. */
+  filteredPreviewRows = computed(() => {
+    const account = this.previewAccountFilter();
+    const provider = this.previewProviderFilter();
+    return this.visibleRows().filter(r =>
+      (!account || r.sourceAccountCode === account) && (!provider || r.tercero === provider)
+    );
+  });
+
+  allSelected = computed(() => this.filteredPreviewRows().length > 0 && this.filteredPreviewRows().every(r => r.selected));
+  someSelected = computed(() => this.filteredPreviewRows().some(r => r.selected));
 
   toggleSelectAll(): void {
     const next = !this.allSelected();
-    this.parsedRows.update(rows => rows.map(r => ({ ...r, selected: next })));
+    const visible = new Set(this.filteredPreviewRows());
+    this.parsedRows.update(rows => rows.map(r => visible.has(r) ? { ...r, selected: next } : r));
   }
 
   toggleRowSelected(row: ParsedRow): void {
     this.parsedRows.update(rows => rows.map(r => r === row ? { ...r, selected: !r.selected } : r));
   }
 
-  rowsNeedingReview = computed(() => this.parsedRows().filter(r => r.pucNeedsReview || !r.budgetItemId));
+  rowsNeedingReview = computed(() => this.visibleRows().filter(r => !r.budgetItemId));
 
-  canImport = computed(() => this.parsedRows().length > 0 && this.rowsNeedingReview().length === 0 && !this.importing());
-
-  // ── Selector de cuenta PUC por fila ─────────────────────────────────────────
-
-  pucPickerOpen = signal(false);
-  private pucPickerRowIndex: number | null = null;
-
-  openPucPickerForRow(index: number): void {
-    this.pucPickerRowIndex = index;
-    this.pucPickerOpen.set(true);
-  }
-
-  onPucPicked(account: PUCAccount): void {
-    const idx = this.pucPickerRowIndex;
-    this.pucPickerOpen.set(false);
-    if (idx === null) return;
-    this.parsedRows.update(rows => rows.map((r, i) =>
-      i === idx ? { ...r, pucAccountId: account.id, pucNeedsReview: false, sourceAccountCode: account.code } : r
-    ));
-  }
+  canImport = computed(() => this.visibleRows().length > 0 && this.rowsNeedingReview().length === 0 && !this.importing());
 
   // ── Selector de rubro, por fila individual o aplicado a la selección ───────
 
   rubroPickerOpen = signal(false);
   rubroPickerBulkMode = signal(false);
-  private rubroPickerRowIndex: number | null = null;
+  private rubroPickerRow: ParsedRow | null = null;
 
   private rubroGroupsForDate(dateIso: string | null): RubroPickerGroup[] {
     const monthKey = dateIso ? dateIso.slice(0, 7) : null;
@@ -350,12 +413,11 @@ export class EgresosImportComponent implements OnInit {
   activeRubroPickerGroups = signal<RubroPickerGroup[]>([]);
   activeRubroPickerMonthLabel = signal<string | null>(null);
 
-  openRubroPickerForRow(index: number): void {
-    this.rubroPickerRowIndex = index;
+  openRubroPickerForRow(row: ParsedRow): void {
+    this.rubroPickerRow = row;
     this.rubroPickerBulkMode.set(false);
-    const row = this.parsedRows()[index];
-    this.activeRubroPickerGroups.set(this.rubroGroupsForDate(row?.date ?? null));
-    this.activeRubroPickerMonthLabel.set(row?.date ? row.date.slice(0, 7) : null);
+    this.activeRubroPickerGroups.set(this.rubroGroupsForDate(row.date));
+    this.activeRubroPickerMonthLabel.set(row.date ? row.date.slice(0, 7) : null);
     this.rubroPickerOpen.set(true);
   }
 
@@ -369,12 +431,13 @@ export class EgresosImportComponent implements OnInit {
   onRubroPicked(budgetItemId: string): void {
     this.rubroPickerOpen.set(false);
     if (this.rubroPickerBulkMode()) {
-      this.parsedRows.update(rows => rows.map(r => r.selected ? { ...r, budgetItemId } : r));
+      const visible = new Set(this.visibleRows());
+      this.parsedRows.update(rows => rows.map(r => (visible.has(r) && r.selected) ? { ...r, budgetItemId } : r));
       return;
     }
-    const idx = this.rubroPickerRowIndex;
-    if (idx === null) return;
-    this.parsedRows.update(rows => rows.map((r, i) => i === idx ? { ...r, budgetItemId } : r));
+    const target = this.rubroPickerRow;
+    if (!target) return;
+    this.parsedRows.update(rows => rows.map(r => r === target ? { ...r, budgetItemId } : r));
   }
 
   rubroLabel(budgetItemId: string | null): string {
@@ -393,14 +456,14 @@ export class EgresosImportComponent implements OnInit {
     this.importing.set(true);
     this.importResultCommitted.set(null);
 
-    const rowsToSend = this.parsedRows();
+    const rowsToSend = this.visibleRows();
     const payload: BulkExecutionRowRequest[] = rowsToSend.map(r => ({
       row_number: r.rowNumber,
       budget_item_id: r.budgetItemId!,
       value: r.value,
       date: r.date ?? '',
       description: r.nota || null,
-      puc_account_id: r.pucAccountId,
+      puc_account_id: null,
       provider: r.tercero || null,
       invoice_number: null,
       cheque: r.cheque || null,
@@ -422,7 +485,9 @@ export class EgresosImportComponent implements OnInit {
         this.importResultCommitted.set(result.committed);
         this.importedCount.set(result.inserted);
         if (result.committed) {
-          this.parsedRows.set([]);
+          const sentRowNumbers = new Set(rowsToSend.map(r => r.rowNumber));
+          this.parsedRows.update(rows => rows.filter(r => !sentRowNumbers.has(r.rowNumber)));
+          this.selectedMonthKey.set(null);
         } else {
           this.applyRowErrors(result.rows);
         }
@@ -443,7 +508,7 @@ export class EgresosImportComponent implements OnInit {
   }
 
   downloadErrorReport(): void {
-    const failed = this.parsedRows().filter(r => r.submitError);
+    const failed = this.visibleRows().filter(r => r.submitError);
     if (failed.length === 0) return;
     const data = failed.map(r => ({
       Fila: r.rowNumber,

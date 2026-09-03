@@ -178,10 +178,43 @@ export class EgresosListComponent implements OnInit {
   filterBudgetItemId          = signal<string | null>(null);
   filterTechnicalComponentId  = signal<string | null>(null);
   filterActivityId            = signal<string | null>(null);
-  filterPucAccountId          = signal<string | null>(null);
-  filterProvider              = signal('');
+  filterAccountCode           = signal<string | null>(null);
+  filterProvider               = signal<string | null>(null);
   filterDateFrom               = signal<string | null>(null);
   filterDateTo                 = signal<string | null>(null);
+
+  /** Clave estable de "Cuenta" de un egreso — prioriza lo importado del Excel (source_account_*),
+   * cae a la cuenta PUC del formulario manual si no hay nada importado. */
+  accountKey(e: BudgetExecution): string | null {
+    return e.source_account_code || e.puc_account_id || null;
+  }
+
+  accountLabel(e: BudgetExecution): string {
+    if (e.source_account_code) return `${e.source_account_code} — ${e.source_account_name ?? ''}`.trim().replace(/—\s*$/, '—');
+    if (e.puc_account_id) return this.pucAccountLabel(e.puc_account_id);
+    return '—';
+  }
+
+  /** Solo las cuentas realmente presentes en los egresos del proyecto — no el catálogo completo —
+   * para que el filtro muestre p.ej. 5 opciones si solo hay 5 cuentas distintas entre 1000 filas. */
+  accountOptions = computed(() => {
+    const map = new Map<string, string>();
+    for (const e of this.executions()) {
+      const key = this.accountKey(e);
+      if (key && !map.has(key)) map.set(key, this.accountLabel(e));
+    }
+    return [...map.entries()].map(([key, label]) => ({ key, label })).sort((a, b) => a.label.localeCompare(b.label));
+  });
+
+  /** Igual que accountOptions pero para "Tercero" — solo los proveedores que realmente aparecen. */
+  providerOptions = computed(() => {
+    const set = new Set<string>();
+    for (const e of this.executions()) {
+      const p = (e.provider ?? '').trim();
+      if (p) set.add(p);
+    }
+    return [...set].sort((a, b) => a.localeCompare(b));
+  });
 
   technicalComponentOptions = computed(() => {
     const map = new Map<string, string>();
@@ -207,27 +240,29 @@ export class EgresosListComponent implements OnInit {
 
   hasActiveFilters = computed(() =>
     !!this.filterBudgetItemId() || !!this.filterTechnicalComponentId() || !!this.filterActivityId() ||
-    !!this.filterPucAccountId() || !!this.filterProvider().trim() || !!this.filterDateFrom() || !!this.filterDateTo()
+    !!this.filterAccountCode() || !!this.filterProvider() || !!this.filterDateFrom() || !!this.filterDateTo()
   );
 
   clearFilters(): void {
     this.filterBudgetItemId.set(null);
     this.filterTechnicalComponentId.set(null);
     this.filterActivityId.set(null);
-    this.filterPucAccountId.set(null);
-    this.filterProvider.set('');
+    this.filterAccountCode.set(null);
+    this.filterProvider.set(null);
     this.filterDateFrom.set(null);
     this.filterDateTo.set(null);
   }
 
-  /** Egresos filtrados por rubro/componente técnico/actividad/PUC/proveedor/rango de fechas —
-   * todo en cliente, ya que el dataset es de un solo proyecto (acotado por diseño). */
+  /** Egresos filtrados por rubro/componente técnico/actividad/cuenta/tercero/rango de fechas —
+   * todo en cliente, ya que el dataset es de un solo proyecto (acotado por diseño). Cuenta y
+   * Tercero filtran por valor exacto (solo los que realmente aparecen, ver accountOptions/
+   * providerOptions), no por texto libre. */
   filteredExecutions = computed<BudgetExecution[]>(() => {
     const budgetItemId = this.filterBudgetItemId();
     const techId = this.filterTechnicalComponentId();
     const activityId = this.filterActivityId();
-    const pucId = this.filterPucAccountId();
-    const provider = this.filterProvider().trim().toLowerCase();
+    const accountKey = this.filterAccountCode();
+    const provider = this.filterProvider();
     const from = this.filterDateFrom();
     const to = this.filterDateTo();
 
@@ -236,8 +271,8 @@ export class EgresosListComponent implements OnInit {
       const info = this.rubroInfo(e.budget_item_id);
       if (techId && info?.technicalComponentId !== techId) return false;
       if (activityId && !(info?.activities ?? []).some(a => a.id === activityId)) return false;
-      if (pucId && e.puc_account_id !== pucId) return false;
-      if (provider && !(e.provider ?? '').toLowerCase().includes(provider)) return false;
+      if (accountKey && this.accountKey(e) !== accountKey) return false;
+      if (provider && (e.provider ?? '') !== provider) return false;
       const d = e.date?.slice(0, 10) ?? null;
       if (from && (!d || d < from)) return false;
       if (to && (!d || d > to)) return false;

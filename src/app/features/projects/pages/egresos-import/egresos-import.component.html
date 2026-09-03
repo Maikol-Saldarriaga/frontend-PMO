@@ -55,17 +55,70 @@
         @if (skippedByCostCenter() > 0) {
           <p class="text-xs text-gray-400">{{ skippedByCostCenter() }} fila(s) del archivo pertenecen a otros proyectos y no se muestran.</p>
         }
+        @if (sampleRawCostCenters().length > 0) {
+          <div class="p-3 rounded-lg bg-gray-50 border border-gray-200 text-[11px] text-gray-600 space-y-1">
+            <p class="font-bold text-gray-500 uppercase tracking-wide">Diagnóstico — valores de "Centro de Costos" encontrados en el archivo</p>
+            <p class="text-gray-400">Buscando el código <span class="font-bold text-gray-700">{{ projectCostCenterCode() }}</span> dentro de cada uno de estos textos:</p>
+            <ul class="space-y-0.5">
+              @for (raw of sampleRawCostCenters(); track raw) {
+                <li class="flex items-center gap-2">
+                  @if (matchesProjectCostCenter(raw)) {
+                    <span class="text-emerald-600 font-bold">✓ coincide</span>
+                  } @else {
+                    <span class="text-red-500 font-bold">✗ no coincide</span>
+                  }
+                  <span class="text-gray-600">"{{ raw }}"</span>
+                </li>
+              }
+            </ul>
+          </div>
+        }
       </div>
 
-      <!-- Paso 2: vista previa editable -->
-      @if (parsedRows().length > 0) {
+      <!-- Paso 2: elegir el mes a importar -->
+      @if (parsedRows().length > 0 && !selectedMonthKey()) {
+        <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 space-y-3">
+          <h3 class="text-xs font-bold text-gray-700 uppercase tracking-wide">2. Elige el mes que quieres ingresar</h3>
+          <p class="text-xs text-gray-400">{{ parsedRows().length }} fila(s) de este proyecto en total — se importa un mes a la vez.</p>
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+            @for (m of availableMonths(); track m.key) {
+              <button type="button" (click)="selectMonth(m.key)"
+                class="px-3 py-2.5 rounded-xl border border-gray-200 hover:border-accent hover:bg-accent/5 text-left transition-colors">
+                <p class="text-sm font-bold text-gray-900 capitalize">{{ m.label }}</p>
+                <p class="text-[11px] text-gray-400">{{ m.count }} fila(s)</p>
+              </button>
+            }
+          </div>
+        </div>
+      }
+
+      <!-- Paso 3: vista previa editable del mes elegido -->
+      @if (selectedMonthKey()) {
         <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
           <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between flex-wrap gap-2">
-            <div>
-              <h3 class="text-sm font-bold text-gray-900">2. Revisa y asigna rubro por fila</h3>
-              <p class="text-xs text-gray-400 mt-0.5">{{ parsedRows().length }} fila(s) de este proyecto — {{ rowsNeedingReview().length }} pendiente(s) de completar.</p>
+            <div class="flex items-center gap-3">
+              <button (click)="backToMonthSelection()"
+                class="shrink-0 w-8 h-8 rounded-lg bg-white border border-gray-200 hover:bg-gray-100 flex items-center justify-center transition-colors">
+                <svg class="w-3.5 h-3.5 text-gray-600" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+                </svg>
+              </button>
+              <div>
+                <h3 class="text-sm font-bold text-gray-900 capitalize">3. Revisa y asigna rubro — {{ monthKeyLabel(selectedMonthKey()!) }}</h3>
+                <p class="text-xs text-gray-400 mt-0.5">{{ visibleRows().length }} fila(s) de este mes — {{ rowsNeedingReview().length }} pendiente(s) de completar.</p>
+              </div>
             </div>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 flex-wrap">
+              <select [ngModel]="previewAccountFilter()" (ngModelChange)="previewAccountFilter.set($event || null)"
+                class="px-2.5 py-2 rounded-lg border border-gray-200 text-xs bg-gray-50">
+                <option [ngValue]="null">Todas las cuentas</option>
+                @for (a of previewAccountOptions(); track a.key) { <option [ngValue]="a.key">{{ a.label }}</option> }
+              </select>
+              <select [ngModel]="previewProviderFilter()" (ngModelChange)="previewProviderFilter.set($event || null)"
+                class="px-2.5 py-2 rounded-lg border border-gray-200 text-xs bg-gray-50">
+                <option [ngValue]="null">Todos los terceros</option>
+                @for (p of previewProviderOptions(); track p) { <option [ngValue]="p">{{ p }}</option> }
+              </select>
               <button type="button" (click)="openRubroPickerForSelection()" [disabled]="!someSelected()"
                 class="px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed">
                 Aplicar rubro a seleccionadas
@@ -82,13 +135,13 @@
                   <th class="text-left px-3 py-2.5">Tercero</th>
                   <th class="text-left px-3 py-2.5">Nota / Doc Num</th>
                   <th class="text-right px-3 py-2.5">Valor</th>
-                  <th class="text-left px-3 py-2.5">Cuenta PUC</th>
+                  <th class="text-left px-3 py-2.5">Cuenta (Excel)</th>
                   <th class="text-left px-3 py-2.5">Rubro</th>
                   <th class="text-left px-3 py-2.5">Estado</th>
                 </tr>
               </thead>
               <tbody>
-                @for (row of parsedRows(); track trackByRow($index, row); let i = $index) {
+                @for (row of filteredPreviewRows(); track trackByRow($index, row)) {
                   <tr class="border-b border-gray-50 hover:bg-gray-50/60" [class.bg-red-50]="row.submitError">
                     <td class="px-3 py-2"><input type="checkbox" [checked]="row.selected" (change)="toggleRowSelected(row)"/></td>
                     <td class="px-3 py-2 text-gray-400">{{ row.rowNumber }}</td>
@@ -96,16 +149,11 @@
                     <td class="px-3 py-2 text-gray-700 max-w-[160px] truncate" [title]="row.tercero">{{ row.tercero || '—' }}</td>
                     <td class="px-3 py-2 text-gray-500 max-w-[220px] truncate" [title]="row.nota + ' ' + row.docNum">{{ row.nota || '—' }} <span class="text-gray-400">{{ row.docNum }}</span></td>
                     <td class="px-3 py-2 text-right font-semibold" [class.text-rose-600]="row.value < 0" [class.text-gray-900]="row.value >= 0">{{ formatCurrency(row.value) }}</td>
-                    <td class="px-3 py-2">
-                      <button type="button" (click)="openPucPickerForRow(i)"
-                        class="px-2 py-1 rounded-md text-left w-full border text-[11px]"
-                        [class.border-red-300]="row.pucNeedsReview" [class.bg-red-50]="row.pucNeedsReview"
-                        [class.border-gray-200]="!row.pucNeedsReview" [class.bg-gray-50]="!row.pucNeedsReview">
-                        {{ row.pucNeedsReview ? 'Sin coincidencia — click para elegir' : row.sourceAccountCode }}
-                      </button>
+                    <td class="px-3 py-2 text-gray-600 max-w-[200px] truncate" [title]="row.sourceAccountCode + ' ' + row.sourceAccountName">
+                      {{ row.sourceAccountCode }} <span class="text-gray-400">{{ row.sourceAccountName }}</span>
                     </td>
                     <td class="px-3 py-2">
-                      <button type="button" (click)="openRubroPickerForRow(i)"
+                      <button type="button" (click)="openRubroPickerForRow(row)"
                         class="px-2 py-1 rounded-md text-left w-full border text-[11px]"
                         [class.border-red-300]="!row.budgetItemId" [class.bg-red-50]="!row.budgetItemId"
                         [class.border-gray-200]="row.budgetItemId" [class.bg-gray-50]="row.budgetItemId">
@@ -115,7 +163,7 @@
                     <td class="px-3 py-2">
                       @if (row.submitError) {
                         <span class="text-red-600 font-semibold" [title]="row.submitError">Error</span>
-                      } @else if (row.pucNeedsReview || !row.budgetItemId) {
+                      } @else if (!row.budgetItemId) {
                         <span class="text-amber-600 font-semibold">Pendiente</span>
                       } @else {
                         <span class="text-emerald-600 font-semibold">Listo</span>
@@ -128,9 +176,9 @@
           </div>
         </div>
 
-        <!-- Paso 3: envío -->
+        <!-- Paso 4: envío -->
         <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 space-y-3">
-          <h3 class="text-xs font-bold text-gray-700 uppercase tracking-wide">3. Importar</h3>
+          <h3 class="text-xs font-bold text-gray-700 uppercase tracking-wide">4. Importar</h3>
 
           @if (submitGeneralError()) {
             <div class="p-3 rounded-lg bg-red-50 border border-red-100 text-xs text-red-600 font-medium">{{ submitGeneralError() }}</div>
@@ -157,20 +205,17 @@
                 <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                 Importando…
               } @else {
-                Importar {{ parsedRows().length }} egreso(s)
+                Importar {{ visibleRows().length }} egreso(s)
               }
             </button>
             @if (rowsNeedingReview().length > 0) {
-              <span class="text-xs text-amber-600 font-semibold">Completa cuenta PUC y rubro en todas las filas para poder importar.</span>
+              <span class="text-xs text-amber-600 font-semibold">Asigna el rubro en todas las filas para poder importar.</span>
             }
           </div>
         </div>
       }
     }
   }
-
-  <app-puc-account-picker [open]="pucPickerOpen()" [accounts]="pucAccounts()"
-    (closed)="pucPickerOpen.set(false)" (picked)="onPucPicked($event)"></app-puc-account-picker>
 
   <app-rubro-picker [open]="rubroPickerOpen()" [groups]="activeRubroPickerGroups()" [monthLabel]="activeRubroPickerMonthLabel()"
     (closed)="rubroPickerOpen.set(false)" (picked)="onRubroPicked($event)"></app-rubro-picker>
