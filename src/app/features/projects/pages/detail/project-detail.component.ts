@@ -93,8 +93,17 @@ export class ProjectDetailComponent implements OnInit {
 
   isAdmin = computed(() => this.auth.user()?.role === 'ADMIN');
 
-  /** ADMIN y COORDINADOR pueden editar el valor del contrato (presupuesto). */
-  canEditBudget = computed(() => ['ADMIN', 'COORDINADOR'].includes(this.auth.user()?.role ?? ''));
+  /** ADMIN, COORDINADOR, y cualquier miembro con TODOS los permisos de sección en 'write'
+   * (ej. Apoyo con acceso completo) pueden editar el valor del contrato (presupuesto).
+   * full_access del backend NO sirve acá: ese flag es is_owner||is_coordinator, no refleja
+   * que todos los permisos individuales estén en write. */
+  canEditBudget = computed(() => {
+    if (['ADMIN', 'COORDINADOR'].includes(this.auth.user()?.role ?? '')) return true;
+    const acc = this.access();
+    if (!acc) return false;
+    if (acc.full_access) return true;
+    return Object.values(acc.permissions).every(p => p === 'write');
+  });
 
   /**
    * Espejo de service.IsProjectFinished en el backend: la fecha efectiva es la

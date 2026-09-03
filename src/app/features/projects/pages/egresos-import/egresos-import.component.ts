@@ -6,6 +6,7 @@ import * as XLSX from 'xlsx';
 
 import { ProjectService } from '../../services/project.service';
 import { RubroPickerComponent, RubroPickerGroup } from '../../../../shared/components/rubro-picker/rubro-picker.component';
+import { PUCAccountLite } from '../../../../../core/puc-accounts/models/puc-account.model';
 import { CostCenterService } from '../../../../../core/cost-centers/services/cost-center.service';
 import { CostCenter } from '../../../../../core/cost-centers/models/cost-center.model';
 import { buildRubroPickerGroups, RubroPickerRubroInfo } from '../../utils/rubro-picker-groups';
@@ -68,6 +69,7 @@ export class EgresosImportComponent implements OnInit {
   loadingProject = signal(true);
   loadError = signal<string | null>(null);
   projectCostCenterCode = signal<string | null>(null);
+  pucAccounts = signal<PUCAccountLite[]>([]);
   costCenters = signal<CostCenter[]>([]);
   rubroInfos = signal<RubroPickerRubroInfo[]>([]);
   executionsMonthlySummary = signal<Record<string, Record<string, number>>>({});
@@ -397,7 +399,26 @@ export class EgresosImportComponent implements OnInit {
 
   rowsNeedingReview = computed(() => this.visibleRows().filter(r => !r.budgetItemId));
 
-  canImport = computed(() => this.visibleRows().length > 0 && this.rowsNeedingReview().length === 0 && !this.importing());
+  canImport = computed(() => this.parsedRows().length > 0 && this.rowsNeedingReview().length === 0 && !this.importing());
+
+  // ── Selector de cuenta PUC por fila ─────────────────────────────────────────
+
+  pucPickerOpen = signal(false);
+  private pucPickerRowIndex: number | null = null;
+
+  openPucPickerForRow(index: number): void {
+    this.pucPickerRowIndex = index;
+    this.pucPickerOpen.set(true);
+  }
+
+  onPucPicked(account: PUCAccountLite): void {
+    const idx = this.pucPickerRowIndex;
+    this.pucPickerOpen.set(false);
+    if (idx === null) return;
+    this.parsedRows.update(rows => rows.map((r, i) =>
+      i === idx ? { ...r, pucAccountId: account.id, pucNeedsReview: false, sourceAccountCode: account.code } : r
+    ));
+  }
 
   // ── Selector de rubro, por fila individual o aplicado a la selección ───────
 

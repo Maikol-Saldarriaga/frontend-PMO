@@ -168,7 +168,7 @@
               </td>
               <td class="px-5 py-3.5">
                 <p class="text-lg font-black" [class.text-emerald-600]="budgetWizard()!.is_complete" [class.text-amber-600]="!budgetWizard()!.is_complete">
-                  {{ budgetWizard()!.is_complete ? '100%' : ((budgetWizard()!.filled_components / budgetWizard()!.total_components * 100) | number:'1.0-0') + '%' }}
+                  {{ budgetWizard()!.is_complete || budgetWizard()!.total_components === 0 ? '100%' : ((budgetWizard()!.filled_components / budgetWizard()!.total_components * 100) | number:'1.0-0') + '%' }}
                 </p>
                 <p class="text-[10px] mt-0.5" [class.text-emerald-500]="budgetWizard()!.is_complete" [class.text-amber-500]="!budgetWizard()!.is_complete">
                   {{ budgetWizard()!.is_complete ? 'Completo' : 'En progreso' }}
