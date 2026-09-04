@@ -81,17 +81,10 @@
           <p class="text-xs text-gray-400">{{ parsedRows().length }} fila(s) de este proyecto en total — se importa un mes a la vez.</p>
           <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
             @for (m of availableMonths(); track m.key) {
-              <button type="button" (click)="selectMonth(m.key)" [disabled]="m.alreadyImported"
-                [title]="m.alreadyImported ? 'Ya importaste todas las filas de este mes' : ''"
-                [class]="m.alreadyImported
-                  ? 'px-3 py-2.5 rounded-xl border border-gray-100 bg-gray-50 text-left transition-colors opacity-50 cursor-not-allowed'
-                  : 'px-3 py-2.5 rounded-xl border border-gray-200 hover:border-accent hover:bg-accent/5 text-left transition-colors'">
+              <button type="button" (click)="selectMonth(m.key)"
+                class="px-3 py-2.5 rounded-xl border border-gray-200 hover:border-accent hover:bg-accent/5 text-left transition-colors">
                 <p class="text-sm font-bold text-gray-900 capitalize">{{ m.label }}</p>
-                @if (m.alreadyImported) {
-                  <p class="text-[11px] text-gray-400">Ya importado</p>
-                } @else {
-                  <p class="text-[11px] text-gray-400">{{ m.count }} fila(s)</p>
-                }
+                <p class="text-[11px] text-gray-400">{{ m.count }} fila(s)</p>
               </button>
             }
           </div>
@@ -100,6 +93,12 @@
 
       <!-- Paso 3: vista previa editable del mes elegido -->
       @if (selectedMonthKey()) {
+        @if (checkingExistingRows()) {
+          <div class="flex items-center gap-2 text-xs text-sky-600 font-medium px-1">
+            <div class="w-3.5 h-3.5 border-2 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+            Revisando si alguna fila de este mes ya está registrada…
+          </div>
+        }
         <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
           <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between flex-wrap gap-2">
             <div class="flex items-center gap-3">

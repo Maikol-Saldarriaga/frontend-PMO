@@ -88,11 +88,6 @@ export class EgresosImportComponent implements OnInit, OnDestroy {
   costCenters = signal<CostCenter[]>([]);
   rubroInfos = signal<RubroPickerRubroInfo[]>([]);
   executionsMonthlySummary = signal<Record<string, Record<string, number>>>({});
-  /** Firma de cada egreso YA registrado en el proyecto (misma fecha+valor+cuenta+proveedor+nota
-   * que usa el backend para detectar duplicados — ver duplicateKey en budget_execution.go) —
-   * permite avisar en el paso 2 qué meses ya están completos antes de intentar importarlos de
-   * nuevo, en vez de que el usuario se entere recién al enviar. */
-  existingDuplicateKeys = signal<Set<string>>(new Set());
 
   private normalizeKeyPart(v: string | null | undefined): string {
     return (v ?? '').trim().toLowerCase();
@@ -114,16 +109,31 @@ export class EgresosImportComponent implements OnInit, OnDestroy {
     return `${r.date ?? ''}|${r.value.toFixed(2)}|${accountKey}|${this.normalizeKeyPart(r.tercero)}|${this.normalizeKeyPart(r.nota)}`;
   }
 
-  /** Trae solo los egresos ya registrados en el RANGO DE FECHAS del archivo recién parseado —
-   * nunca el historial completo del proyecto, que puede tener miles de filas acumuladas (ver
-   * date_from/date_to en listAllExecutions). Sin filas con fecha reconocible no hay nada que
-   * consultar. */
-  private loadExistingDuplicateKeys(rows: ParsedRow[]): void {
-    const dates = rows.map(r => r.date).filter((d): d is string => !!d).sort();
-    if (dates.length === 0) { this.existingDuplicateKeys.set(new Set()); return; }
+  /** true mientras se consulta si las filas del mes elegido ya estaban registradas — solo se
+   * dispara AL ELEGIR un mes puntual, nunca para el archivo entero (que puede abarcar varios
+   * meses y miles de filas acumuladas en el proyecto — pedir eso de una sola vez satura la red
+   * y el backend de lejos sin necesidad, ver commit que acotaba a rango de fechas: acá se acota
+   * más todavía, a un solo mes). */
+  checkingExistingRows = signal(false);
+
+  /** Trae solo los egresos ya registrados en el rango de fechas de ESTE MES puntual (no el
+   * archivo completo) y marca en el momento las filas que hagan match como `imported` — así el
+   * usuario ve de entrada, sin enviar nada, cuáles de este mes ya están en la plataforma. */
+  private checkExistingRowsForMonth(monthKey: string): void {
+    const rowsInMonth = this.parsedRows().filter(r => this.monthKeyForRow(r) === monthKey);
+    const dates = rowsInMonth.map(r => r.date).filter((d): d is string => !!d).sort();
+    if (dates.length === 0) return;
+
+    this.checkingExistingRows.set(true);
     this.svc.listAllExecutions(this.projectId, { date_from: dates[0], date_to: dates[dates.length - 1] }).subscribe({
-      next: items => this.existingDuplicateKeys.set(new Set((items ?? []).map(e => this.duplicateKeyForExecution(e)))),
-      error: () => this.existingDuplicateKeys.set(new Set()),
+      next: items => {
+        this.checkingExistingRows.set(false);
+        const keys = new Set((items ?? []).map(e => this.duplicateKeyForExecution(e)));
+        this.parsedRows.update(rows => rows.map(r =>
+          this.monthKeyForRow(r) === monthKey && keys.has(this.duplicateKeyForRow(r)) ? { ...r, imported: true } : r
+        ));
+      },
+      error: () => this.checkingExistingRows.set(false),
     });
   }
 
@@ -276,7 +286,6 @@ export class EgresosImportComponent implements OnInit, OnDestroy {
               : 'No se encontraron filas de datos en el archivo.'
           );
         }
-        this.loadExistingDuplicateKeys(rows);
       } catch (err) {
         // eslint-disable-next-line no-console
         console.error('Error al parsear el Excel de auxiliares:', err);
@@ -415,36 +424,28 @@ export class EgresosImportComponent implements OnInit, OnDestroy {
   }
 
   /** Meses presentes en el archivo ya filtrado por centro de costos, con cuántas filas tiene
-   * cada uno — el usuario elige uno para traer solo ese lote a la vista previa. */
-  /** Meses del archivo, con cuántas de sus filas ya están registradas en el proyecto
-   * (existingDuplicateKeys) — alreadyImported se marca solo cuando TODAS lo están, así la
-   * tarjeta se puede deshabilitar sin ocultarle al usuario un mes que sí tiene filas nuevas
-   * mezcladas con filas repetidas. */
+   * cada uno — el usuario elige uno para traer solo ese lote a la vista previa. No se sabe de
+   * antemano cuáles ya están importados (eso saldría de consultar TODO el archivo de una, algo
+   * pesado si abarca varios meses) — se chequea recién al elegir un mes puntual, ver
+   * checkExistingRowsForMonth. */
   availableMonths = computed(() => {
-    const keys = this.existingDuplicateKeys();
-    const counts = new Map<string, { count: number; alreadyCount: number }>();
+    const counts = new Map<string, number>();
     for (const row of this.parsedRows()) {
       const key = this.monthKeyForRow(row);
-      const entry = counts.get(key) ?? { count: 0, alreadyCount: 0 };
-      entry.count++;
-      if (keys.has(this.duplicateKeyForRow(row))) entry.alreadyCount++;
-      counts.set(key, entry);
+      counts.set(key, (counts.get(key) ?? 0) + 1);
     }
     return [...counts.entries()]
-      .map(([key, { count, alreadyCount }]) => ({
-        key, count, label: this.monthKeyLabel(key),
-        alreadyImported: count > 0 && alreadyCount === count,
-      }))
+      .map(([key, count]) => ({ key, count, label: this.monthKeyLabel(key) }))
       .sort((a, b) => a.key.localeCompare(b.key));
   });
 
   selectedMonthKey = signal<string | null>(null);
 
   selectMonth(key: string): void {
-    if (this.availableMonths().find(m => m.key === key)?.alreadyImported) return;
     this.selectedMonthKey.set(key);
     this.previewAccountFilter.set(null);
     this.previewProviderFilter.set(null);
+    this.checkExistingRowsForMonth(key);
   }
 
   backToMonthSelection(): void {
@@ -637,14 +638,6 @@ export class EgresosImportComponent implements OnInit, OnDestroy {
             // vistazo cuáles le faltan todavía dentro del mes.
             const doneRowNumbers = new Set(rowsToSend.map(r => r.rowNumber));
             this.parsedRows.update(rows => rows.map(r => doneRowNumbers.has(r.rowNumber) ? { ...r, imported: true, submitError: undefined } : r));
-            // La tarjeta de "mes ya importado" del selector se calcula contra
-            // existingDuplicateKeys (lo que había en el servidor al abrir el archivo) — sin esto,
-            // recién se enteraría del progreso de este envío si se recarga la página.
-            this.existingDuplicateKeys.update(keys => {
-              const next = new Set(keys);
-              for (const r of rowsToSend) next.add(this.duplicateKeyForRow(r));
-              return next;
-            });
             // Si ya no queda nada por hacer en este mes (nada por asignar y nada listo sin
             // enviar), no tiene sentido seguir mostrando la tabla — se vuelve al selector.
             if (this.rowsNeedingReview().length === 0 && this.rowsReadyToImport().length === 0) {
