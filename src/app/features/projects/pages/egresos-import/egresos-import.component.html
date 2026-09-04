@@ -95,7 +95,9 @@
                   : 'px-3 py-2.5 rounded-xl border border-gray-200 hover:border-accent hover:bg-accent/5 text-left transition-colors'">
                 <p class="text-sm font-bold text-gray-900 capitalize">{{ m.label }}</p>
                 @if (m.alreadyImported) {
-                  <p class="text-[11px] text-gray-400">Ya importado</p>
+                  <p class="text-[11px] text-gray-400">Ya importado — {{ m.count }} fila(s)</p>
+                } @else if (m.importedCount > 0) {
+                  <p class="text-[11px] text-gray-400">{{ m.count }} total · {{ m.pendingCount }} pendiente(s)</p>
                 } @else {
                   <p class="text-[11px] text-gray-400">{{ m.count }} fila(s)</p>
                 }

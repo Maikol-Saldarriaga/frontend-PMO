@@ -445,6 +445,8 @@ export class EgresosImportComponent implements OnInit, OnDestroy {
     return [...counts.entries()]
       .map(([key, { count, importedCount }]) => ({
         key, count, label: this.monthKeyLabel(key),
+        importedCount,
+        pendingCount: count - importedCount,
         alreadyImported: count > 0 && importedCount === count,
       }))
       .sort((a, b) => a.key.localeCompare(b.key));
