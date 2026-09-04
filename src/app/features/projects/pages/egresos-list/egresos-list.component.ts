@@ -186,6 +186,7 @@ export class EgresosListComponent implements OnInit {
       provider: this.filterProvider() ?? undefined,
       date_from: this.filterDateFrom() ?? undefined,
       date_to: this.filterDateTo() ?? undefined,
+      pending_only: this.filterPendingOnly() || undefined,
     };
   }
 
@@ -254,6 +255,7 @@ export class EgresosListComponent implements OnInit {
   filterProvider               = signal<string | null>(null);
   filterDateFrom               = signal<string | null>(null);
   filterDateTo                 = signal<string | null>(null);
+  filterPendingOnly             = signal(false);
 
   /** Clave estable de "Cuenta" de un egreso — prioriza lo importado del Excel (source_account_*),
    * cae a la cuenta PUC del formulario manual si no hay nada importado. */
@@ -327,7 +329,8 @@ export class EgresosListComponent implements OnInit {
 
   hasActiveFilters = computed(() =>
     !!this.filterBudgetItemId() || !!this.filterTechnicalComponentId() || !!this.filterActivityId() ||
-    !!this.filterAccountCode() || !!this.filterProvider() || !!this.filterDateFrom() || !!this.filterDateTo()
+    !!this.filterAccountCode() || !!this.filterProvider() || !!this.filterDateFrom() || !!this.filterDateTo() ||
+    this.filterPendingOnly()
   );
 
   clearFilters(): void {
@@ -338,11 +341,13 @@ export class EgresosListComponent implements OnInit {
     this.filterProvider.set(null);
     this.filterDateFrom.set(null);
     this.filterDateTo.set(null);
+    this.filterPendingOnly.set(false);
     this.onServerFilterChange();
   }
 
   // ── Setters de filtro con soporte server-side — actualizan el signal y recargan. ──────────
 
+  setFilterPendingOnly(v: boolean): void { this.filterPendingOnly.set(v); this.onServerFilterChange(); }
   setFilterAccountCode(v: string | null): void { this.filterAccountCode.set(v || null); this.onServerFilterChange(); }
   setFilterBudgetItemId(v: string | null): void { this.filterBudgetItemId.set(v || null); this.onServerFilterChange(); }
   setFilterTechnicalComponentId(v: string | null): void { this.filterTechnicalComponentId.set(v || null); this.onServerFilterChange(); }
@@ -387,6 +392,7 @@ export class EgresosListComponent implements OnInit {
   }
 
   rubroLabel(budgetItemId: string | null | undefined): string {
+    if (!budgetItemId) return 'Pendiente';
     return this.rubros().find(r => r.budget_item_id === budgetItemId)?.concept ?? 'Rubro desconocido';
   }
 
@@ -551,6 +557,9 @@ export class EgresosListComponent implements OnInit {
         provider: f.tercero_id ? null : (f.provider.trim() || null),
         tercero_id: f.tercero_id,
         invoice_number: f.invoice_number.trim() || null,
+        // El backend solo lo aplica si el egreso todavía está "Pendiente" — enviarlo siempre acá
+        // no hace nada distinto para uno que ya tiene rubro (queda ignorado).
+        budget_item_id: f.budget_item_id,
       };
       this.svc.updateExecution(this.projectId, f.id, payload).subscribe({
         next: () => { this.saving.set(false); this.panelOpen.set(false); this.load(); },

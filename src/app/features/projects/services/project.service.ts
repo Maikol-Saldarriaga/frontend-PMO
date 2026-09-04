@@ -568,7 +568,7 @@ export class ProjectService {
     cursor?: string | number; limit?: number;
     budget_item_id?: string; technical_component_id?: string; activity_id?: string;
     puc_account_id?: string; source_account_code?: string; tercero_id?: string; provider?: string;
-    date_from?: string; date_to?: string;
+    date_from?: string; date_to?: string; pending_only?: boolean;
   }): Observable<CursorPage<BudgetExecution> & { summary: { count: number; total_value: number } }> {
     const query: Record<string, string> = { limit: String(params?.limit ?? 20) };
     if (params?.cursor) query['cursor'] = String(params.cursor);
@@ -579,6 +579,7 @@ export class ProjectService {
     if (params?.source_account_code) query['source_account_code'] = params.source_account_code;
     if (params?.tercero_id) query['tercero_id'] = params.tercero_id;
     if (params?.provider) query['provider'] = params.provider;
+    if (params?.pending_only) query['pending_only'] = 'true';
     if (params?.date_from) query['date_from'] = params.date_from;
     if (params?.date_to) query['date_to'] = params.date_to;
     return this.http.get<CursorPage<BudgetExecution> & { summary: { count: number; total_value: number } }>(ENDPOINTS.projects.executions(id), { params: query });

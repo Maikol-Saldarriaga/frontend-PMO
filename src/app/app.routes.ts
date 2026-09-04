@@ -15,6 +15,7 @@ import { MonthlyComponent } from './features/projects/pages/monthly/monthly.comp
 import { MovimientosComponent } from './features/projects/pages/movimientos/movimientos.component';
 import { EgresosListComponent } from './features/projects/pages/egresos-list/egresos-list.component';
 import { EgresosImportComponent } from './features/projects/pages/egresos-import/egresos-import.component';
+import { EgresosImportMultiComponent } from './features/projects/pages/egresos-import-multi/egresos-import-multi.component';
 import { TrackingReportComponent } from './features/projects/pages/tracking-report/tracking-report.component';
 import { DocumentsListComponent } from './features/documents/pages/list/documents-list.component';
 import { ScheduleListComponent } from './features/schedule/pages/list/schedule-list.component';
@@ -51,6 +52,7 @@ export const routes: Routes = [
       { path: 'projects/:id/movimientos', component: MovimientosComponent },
       { path: 'projects/:id/egresos',   component: EgresosListComponent },
       { path: 'projects/:id/egresos/import', component: EgresosImportComponent },
+      { path: 'egresos/importar-masivo', component: EgresosImportMultiComponent, canActivate: [adminGuard] },
       { path: 'projects/:id/tracking-report', component: TrackingReportComponent },
       { path: 'documents',             component: DocumentsListComponent },
       { path: 'schedule',              component: ScheduleListComponent },

@@ -37,6 +37,7 @@ export class SidebarComponent {
     { label: 'Catálogo de rubros', icon: 'tag', route: '/budget-catalog', adminOnly: true },
     { label: 'Catálogo PUC', icon: 'tag', route: '/puc-accounts', adminOnly: true },
     { label: 'Centros de Costo', icon: 'tag', route: '/cost-centers', adminOnly: true },
+    { label: 'Importar Egresos (todos)', icon: 'document', route: '/egresos/importar-masivo', adminOnly: true },
     { label: 'Reportes',      icon: 'chart',    route: '/reports' },
     { label: 'Configuración', icon: 'settings', route: '/settings' },
   ];
