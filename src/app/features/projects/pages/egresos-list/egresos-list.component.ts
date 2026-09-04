@@ -429,6 +429,10 @@ export class EgresosListComponent implements OnInit {
   // después, fila por fila, si hace falta.
 
   bulkSelectedIds = signal<Set<string>>(new Set());
+
+  // Angular no permite "new" dentro de una expresión de plantilla — de ahí este método en vez de
+  // llamar bulkSelectedIds.set(new Set()) directo desde el (click).
+  clearBulkSelection(): void { this.bulkSelectedIds.set(new Set()); }
   bulkRubroPickerOpen = signal(false);
   bulkApplying = signal(false);
   bulkResultMessage = signal<string | null>(null);

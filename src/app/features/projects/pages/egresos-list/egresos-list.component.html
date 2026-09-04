@@ -161,7 +161,7 @@
         <div class="px-5 py-2.5 border-b border-gray-100 bg-sky-50 flex items-center justify-between gap-3 flex-wrap">
           <span class="text-xs font-semibold text-sky-700">{{ bulkSelectedIds().size }} pendiente(s) seleccionado(s)</span>
           <div class="flex items-center gap-2">
-            <button type="button" (click)="bulkSelectedIds.set(new Set())" [disabled]="bulkApplying()"
+            <button type="button" (click)="clearBulkSelection()" [disabled]="bulkApplying()"
               class="px-3 py-1.5 rounded-lg bg-white border border-gray-200 text-gray-600 text-xs font-semibold hover:bg-gray-50 disabled:opacity-50">
               Deseleccionar
             </button>
