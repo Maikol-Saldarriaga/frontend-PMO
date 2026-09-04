@@ -131,13 +131,23 @@ export class EgresosImportMultiComponent implements OnInit, OnDestroy {
   }
 
   /** Proyectos con centro de costos configurado — solo estos participan del matcheo automático;
-   * el resto nunca puede matchear y tampoco tiene sentido ofrecerlos en la corrección manual. */
-  matchableProjects = computed(() => this.projects().filter(p => !!p.costCenterCode));
+   * el resto nunca puede matchear y tampoco tiene sentido ofrecerlos en la corrección manual.
+   * Ordenados por código más largo primero: como el matcheo es por substring (ver
+   * matchProjectForCostCenter), un código corto no debe "ganarle" a uno más largo y específico
+   * que también aparece en la celda. */
+  matchableProjects = computed(() =>
+    this.projects().filter(p => !!p.costCenterCode)
+      .sort((a, b) => (b.costCenterCode?.length ?? 0) - (a.costCenterCode?.length ?? 0))
+  );
 
+  /** Busca el código del centro de costos DENTRO del texto crudo de la celda (substring), no por
+   * igualdad exacta de un token numérico separado — la celda suele traer el código pegado a un
+   * nombre/descripción ("045 OBRA X"), y exigir que el código aparezca como número aislado
+   * fallaba apenas el formato no calzaba exacto (ceros a la izquierda, separadores, etc). */
   private matchProjectForCostCenter(cell: string): ProjectOption | null {
-    const numbers: string[] = cell.match(/\d+/g) ?? [];
-    if (numbers.length === 0) return null;
-    return this.matchableProjects().find(p => p.costCenterCode && numbers.includes(p.costCenterCode)) ?? null;
+    const raw = cell.trim();
+    if (!raw) return null;
+    return this.matchableProjects().find(p => p.costCenterCode && raw.includes(p.costCenterCode)) ?? null;
   }
 
   projectLabel(id: string | null): string {
