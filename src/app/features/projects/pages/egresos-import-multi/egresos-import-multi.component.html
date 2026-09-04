@@ -82,7 +82,12 @@
                       @if (g.committed === null) {
                         <span class="text-gray-400">Sin enviar</span>
                       } @else if (g.committed) {
-                        <span class="text-emerald-600 font-semibold">Importado ({{ g.inserted }})</span>
+                        @if (g.inserted > 0) {
+                          <span class="text-emerald-600 font-semibold">Importado ({{ g.inserted }})</span>
+                          @if (g.skipped > 0) { <span class="text-emerald-600 font-normal">· {{ g.skipped }} ya existían</span> }
+                        } @else {
+                          <span class="text-sky-600 font-semibold">Ya estaba todo importado ({{ g.skipped }})</span>
+                        }
                       } @else {
                         <span class="text-red-600 font-semibold">Falló — revisá y reintentá</span>
                       }

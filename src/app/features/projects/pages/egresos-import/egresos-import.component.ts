@@ -521,6 +521,9 @@ export class EgresosImportComponent implements OnInit, OnDestroy {
   importing = signal(false);
   importResultCommitted = signal<boolean | null>(null);
   importedCount = signal(0);
+  /** Filas que no se importaron porque YA EXISTÍAN (misma fecha, valor, cuenta y tercero) — no
+   * cuentan como error, el backend simplemente las saltó. */
+  importSkippedCount = signal(0);
 
   submit(): void {
     if (!this.canImport()) return;
@@ -557,6 +560,7 @@ export class EgresosImportComponent implements OnInit, OnDestroy {
           this.importing.set(false);
           this.importResultCommitted.set(result.committed);
           this.importedCount.set(result.inserted);
+          this.importSkippedCount.set((result.rows ?? []).filter(r => r.skipped).length);
           if (result.committed) {
             const sentRowNumbers = new Set(rowsToSend.map(r => r.rowNumber));
             this.parsedRows.update(rows => rows.filter(r => !sentRowNumbers.has(r.rowNumber)));

@@ -67,6 +67,8 @@ interface ProjectGroupResult {
   totalValue: number;
   committed: boolean | null; // null = todavía no se envió
   inserted: number;
+  /** Filas que no se importaron porque ya existían (misma fecha, valor, cuenta y tercero). */
+  skipped: number;
   submitting: boolean;
 }
 
@@ -353,6 +355,7 @@ export class EgresosImportMultiComponent implements OnInit, OnDestroy {
           totalValue: rows.reduce((sum, r) => sum + r.value, 0),
           committed: prev?.committed ?? null,
           inserted: prev?.inserted ?? 0,
+          skipped: prev?.skipped ?? 0,
           submitting: false,
         };
       })
@@ -434,7 +437,8 @@ export class EgresosImportMultiComponent implements OnInit, OnDestroy {
         this.submitting.set(false);
         const nextGroups: ProjectGroupResult[] = groups.map((g, i) => {
           const result = results[i];
-          return { ...g, committed: result.committed, inserted: result.inserted };
+          const skipped = (result.rows ?? []).filter(r => r.skipped).length;
+          return { ...g, committed: result.committed, inserted: result.inserted, skipped };
         });
         this.submittedGroups.set(nextGroups);
 

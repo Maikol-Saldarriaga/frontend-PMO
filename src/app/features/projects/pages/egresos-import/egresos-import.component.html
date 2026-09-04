@@ -184,9 +184,18 @@
           }
 
           @if (importResultCommitted() === true) {
-            <div class="p-3 rounded-lg bg-emerald-50 border border-emerald-100 text-xs text-emerald-700 font-medium">
-              Se importaron {{ importedCount() }} egreso(s) correctamente.
-            </div>
+            @if (importedCount() > 0) {
+              <div class="p-3 rounded-lg bg-emerald-50 border border-emerald-100 text-xs text-emerald-700 font-medium">
+                Se importaron {{ importedCount() }} egreso(s) correctamente.
+                @if (importSkippedCount() > 0) {
+                  <span class="text-emerald-600 font-normal">({{ importSkippedCount() }} ya estaban importados — se saltaron.)</span>
+                }
+              </div>
+            } @else {
+              <div class="p-3 rounded-lg bg-sky-50 border border-sky-100 text-xs text-sky-700 font-medium">
+                Ya habías importado todo este mes — no se agregó nada nuevo ({{ importSkippedCount() }} fila(s) ya existían).
+              </div>
+            }
           }
           @if (importResultCommitted() === false) {
             <div class="p-3 rounded-lg bg-red-50 border border-red-100 text-xs text-red-600 font-medium space-y-2">

@@ -1611,6 +1611,9 @@ export interface BulkExecutionRowResult {
   row_number: number;
   success:    boolean;
   error?:     string;
+  /** true = esta fila no se importó porque YA EXISTÍA (misma fecha, valor, cuenta y tercero) —
+   * a diferencia de un error real, esto nunca aborta el resto del lote. */
+  skipped?:   boolean;
 }
 
 export interface BulkExecutionImportResult {
