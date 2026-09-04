@@ -28,6 +28,10 @@
     </button>
   </div>
 
+  @if (successMessage()) {
+    <div class="p-3 rounded-xl bg-emerald-50 border border-emerald-100 text-sm text-emerald-700 font-medium">{{ successMessage() }}</div>
+  }
+
   <!-- KPIs de lo filtrado en pantalla — se actualizan solos al cambiar cualquier filtro -->
   @if (!loading()) {
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">

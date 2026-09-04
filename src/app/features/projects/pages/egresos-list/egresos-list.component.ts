@@ -562,7 +562,7 @@ export class EgresosListComponent implements OnInit {
         budget_item_id: f.budget_item_id,
       };
       this.svc.updateExecution(this.projectId, f.id, payload).subscribe({
-        next: () => { this.saving.set(false); this.panelOpen.set(false); this.load(); },
+        next: () => { this.saving.set(false); this.panelOpen.set(false); this.load(); this.showSuccessMessage('Egreso actualizado correctamente.'); },
         error: err => { this.saving.set(false); this.saveError.set(err?.error?.message ?? err?.error?.error ?? 'Error al actualizar el egreso.'); },
       });
     } else {
@@ -577,10 +577,21 @@ export class EgresosListComponent implements OnInit {
         description: f.description.trim() || null,
       };
       this.svc.createExecution(this.projectId, payload).subscribe({
-        next: () => { this.saving.set(false); this.panelOpen.set(false); this.load(); },
+        next: () => { this.saving.set(false); this.panelOpen.set(false); this.load(); this.showSuccessMessage('Egreso registrado correctamente.'); },
         error: err => { this.saving.set(false); this.saveError.set(err?.error?.message ?? err?.error?.error ?? 'Error al registrar el egreso.'); },
       });
     }
+  }
+
+  /** Banner de éxito arriba del listado — el panel ya se cerró para este punto, así que no
+   * alcanza con mostrar algo adentro de él. Se autooculta sola para no quedar pegada. */
+  successMessage = signal<string | null>(null);
+  private successMessageTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private showSuccessMessage(msg: string): void {
+    if (this.successMessageTimer) clearTimeout(this.successMessageTimer);
+    this.successMessage.set(msg);
+    this.successMessageTimer = setTimeout(() => this.successMessage.set(null), 4000);
   }
 
   async deleteExecution(e: BudgetExecution): Promise<void> {
