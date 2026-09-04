@@ -47,7 +47,6 @@
             <input type="file" accept=".xlsx,.xls" class="hidden" (change)="onFileSelected($event)"/>
           </label>
           @if (fileName()) { <span class="text-xs text-gray-500">{{ fileName() }}</span> }
-          @if (parsing()) { <span class="text-xs text-sky-600 font-semibold">Leyendo archivo…</span> }
         </div>
         @if (fileError()) {
           <div class="p-3 rounded-lg bg-red-50 border border-red-100 text-xs text-red-600 font-medium">{{ fileError() }}</div>
@@ -219,5 +218,20 @@
 
   <app-rubro-picker [open]="rubroPickerOpen()" [groups]="activeRubroPickerGroups()" [monthLabel]="activeRubroPickerMonthLabel()"
     (closed)="rubroPickerOpen.set(false)" (picked)="onRubroPicked($event)"></app-rubro-picker>
+
+  @if (loadingOverlayVisible()) {
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 backdrop-blur-sm">
+      <div class="flex flex-col items-center gap-5 px-8 py-10 rounded-2xl bg-white shadow-xl max-w-sm text-center">
+        <div class="relative w-16 h-16">
+          <div class="absolute inset-0 border-4 border-accent-100 rounded-full"></div>
+          <div class="absolute inset-0 border-4 border-accent border-t-transparent rounded-full animate-spin"></div>
+        </div>
+        <div class="space-y-1">
+          <p class="text-sm font-bold text-gray-800">{{ loadingMessage() }}</p>
+          <p class="text-xs text-gray-400">Esto no debería tardar mucho…</p>
+        </div>
+      </div>
+    </div>
+  }
 
 </div>

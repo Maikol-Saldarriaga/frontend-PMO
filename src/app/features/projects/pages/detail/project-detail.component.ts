@@ -301,7 +301,7 @@ export class ProjectDetailComponent implements OnInit {
       },
       error: () => {},
     });
-    this.costCenterService.list().subscribe({
+    this.costCenterService.listAll().subscribe({
       next: items => this.costCenters.set(items ?? []),
       error: () => this.costCenters.set([]),
     });

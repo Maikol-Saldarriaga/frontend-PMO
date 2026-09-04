@@ -1,7 +1,8 @@
 import { Injectable, inject } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, expand, reduce, EMPTY } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { ApiHttpClient } from '../../../../core/api/http-client';
+import { CursorPage } from '../../../../core/api/paginate';
 import { ENDPOINTS } from '../../../../core/api/endpoints';
 import { PUCAccountLite } from '../../../../core/puc-accounts/models/puc-account.model';
 import { PUCAccountService } from '../../../../core/puc-accounts/services/puc-account.service';
@@ -245,8 +246,19 @@ export class ProjectService {
 
   // ── Solicitud de Desembolso ──────────────────────────────────────────────
 
-  listDisbursements(id: string): Observable<Disbursement[]> {
-    return this.http.get<Disbursement[]>(ENDPOINTS.projects.disbursements(id));
+  listDisbursements(id: string, params?: { cursor?: string | number; limit?: number }): Observable<CursorPage<Disbursement>> {
+    const query: Record<string, string> = { limit: String(params?.limit ?? 20) };
+    if (params?.cursor) query['cursor'] = String(params.cursor);
+    return this.http.get<CursorPage<Disbursement>>(ENDPOINTS.projects.disbursements(id), { params: query });
+  }
+
+  /** Recorre todas las páginas — para consumidores que solo cruzan datos (ej. tabs que
+   * necesitan resolver el desembolso de una factura) y no muestran una tabla paginada. */
+  listAllDisbursements(id: string): Observable<Disbursement[]> {
+    return this.listDisbursements(id, { limit: 100 }).pipe(
+      expand(page => page.next_cursor ? this.listDisbursements(id, { limit: 100, cursor: page.next_cursor }) : EMPTY),
+      reduce<CursorPage<Disbursement>, Disbursement[]>((acc, page) => acc.concat(page.data), []),
+    );
   }
 
   createDisbursement(id: string, data: DisbursementRequest): Observable<Disbursement> {
@@ -549,8 +561,36 @@ export class ProjectService {
 
   // ── Egresos (budget_executions): lo realmente ejecutado, capado por lo cobrado ────────────
 
-  listExecutions(id: string): Observable<BudgetExecution[]> {
-    return this.http.get<BudgetExecution[]>(ENDPOINTS.projects.executions(id));
+  /** summary trae el conteo y el total ya filtrados (pero sin paginar) — evita tener que sumar
+   * filas en el cliente cuando la lista viene paginada. Todos los filtros son opcionales y se
+   * aplican tanto al listado como al summary. */
+  listExecutions(id: string, params?: {
+    cursor?: string | number; limit?: number;
+    budget_item_id?: string; technical_component_id?: string; activity_id?: string;
+    puc_account_id?: string; source_account_code?: string; tercero_id?: string; provider?: string;
+    date_from?: string; date_to?: string;
+  }): Observable<CursorPage<BudgetExecution> & { summary: { count: number; total_value: number } }> {
+    const query: Record<string, string> = { limit: String(params?.limit ?? 20) };
+    if (params?.cursor) query['cursor'] = String(params.cursor);
+    if (params?.budget_item_id) query['budget_item_id'] = params.budget_item_id;
+    if (params?.technical_component_id) query['technical_component_id'] = params.technical_component_id;
+    if (params?.activity_id) query['activity_id'] = params.activity_id;
+    if (params?.puc_account_id) query['puc_account_id'] = params.puc_account_id;
+    if (params?.source_account_code) query['source_account_code'] = params.source_account_code;
+    if (params?.tercero_id) query['tercero_id'] = params.tercero_id;
+    if (params?.provider) query['provider'] = params.provider;
+    if (params?.date_from) query['date_from'] = params.date_from;
+    if (params?.date_to) query['date_to'] = params.date_to;
+    return this.http.get<CursorPage<BudgetExecution> & { summary: { count: number; total_value: number } }>(ENDPOINTS.projects.executions(id), { params: query });
+  }
+
+  /** Recorre todas las páginas — para consumidores que necesitan el set completo en memoria
+   * (ej. resumen por rubro en la pestaña Egresos) y no muestran scroll infinito. */
+  listAllExecutions(id: string): Observable<BudgetExecution[]> {
+    return this.listExecutions(id, { limit: 100 }).pipe(
+      expand(page => page.next_cursor ? this.listExecutions(id, { limit: 100, cursor: page.next_cursor }) : EMPTY),
+      reduce<CursorPage<BudgetExecution>, BudgetExecution[]>((acc, page) => acc.concat(page.data), []),
+    );
   }
 
   createExecution(id: string, data: CreateBudgetExecutionRequest): Observable<BudgetExecution> {
@@ -573,8 +613,19 @@ export class ProjectService {
 
   // ── Hitos: registro de hitos del proyecto, con disparo automático opcional ────────────────
 
-  listHitos(id: string): Observable<Hito[]> {
-    return this.http.get<Hito[]>(ENDPOINTS.projects.hitos(id));
+  listHitos(id: string, params?: { cursor?: string | number; limit?: number }): Observable<CursorPage<Hito>> {
+    const query: Record<string, string> = { limit: String(params?.limit ?? 20) };
+    if (params?.cursor) query['cursor'] = String(params.cursor);
+    return this.http.get<CursorPage<Hito>>(ENDPOINTS.projects.hitos(id), { params: query });
+  }
+
+  /** Recorre todas las páginas — para consumidores que necesitan el set completo en memoria
+   * (ej. cálculo de % de avance) y no muestran scroll infinito. */
+  listAllHitos(id: string): Observable<Hito[]> {
+    return this.listHitos(id, { limit: 100 }).pipe(
+      expand(page => page.next_cursor ? this.listHitos(id, { limit: 100, cursor: page.next_cursor }) : EMPTY),
+      reduce<CursorPage<Hito>, Hito[]>((acc, page) => acc.concat(page.data), []),
+    );
   }
 
   createHito(id: string, data: HitoRequest): Observable<Hito> {

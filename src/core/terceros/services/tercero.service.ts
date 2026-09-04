@@ -3,14 +3,17 @@ import { Observable } from 'rxjs';
 
 import { ApiHttpClient } from '../../api/http-client';
 import { ENDPOINTS } from '../../api/endpoints';
+import { fetchAllPages } from '../../api/paginate';
 import { Tercero, TerceroRequest } from '../models/tercero.model';
 
 @Injectable({ providedIn: 'root' })
 export class TerceroService {
   private api = inject(ApiHttpClient);
 
+  /** El backend ahora pagina (data, next_cursor) — acá se recorren todas las páginas porque
+   * el consumidor (picker de Egresos) necesita el set completo del proyecto en memoria. */
   listByProject(projectId: string): Observable<Tercero[]> {
-    return this.api.get<Tercero[]>(ENDPOINTS.terceros.list(projectId));
+    return fetchAllPages<Tercero>(this.api, ENDPOINTS.terceros.list(projectId));
   }
 
   create(projectId: string, body: TerceroRequest): Observable<Tercero> {

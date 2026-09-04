@@ -41,6 +41,13 @@ export class TopbarComponent implements OnInit, OnDestroy {
     if (this.pollHandle) clearInterval(this.pollHandle);
   }
 
+  onNotificationsScroll(event: Event): void {
+    const el = event.target as HTMLElement;
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 40) {
+      this.notificationStore.loadMore();
+    }
+  }
+
   onNotificationClick(n: Notification): void {
     this.notificationStore.markRead(n.id);
     this.router.navigate(['/projects', n.contract_agreement_id], { queryParams: { tab: n.tab } });

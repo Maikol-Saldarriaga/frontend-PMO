@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, computed, inject } from '@angular/core';
+import { Component, OnInit, HostListener, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute, RouterLink } from '@angular/router';
@@ -19,6 +19,7 @@ import { CostCenterService } from '../../../../../core/cost-centers/services/cos
 import { buildRubroPickerGroups } from '../../utils/rubro-picker-groups';
 
 const AMOUNT_EPSILON = 0.01;
+const PAGE_SIZE = 40;
 const MESES_ES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
 /** Mismo color por rubro que en Presupuesto/Abastecimiento/Flujo de Caja, para que un rubro se
@@ -82,9 +83,14 @@ export class EgresosListComponent implements OnInit {
   locked = false;
 
   loading = signal(true);
+  loadingMore = signal(false);
   error   = signal<string | null>(null);
   report  = signal<CashFlowReport | null>(null);
   executions = signal<BudgetExecution[]>([]);
+  /** Conteo y total reales del proyecto completo (sin paginar) — vienen del backend, no se
+   * recalculan sumando las filas ya cargadas en pantalla. */
+  executionsSummary = signal<{ count: number; total_value: number }>({ count: 0, total_value: 0 });
+  private nextExecutionsCursor = signal<string | number | null>(null);
   /** /puc-accounts/picker ya devuelve solo activas, ordenadas — sin filtro extra acá. */
   pucAccounts = signal<PUCAccountLite[]>([]);
   activePUCAccounts = computed(() => this.pucAccounts());
@@ -127,7 +133,7 @@ export class EgresosListComponent implements OnInit {
       next: items => this.terceros.set(items ?? []),
       error: () => {},
     });
-    this.costCenterSvc.list().subscribe({
+    this.costCenterSvc.listAll().subscribe({
       next: items => this.costCenters.set(items ?? []),
       error: () => {},
     });
@@ -156,14 +162,80 @@ export class EgresosListComponent implements OnInit {
     this.svc.getCashFlowReport(this.projectId).subscribe({
       next: r => {
         this.report.set(r);
-        this.svc.listExecutions(this.projectId).subscribe({
-          next: list => { this.executions.set(list ?? []); this.loading.set(false); },
-          error: () => { this.error.set('No se pudieron cargar los egresos registrados.'); this.loading.set(false); },
-        });
+        this.loadExecutions();
       },
       error: () => { this.error.set('No se pudo cargar el flujo de caja.'); this.loading.set(false); },
     });
   }
+
+  private static readonly UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  /** budget_item_id/technical_component_id/activity_id/provider/date_from/date_to/cuenta que el
+   * backend ya sabe filtrar. accountKey() devuelve o bien un puc_account_id (uuid, cuenta manual)
+   * o un source_account_code (cuenta importada del Excel) — se manda el que corresponda según su
+   * forma, nunca ambos. */
+  private executionServerFilters() {
+    const accountKey = this.filterAccountCode();
+    const isPucId = !!accountKey && EgresosListComponent.UUID_RE.test(accountKey);
+    return {
+      budget_item_id: this.filterBudgetItemId() ?? undefined,
+      technical_component_id: this.filterTechnicalComponentId() ?? undefined,
+      activity_id: this.filterActivityId() ?? undefined,
+      puc_account_id: isPucId ? accountKey! : undefined,
+      source_account_code: accountKey && !isPucId ? accountKey : undefined,
+      provider: this.filterProvider() ?? undefined,
+      date_from: this.filterDateFrom() ?? undefined,
+      date_to: this.filterDateTo() ?? undefined,
+    };
+  }
+
+  /** Recarga desde la primera página con los filtros server-side actuales — se dispara al
+   * cambiar cualquiera de esos filtros (ver onServerFilterChange) o al cargar el tab. */
+  loadExecutions(): void {
+    this.loading.set(true);
+    this.nextExecutionsCursor.set(null);
+    this.svc.listExecutions(this.projectId, { limit: PAGE_SIZE, ...this.executionServerFilters() }).subscribe({
+      next: page => {
+        this.executions.set(page.data ?? []);
+        this.executionsSummary.set(page.summary);
+        this.nextExecutionsCursor.set(page.next_cursor);
+        this.loading.set(false);
+      },
+      error: () => { this.error.set('No se pudieron cargar los egresos registrados.'); this.loading.set(false); },
+    });
+  }
+
+  /** Cualquier cambio a un filtro con soporte server-side reinicia la paginación y recarga. */
+  onServerFilterChange(): void {
+    this.loadExecutions();
+  }
+
+  /** Trae la siguiente página de egresos (con los mismos filtros activos) y la agrega al final —
+   * se dispara solo al llegar al fondo del scroll, nunca de forma proactiva. */
+  loadMoreExecutions(): void {
+    const cursor = this.nextExecutionsCursor();
+    if (!cursor || this.loading() || this.loadingMore()) return;
+
+    this.loadingMore.set(true);
+    this.svc.listExecutions(this.projectId, { cursor, limit: PAGE_SIZE, ...this.executionServerFilters() }).subscribe({
+      next: page => {
+        this.executions.update(current => [...current, ...(page.data ?? [])]);
+        this.executionsSummary.set(page.summary);
+        this.nextExecutionsCursor.set(page.next_cursor);
+        this.loadingMore.set(false);
+      },
+      error: () => { this.loadingMore.set(false); },
+    });
+  }
+
+  @HostListener('window:scroll')
+  onWindowScroll(): void {
+    const scrolledToBottom =
+      window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 200;
+    if (scrolledToBottom) this.loadMoreExecutions();
+  }
+
+  get hasMoreExecutions(): boolean { return this.nextExecutionsCursor() !== null; }
 
   rubroInfo(budgetItemId: string | null | undefined): RubroInfo | undefined {
     return this.rubroInfos().find(r => r.id === budgetItemId);
@@ -192,6 +264,21 @@ export class EgresosListComponent implements OnInit {
   accountLabel(e: BudgetExecution): string {
     if (e.source_account_code) return `${e.source_account_code} — ${e.source_account_name ?? ''}`.trim().replace(/—\s*$/, '—');
     if (e.puc_account_id) return this.pucAccountLabel(e.puc_account_id);
+    return '—';
+  }
+
+  /** Código de cuenta solo (columna separada del nombre en la tabla) — prioriza lo importado del
+   * Excel (source_account_code), cae al código de la cuenta PUC del formulario manual. */
+  accountCode(e: BudgetExecution): string {
+    if (e.source_account_code) return e.source_account_code;
+    if (e.puc_account_id) return this.pucAccounts().find(x => x.id === e.puc_account_id)?.code ?? '—';
+    return '—';
+  }
+
+  /** Nombre de cuenta solo (columna separada del código en la tabla) — mismo criterio que accountCode. */
+  accountName(e: BudgetExecution): string {
+    if (e.source_account_code) return e.source_account_name ?? '—';
+    if (e.puc_account_id) return this.pucAccounts().find(x => x.id === e.puc_account_id)?.name ?? '—';
     return '—';
   }
 
@@ -251,45 +338,34 @@ export class EgresosListComponent implements OnInit {
     this.filterProvider.set(null);
     this.filterDateFrom.set(null);
     this.filterDateTo.set(null);
+    this.onServerFilterChange();
   }
 
-  /** Egresos filtrados por rubro/componente técnico/actividad/cuenta/tercero/rango de fechas —
-   * todo en cliente, ya que el dataset es de un solo proyecto (acotado por diseño). Cuenta y
-   * Tercero filtran por valor exacto (solo los que realmente aparecen, ver accountOptions/
-   * providerOptions), no por texto libre. */
-  filteredExecutions = computed<BudgetExecution[]>(() => {
-    const budgetItemId = this.filterBudgetItemId();
-    const techId = this.filterTechnicalComponentId();
-    const activityId = this.filterActivityId();
-    const accountKey = this.filterAccountCode();
-    const provider = this.filterProvider();
-    const from = this.filterDateFrom();
-    const to = this.filterDateTo();
+  // ── Setters de filtro con soporte server-side — actualizan el signal y recargan. ──────────
 
-    return this.sortedExecutions().filter(e => {
-      if (budgetItemId && e.budget_item_id !== budgetItemId) return false;
-      const info = this.rubroInfo(e.budget_item_id);
-      if (techId && info?.technicalComponentId !== techId) return false;
-      if (activityId && !(info?.activities ?? []).some(a => a.id === activityId)) return false;
-      if (accountKey && this.accountKey(e) !== accountKey) return false;
-      if (provider && (e.provider ?? '') !== provider) return false;
-      const d = e.date?.slice(0, 10) ?? null;
-      if (from && (!d || d < from)) return false;
-      if (to && (!d || d > to)) return false;
-      return true;
-    });
-  });
+  setFilterAccountCode(v: string | null): void { this.filterAccountCode.set(v || null); this.onServerFilterChange(); }
+  setFilterBudgetItemId(v: string | null): void { this.filterBudgetItemId.set(v || null); this.onServerFilterChange(); }
+  setFilterTechnicalComponentId(v: string | null): void { this.filterTechnicalComponentId.set(v || null); this.onServerFilterChange(); }
+  setFilterActivityId(v: string | null): void { this.filterActivityId.set(v || null); this.onServerFilterChange(); }
+  setFilterProvider(v: string | null): void { this.filterProvider.set(v || null); this.onServerFilterChange(); }
+  setFilterDateFrom(v: string | null): void { this.filterDateFrom.set(v || null); this.onServerFilterChange(); }
+  setFilterDateTo(v: string | null): void { this.filterDateTo.set(v || null); this.onServerFilterChange(); }
 
-  // ── KPIs de lo filtrado en pantalla — se recalculan solos al cambiar cualquier filtro ──────
+  /** Todos los filtros — incluida Cuenta — ya vienen aplicados desde el backend (ver
+   * executionServerFilters): executions() solo trae filas que ya los cumplen. */
+  filteredExecutions = computed<BudgetExecution[]>(() => this.sortedExecutions());
 
-  kpiCount = computed(() => this.filteredExecutions().length);
+  // ── KPIs — siempre del summary del backend (exacto sobre todo el dataset filtrado, no solo lo
+  // cargado en pantalla). ───────────────────────────────────────────────────────────────────
+
+  kpiCount = computed(() => this.executionsSummary().count);
   kpiTotalDebito = computed(() =>
     this.filteredExecutions().filter(e => e.value > 0).reduce((sum, e) => sum + e.value, 0)
   );
   kpiTotalCredito = computed(() =>
     this.filteredExecutions().filter(e => e.value < 0).reduce((sum, e) => sum + Math.abs(e.value), 0)
   );
-  kpiTotalNeto = computed(() => this.filteredExecutions().reduce((sum, e) => sum + e.value, 0));
+  kpiTotalNeto = computed(() => this.executionsSummary().total_value);
 
   pucAccountLabel(id: string | null | undefined): string {
     if (!id) return '—';

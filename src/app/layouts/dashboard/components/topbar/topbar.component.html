@@ -35,7 +35,7 @@
           <span class="text-sm font-semibold text-primary-800">Notificaciones</span>
           <span class="notif-count" *ngIf="notificationStore.unreadCount() > 0">{{ notificationStore.unreadCount() }} nuevas</span>
         </div>
-        <ul class="divide-y divide-neutral-100 max-h-80 overflow-y-auto">
+        <ul class="divide-y divide-neutral-100 max-h-80 overflow-y-auto" (scroll)="onNotificationsScroll($event)">
           <li *ngFor="let n of notificationStore.notifications()" class="notif-item" style="cursor:pointer" (click)="onNotificationClick(n)">
             <div class="notif-dot" [class.notif-dot--accent]="n.type === 'hito_cumplido'" [class.notif-dot--warning]="n.type === 'riesgo_registrado'" [class.notif-dot--read]="n.is_read"></div>
             <div>
@@ -47,6 +47,9 @@
           </li>
           <li *ngIf="!notificationStore.notifications().length" class="px-4 py-6 text-center text-xs text-neutral-400">
             Sin notificaciones por ahora.
+          </li>
+          <li *ngIf="notificationStore.loadingMore()" class="px-4 py-3 text-center text-xs text-neutral-400">
+            Cargando...
           </li>
         </ul>
         <div class="px-4 py-2.5" *ngIf="notificationStore.notifications().length">

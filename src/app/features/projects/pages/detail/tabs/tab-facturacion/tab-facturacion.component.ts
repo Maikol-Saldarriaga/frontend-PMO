@@ -128,7 +128,7 @@ export class TabFacturacionComponent implements OnInit {
   disbursements = signal<Disbursement[]>([]);
   disbursementsBalance = computed(() => this.disbursements().reduce((s, d) => s + d.balance, 0));
   private loadDisbursements(): void {
-    this.svc.listDisbursements(this.projectId).subscribe({
+    this.svc.listAllDisbursements(this.projectId).subscribe({
       next: items => {
         this.disbursements.set(items ?? []);
         this.loading.set(false);

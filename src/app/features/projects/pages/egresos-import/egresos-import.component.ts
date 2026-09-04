@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, computed, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
@@ -51,13 +51,24 @@ interface ParsedRow {
   submitError?: string;        // motivo devuelto por el backend, si esta fila falló al importar
 }
 
+/** Mensajes rotativos del overlay de carga — puramente cosmético, no reflejan pasos reales del
+ * parseo/envío, solo dan sensación de "algo inteligente está pasando" mientras se espera. */
+const LOADING_MESSAGES = [
+  'Carga inteligente…',
+  'Detectando cuentas contables…',
+  'Separando código y nombre de cuenta…',
+  'Cruzando auxiliares contables…',
+  'Verificando centros de costo…',
+  'Organizando filas por rubro…',
+];
+
 @Component({
   selector: 'app-egresos-import',
   standalone: true,
   imports: [CommonModule, FormsModule, RubroPickerComponent],
   templateUrl: './egresos-import.component.html',
 })
-export class EgresosImportComponent implements OnInit {
+export class EgresosImportComponent implements OnInit, OnDestroy {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private costCenterSvc = inject(CostCenterService);
@@ -107,7 +118,7 @@ export class EgresosImportComponent implements OnInit {
       },
       error: () => this.rubroInfos.set([]),
     });
-    this.costCenterSvc.list().subscribe({ next: items => this.costCenters.set(items ?? []), error: () => {} });
+    this.costCenterSvc.listAll().subscribe({ next: items => this.costCenters.set(items ?? []), error: () => {} });
 
     this.svc.getProjectDetails(this.projectId).subscribe({
       next: details => {
@@ -116,7 +127,7 @@ export class EgresosImportComponent implements OnInit {
         // costCenters puede no haber llegado todavía — se resuelve otra vez cuando llegue
         this.projectCostCenterCode.set(cc?.code ?? null);
         if (!cc) {
-          this.costCenterSvc.list().subscribe({
+          this.costCenterSvc.listAll().subscribe({
             next: items => {
               this.costCenters.set(items ?? []);
               const match = (items ?? []).find(c => c.id === details.cost_center_id);
@@ -137,6 +148,44 @@ export class EgresosImportComponent implements OnInit {
   fileName = signal<string | null>(null);
   parsing = signal(false);
 
+  // ── Overlay de carga bonita ──────────────────────────────────────────────
+  // Reemplaza el "Leyendo archivo…" seco de antes por una pantalla completa con mensaje
+  // rotativo, y le impone un mínimo de tiempo visible (LOADING_MIN_MS) aunque el parseo real
+  // sea casi instantáneo — así el usuario siempre alcanza a verla, sin que se sienta un delay
+  // artificial largo cuando el archivo sí es grande y ya toma su tiempo real.
+  private static readonly LOADING_MIN_MS = 1100;
+  private static readonly LOADING_MESSAGE_INTERVAL_MS = 900;
+  loadingOverlayVisible = signal(false);
+  loadingMessage = signal(LOADING_MESSAGES[0]);
+  private loadingMessageTimer: ReturnType<typeof setInterval> | null = null;
+
+  private startLoadingOverlay(): number {
+    this.loadingMessage.set(LOADING_MESSAGES[0]);
+    this.loadingOverlayVisible.set(true);
+    let i = 0;
+    this.loadingMessageTimer = setInterval(() => {
+      i = (i + 1) % LOADING_MESSAGES.length;
+      this.loadingMessage.set(LOADING_MESSAGES[i]);
+    }, EgresosImportComponent.LOADING_MESSAGE_INTERVAL_MS);
+    return Date.now();
+  }
+
+  /** Corta el overlay respetando el mínimo de tiempo visible, y ejecuta done() (que a su vez
+   * baja parsing()/importing()) recién en ese momento. */
+  private stopLoadingOverlay(startedAt: number, done: () => void): void {
+    const elapsed = Date.now() - startedAt;
+    const remaining = Math.max(0, EgresosImportComponent.LOADING_MIN_MS - elapsed);
+    setTimeout(() => {
+      if (this.loadingMessageTimer) { clearInterval(this.loadingMessageTimer); this.loadingMessageTimer = null; }
+      this.loadingOverlayVisible.set(false);
+      done();
+    }, remaining);
+  }
+
+  ngOnDestroy(): void {
+    if (this.loadingMessageTimer) clearInterval(this.loadingMessageTimer);
+  }
+
   onFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
@@ -150,6 +199,7 @@ export class EgresosImportComponent implements OnInit {
     this.sampleRawCostCenters.set([]);
     this.fileName.set(file.name);
     this.parsing.set(true);
+    const startedAt = this.startLoadingOverlay();
 
     const reader = new FileReader();
     reader.onload = () => {
@@ -165,7 +215,7 @@ export class EgresosImportComponent implements OnInit {
             'Cheque, Doc Num, Debitos, Creditos, Saldo, Centro de Costos, Mvto, Cuenta, Mayor, Mes). ' +
             'Verifica que no se hayan movido ni renombrado columnas antes de continuar.'
           );
-          this.parsing.set(false);
+          this.stopLoadingOverlay(startedAt, () => this.parsing.set(false));
           return;
         }
 
@@ -187,12 +237,12 @@ export class EgresosImportComponent implements OnInit {
         const detail = err instanceof Error ? err.message : String(err);
         this.fileError.set(`No se pudo leer el archivo: ${detail}`);
       } finally {
-        this.parsing.set(false);
+        this.stopLoadingOverlay(startedAt, () => this.parsing.set(false));
       }
     };
     reader.onerror = () => {
       this.fileError.set('No se pudo leer el archivo.');
-      this.parsing.set(false);
+      this.stopLoadingOverlay(startedAt, () => this.parsing.set(false));
     };
     reader.readAsArrayBuffer(file);
   }
@@ -476,6 +526,7 @@ export class EgresosImportComponent implements OnInit {
     if (!this.canImport()) return;
     this.importing.set(true);
     this.importResultCommitted.set(null);
+    const startedAt = this.startLoadingOverlay();
 
     const rowsToSend = this.visibleRows();
     const payload: BulkExecutionRowRequest[] = rowsToSend.map(r => ({
@@ -502,21 +553,25 @@ export class EgresosImportComponent implements OnInit {
 
     this.svc.bulkImportExecutions(this.projectId, payload).subscribe({
       next: result => {
-        this.importing.set(false);
-        this.importResultCommitted.set(result.committed);
-        this.importedCount.set(result.inserted);
-        if (result.committed) {
-          const sentRowNumbers = new Set(rowsToSend.map(r => r.rowNumber));
-          this.parsedRows.update(rows => rows.filter(r => !sentRowNumbers.has(r.rowNumber)));
-          this.selectedMonthKey.set(null);
-        } else {
-          this.applyRowErrors(result.rows);
-        }
+        this.stopLoadingOverlay(startedAt, () => {
+          this.importing.set(false);
+          this.importResultCommitted.set(result.committed);
+          this.importedCount.set(result.inserted);
+          if (result.committed) {
+            const sentRowNumbers = new Set(rowsToSend.map(r => r.rowNumber));
+            this.parsedRows.update(rows => rows.filter(r => !sentRowNumbers.has(r.rowNumber)));
+            this.selectedMonthKey.set(null);
+          } else {
+            this.applyRowErrors(result.rows);
+          }
+        });
       },
       error: err => {
-        this.importing.set(false);
-        this.importResultCommitted.set(false);
-        this.submitGeneralError.set(err?.error?.message ?? err?.error?.error ?? 'Error al importar los auxiliares.');
+        this.stopLoadingOverlay(startedAt, () => {
+          this.importing.set(false);
+          this.importResultCommitted.set(false);
+          this.submitGeneralError.set(err?.error?.message ?? err?.error?.error ?? 'Error al importar los auxiliares.');
+        });
       },
     });
   }

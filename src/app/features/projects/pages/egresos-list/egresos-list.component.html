@@ -76,7 +76,7 @@
       <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <div>
           <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Componente técnico</label>
-          <select [ngModel]="filterTechnicalComponentId()" (ngModelChange)="filterTechnicalComponentId.set($event || null)"
+          <select [ngModel]="filterTechnicalComponentId()" (ngModelChange)="setFilterTechnicalComponentId($event)"
             class="w-full px-2.5 py-2 rounded-lg border border-gray-200 text-xs bg-gray-50">
             <option [ngValue]="null">Todos</option>
             @for (t of technicalComponentOptions(); track t.id) { <option [ngValue]="t.id">{{ t.name }}</option> }
@@ -84,7 +84,7 @@
         </div>
         <div>
           <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Rubro</label>
-          <select [ngModel]="filterBudgetItemId()" (ngModelChange)="filterBudgetItemId.set($event || null)"
+          <select [ngModel]="filterBudgetItemId()" (ngModelChange)="setFilterBudgetItemId($event)"
             class="w-full px-2.5 py-2 rounded-lg border border-gray-200 text-xs bg-gray-50">
             <option [ngValue]="null">Todos</option>
             @for (r of rubroOptionsForFilter(); track trackByRubro($index, r)) { <option [ngValue]="r.budget_item_id">{{ r.concept }}</option> }
@@ -92,7 +92,7 @@
         </div>
         <div>
           <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Actividad</label>
-          <select [ngModel]="filterActivityId()" (ngModelChange)="filterActivityId.set($event || null)"
+          <select [ngModel]="filterActivityId()" (ngModelChange)="setFilterActivityId($event)"
             class="w-full px-2.5 py-2 rounded-lg border border-gray-200 text-xs bg-gray-50">
             <option [ngValue]="null">Todas</option>
             @for (a of activityOptions(); track a.id) { <option [ngValue]="a.id">{{ a.label }}</option> }
@@ -100,7 +100,7 @@
         </div>
         <div>
           <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Cuenta</label>
-          <select [ngModel]="filterAccountCode()" (ngModelChange)="filterAccountCode.set($event || null)"
+          <select [ngModel]="filterAccountCode()" (ngModelChange)="setFilterAccountCode($event)"
             class="w-full px-2.5 py-2 rounded-lg border border-gray-200 text-xs bg-gray-50">
             <option [ngValue]="null">Todas</option>
             @for (a of accountOptions(); track a.key) { <option [ngValue]="a.key">{{ a.label }}</option> }
@@ -108,7 +108,7 @@
         </div>
         <div>
           <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Proveedor</label>
-          <select [ngModel]="filterProvider()" (ngModelChange)="filterProvider.set($event || null)"
+          <select [ngModel]="filterProvider()" (ngModelChange)="setFilterProvider($event)"
             class="w-full px-2.5 py-2 rounded-lg border border-gray-200 text-xs bg-gray-50">
             <option [ngValue]="null">Todos</option>
             @for (p of providerOptions(); track p) { <option [ngValue]="p">{{ p }}</option> }
@@ -117,12 +117,12 @@
         <div class="flex gap-1.5">
           <div class="flex-1">
             <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Desde</label>
-            <input type="date" [ngModel]="filterDateFrom()" (ngModelChange)="filterDateFrom.set($event || null)"
+            <input type="date" [ngModel]="filterDateFrom()" (ngModelChange)="setFilterDateFrom($event)"
               class="w-full px-2 py-2 rounded-lg border border-gray-200 text-xs bg-gray-50"/>
           </div>
           <div class="flex-1">
             <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Hasta</label>
-            <input type="date" [ngModel]="filterDateTo()" (ngModelChange)="filterDateTo.set($event || null)"
+            <input type="date" [ngModel]="filterDateTo()" (ngModelChange)="setFilterDateTo($event)"
               class="w-full px-2 py-2 rounded-lg border border-gray-200 text-xs bg-gray-50"/>
           </div>
         </div>
@@ -134,19 +134,21 @@
       <div class="px-5 py-3 border-b border-gray-100">
         <h3 class="text-sm font-bold text-gray-900">Egresos registrados</h3>
         <p class="text-xs text-gray-400 mt-0.5">
-          {{ filteredExecutions().length }} de {{ executions().length }} egreso(s)
+          {{ filteredExecutions().length }} de {{ executionsSummary().count }} egreso(s)
           @if (hasActiveFilters()) { <span class="text-accent font-semibold">(filtrado)</span> }
+          @if (!hasActiveFilters() && hasMoreExecutions) { <span class="text-gray-400">— cargando más al hacer scroll</span> }
         </p>
       </div>
       <div class="overflow-x-auto">
-        <table class="w-full text-sm min-w-[1450px] border-collapse">
+        <table class="w-full text-sm min-w-[1600px] border-collapse">
           <thead>
             <tr class="bg-neutral-50 border-b border-gray-100 text-[10px] font-bold text-neutral-500 uppercase tracking-wide">
               <th class="text-left px-4 py-2.5">Fecha</th>
               <th class="text-left px-3 py-2.5">Componente técnico</th>
               <th class="text-left px-3 py-2.5">Rubro</th>
               <th class="text-left px-3 py-2.5">Proveedor / N° factura</th>
-              <th class="text-left px-3 py-2.5">Cuenta</th>
+              <th class="text-left px-3 py-2.5">Código cuenta</th>
+              <th class="text-left px-3 py-2.5">Nombre cuenta</th>
               <th class="text-left px-3 py-2.5">Centro de costo</th>
               <th class="text-right px-3 py-2.5 whitespace-nowrap">Débito</th>
               <th class="text-left px-3 py-2.5">Descripción</th>
@@ -170,7 +172,8 @@
                   <p class="text-xs font-medium text-neutral-600 truncate" [title]="e.provider || ''">{{ e.provider || '—' }}</p>
                   <p class="text-[10px] text-neutral-400 truncate">{{ e.invoice_number || 'Sin N° de factura' }}</p>
                 </td>
-                <td class="px-3 py-3 text-xs text-neutral-500 whitespace-nowrap">{{ accountLabel(e) }}</td>
+                <td class="px-3 py-3 text-xs text-neutral-500 whitespace-nowrap">{{ accountCode(e) }}</td>
+                <td class="px-3 py-3 text-xs text-neutral-500 whitespace-nowrap max-w-[200px] truncate" [title]="accountName(e)">{{ accountName(e) }}</td>
                 <td class="px-3 py-3 text-xs text-neutral-500 whitespace-nowrap">{{ costCenterLabel(e.cost_center_id) }}</td>
                 <td class="px-3 py-3 text-right whitespace-nowrap text-xs font-semibold text-danger">{{ formatCurrency(e.value) }}</td>
                 <td class="px-3 py-3 text-xs text-neutral-600 max-w-[220px] truncate" [title]="e.description || ''">{{ e.description || '—' }}</td>
@@ -200,6 +203,14 @@
             <p class="text-sm font-medium text-gray-500">No hay egresos registrados.</p>
             <p class="text-xs text-gray-400">Usa "Registrar egreso" arriba.</p>
           }
+        </div>
+      }
+      @if (loadingMore()) {
+        <div class="flex justify-center py-4">
+          <svg class="w-5 h-5 animate-spin text-accent" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+          </svg>
         </div>
       }
     </div>

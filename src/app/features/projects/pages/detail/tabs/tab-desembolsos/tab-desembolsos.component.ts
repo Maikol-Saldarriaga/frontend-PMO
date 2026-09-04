@@ -69,7 +69,7 @@ export class TabDesembolsosComponent implements OnInit {
   load(): void {
     this.loading.set(true);
     this.error.set(null);
-    this.svc.listDisbursements(this.projectId).subscribe({
+    this.svc.listAllDisbursements(this.projectId).subscribe({
       next: items => {
         const sorted = [...(items ?? [])].sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at));
         this.items.set(sorted);

@@ -79,7 +79,7 @@ export class TabEgresosComponent implements OnInit {
     this.svc.getCashFlowReport(this.projectId).subscribe({
       next: r => {
         this.report.set(r);
-        this.svc.listExecutions(this.projectId).subscribe({
+        this.svc.listAllExecutions(this.projectId).subscribe({
           next: list => { this.executions.set(list ?? []); this.loading.set(false); },
           error: () => { this.error.set('No se pudieron cargar los egresos registrados.'); this.loading.set(false); },
         });
