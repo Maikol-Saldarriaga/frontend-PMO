@@ -2,6 +2,8 @@ import { Component, OnInit, HostListener, signal, computed, inject } from '@angu
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute, RouterLink } from '@angular/router';
+import { forkJoin, of } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
 import { MoneyMaskDirective } from '../../../../shared/directives/money-mask.directive';
 import { ProjectService } from '../../services/project.service';
 import { ConfirmDialogService } from '../../../../shared/components/confirm-dialog/confirm-dialog.service';
@@ -420,6 +422,92 @@ export class EgresosListComponent implements OnInit {
     this.rubroPickerOpen.set(false);
   }
 
+  // ── Asignar rubro a varios "Pendiente" a la vez ─────────────────────────────
+  // Mismo criterio que "Importar auxiliares": marcá con el check las filas que querés (usá los
+  // filtros de arriba — cuenta, proveedor, fecha — para acotar el lote), elegí un rubro una sola
+  // vez y se aplica a todas. Nunca pide cuenta PUC (ver UpdateExecution) — eso se puede agregar
+  // después, fila por fila, si hace falta.
+
+  bulkSelectedIds = signal<Set<string>>(new Set());
+  bulkRubroPickerOpen = signal(false);
+  bulkApplying = signal(false);
+  bulkResultMessage = signal<string | null>(null);
+
+  /** Solo las "Pendiente" (sin rubro) del listado ya filtrado pueden entrar a la selección
+   * masiva — una fila que ya tiene rubro se edita individualmente si hace falta cambiar algo. */
+  pendingVisible = computed(() => this.filteredExecutions().filter(e => !e.budget_item_id));
+
+  isBulkSelected(id: string): boolean { return this.bulkSelectedIds().has(id); }
+
+  toggleBulkSelected(id: string): void {
+    this.bulkSelectedIds.update(ids => {
+      const next = new Set(ids);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  allPendingVisibleSelected = computed(() => {
+    const pending = this.pendingVisible();
+    return pending.length > 0 && pending.every(e => this.bulkSelectedIds().has(e.id));
+  });
+
+  toggleSelectAllPendingVisible(): void {
+    const next = !this.allPendingVisibleSelected();
+    const pendingIds = this.pendingVisible().map(e => e.id);
+    this.bulkSelectedIds.update(ids => {
+      const copy = new Set(ids);
+      pendingIds.forEach(id => next ? copy.add(id) : copy.delete(id));
+      return copy;
+    });
+  }
+
+  /** Sin fecha puntual (las filas seleccionadas pueden ser de meses distintos) — el picker
+   * simplemente no muestra presupuestado/ejecutado del mes, igual que "aplicar a selección" en
+   * Importar auxiliares. */
+  bulkRubroPickerGroups = computed<RubroPickerGroup[]>(() =>
+    buildRubroPickerGroups(this.rubroInfos(), this.executionsMonthlySummary(), null)
+  );
+
+  onBulkRubroPicked(budgetItemId: string): void {
+    this.bulkRubroPickerOpen.set(false);
+    const ids = [...this.bulkSelectedIds()];
+    if (ids.length === 0) return;
+    const rows = this.executions().filter(e => ids.includes(e.id));
+
+    this.bulkApplying.set(true);
+    this.bulkResultMessage.set(null);
+    const calls = rows.map(e => {
+      const payload: UpdateBudgetExecutionRequest = {
+        value: e.value,
+        date: e.date?.slice(0, 10) ?? '',
+        description: e.description,
+        puc_account_id: e.puc_account_id,
+        provider: e.tercero_id ? null : e.provider,
+        tercero_id: e.tercero_id,
+        invoice_number: e.invoice_number,
+        budget_item_id: budgetItemId,
+      };
+      return this.svc.updateExecution(this.projectId, e.id, payload).pipe(
+        map(() => true),
+        catchError(() => of(false)),
+      );
+    });
+
+    forkJoin(calls).subscribe(results => {
+      this.bulkApplying.set(false);
+      const okCount = results.filter(Boolean).length;
+      const failCount = results.length - okCount;
+      this.bulkResultMessage.set(
+        failCount === 0
+          ? `Se asignó el rubro a ${okCount} egreso(s).`
+          : `Se asignó el rubro a ${okCount} egreso(s) — ${failCount} no se pudieron actualizar, revisalos individualmente.`
+      );
+      this.bulkSelectedIds.set(new Set());
+      this.load();
+    });
+  }
+
   // ── Terceros (proveedor/contratista/tercero) reutilizables por proyecto ─────
 
   terceroLabel(id: string | null | undefined): string {
@@ -501,9 +589,11 @@ export class EgresosListComponent implements OnInit {
 
   formOverAvailable = computed(() => (Number(this.form().value) || 0) > this.formAvailable() + AMOUNT_EPSILON);
 
+  // Cuenta PUC obligatoria solo al CREAR desde cero — al editar (f.id) no, un egreso importado
+  // en bloque normalmente no tiene una y no hace falta forzarla solo para asignarle rubro.
   canSave(): boolean {
     const f = this.form();
-    return !!f.budget_item_id && !!f.value && f.value > 0 && !!f.date && !!f.puc_account_id && !this.formOverAvailable();
+    return !!f.budget_item_id && !!f.value && f.value > 0 && !!f.date && (!!f.id || !!f.puc_account_id) && !this.formOverAvailable();
   }
 
   openCreate(): void {
@@ -539,7 +629,7 @@ export class EgresosListComponent implements OnInit {
     if (!f.budget_item_id) { this.saveError.set('Selecciona un rubro.'); return; }
     if (!f.value || f.value <= 0) { this.saveError.set('Ingresa un valor mayor a cero.'); return; }
     if (!f.date) { this.saveError.set('Selecciona una fecha.'); return; }
-    if (!f.puc_account_id) { this.saveError.set('Selecciona una cuenta PUC.'); return; }
+    if (!f.id && !f.puc_account_id) { this.saveError.set('Selecciona una cuenta PUC.'); return; }
     if (this.formOverAvailable()) {
       this.saveError.set(`El valor supera lo disponible para ejecutar en este rubro (disponible: ${this.formatCurrency(this.formAvailable())}).`);
       return;
@@ -570,7 +660,7 @@ export class EgresosListComponent implements OnInit {
         budget_item_id: f.budget_item_id,
         value: Number(f.value) || 0,
         date: f.date,
-        puc_account_id: f.puc_account_id,
+        puc_account_id: f.puc_account_id!, // canSave() ya exigió esto cuando f.id no está seteado
         provider: f.tercero_id ? null : (f.provider.trim() || null),
         tercero_id: f.tercero_id,
         invoice_number: f.invoice_number.trim() || null,

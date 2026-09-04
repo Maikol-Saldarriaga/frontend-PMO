@@ -1569,7 +1569,9 @@ export interface UpdateBudgetExecutionRequest {
   value:           number;
   date:            string;
   description?:    string | null;
-  puc_account_id:  string;
+  /** A diferencia de crear, editar no exige cuenta PUC — un egreso importado en bloque
+   * normalmente no tiene una (ver UpdateExecution en el backend). */
+  puc_account_id:  string | null;
   provider?:       string | null;
   invoice_number?: string | null;
   tercero_id?:     string | null;
