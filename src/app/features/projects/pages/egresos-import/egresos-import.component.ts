@@ -10,7 +10,7 @@ import { PUCAccountLite } from '../../../../../core/puc-accounts/models/puc-acco
 import { CostCenterService } from '../../../../../core/cost-centers/services/cost-center.service';
 import { CostCenter } from '../../../../../core/cost-centers/models/cost-center.model';
 import { buildRubroPickerGroups, RubroPickerRubroInfo } from '../../utils/rubro-picker-groups';
-import { BudgetEntry, BudgetItem, BulkExecutionRowRequest, BulkExecutionRowResult } from '../../models/project.model';
+import { BudgetEntry, BudgetItem, BulkExecutionRowRequest, BulkExecutionRowResult, BudgetExecution } from '../../models/project.model';
 
 /** Orden EXACTO esperado del Excel de auxiliares contables — "Cuenta" aparece dos veces (la
  * primera es la cuenta detallada, la segunda es el código de mayor) y esa repetición es
@@ -84,6 +84,27 @@ export class EgresosImportComponent implements OnInit, OnDestroy {
   costCenters = signal<CostCenter[]>([]);
   rubroInfos = signal<RubroPickerRubroInfo[]>([]);
   executionsMonthlySummary = signal<Record<string, Record<string, number>>>({});
+  /** Firma de cada egreso YA registrado en el proyecto (misma fecha+valor+cuenta+proveedor+nota
+   * que usa el backend para detectar duplicados — ver duplicateKey en budget_execution.go) —
+   * permite avisar en el paso 2 qué meses ya están completos antes de intentar importarlos de
+   * nuevo, en vez de que el usuario se entere recién al enviar. */
+  existingDuplicateKeys = signal<Set<string>>(new Set());
+
+  private normalizeKeyPart(v: string | null | undefined): string {
+    return (v ?? '').trim().toLowerCase();
+  }
+
+  duplicateKeyForExecution(e: BudgetExecution): string {
+    const accountKey = e.puc_account_id
+      ? e.puc_account_id
+      : this.normalizeKeyPart(e.source_account_code);
+    return `${(e.date ?? '').slice(0, 10)}|${(e.value ?? 0).toFixed(2)}|${accountKey}|${this.normalizeKeyPart(e.provider)}|${this.normalizeKeyPart(e.description)}`;
+  }
+
+  duplicateKeyForRow(r: ParsedRow): string {
+    const accountKey = this.normalizeKeyPart(r.sourceAccountCode);
+    return `${r.date ?? ''}|${r.value.toFixed(2)}|${accountKey}|${this.normalizeKeyPart(r.tercero)}|${this.normalizeKeyPart(r.nota)}`;
+  }
 
   ngOnInit(): void {
     this.projectId = this.route.snapshot.paramMap.get('id') ?? '';
@@ -101,6 +122,10 @@ export class EgresosImportComponent implements OnInit, OnDestroy {
 
     this.svc.getExecutionsMonthlySummary(this.projectId).subscribe({
       next: s => this.executionsMonthlySummary.set(s ?? {}), error: () => {},
+    });
+    this.svc.listAllExecutions(this.projectId).subscribe({
+      next: items => this.existingDuplicateKeys.set(new Set((items ?? []).map(e => this.duplicateKeyForExecution(e)))),
+      error: () => {},
     });
     this.svc.getBudgetWizard(this.projectId).subscribe({
       next: w => {
@@ -370,20 +395,32 @@ export class EgresosImportComponent implements OnInit, OnDestroy {
 
   /** Meses presentes en el archivo ya filtrado por centro de costos, con cuántas filas tiene
    * cada uno — el usuario elige uno para traer solo ese lote a la vista previa. */
+  /** Meses del archivo, con cuántas de sus filas ya están registradas en el proyecto
+   * (existingDuplicateKeys) — alreadyImported se marca solo cuando TODAS lo están, así la
+   * tarjeta se puede deshabilitar sin ocultarle al usuario un mes que sí tiene filas nuevas
+   * mezcladas con filas repetidas. */
   availableMonths = computed(() => {
-    const counts = new Map<string, number>();
+    const keys = this.existingDuplicateKeys();
+    const counts = new Map<string, { count: number; alreadyCount: number }>();
     for (const row of this.parsedRows()) {
       const key = this.monthKeyForRow(row);
-      counts.set(key, (counts.get(key) ?? 0) + 1);
+      const entry = counts.get(key) ?? { count: 0, alreadyCount: 0 };
+      entry.count++;
+      if (keys.has(this.duplicateKeyForRow(row))) entry.alreadyCount++;
+      counts.set(key, entry);
     }
     return [...counts.entries()]
-      .map(([key, count]) => ({ key, count, label: this.monthKeyLabel(key) }))
+      .map(([key, { count, alreadyCount }]) => ({
+        key, count, label: this.monthKeyLabel(key),
+        alreadyImported: count > 0 && alreadyCount === count,
+      }))
       .sort((a, b) => a.key.localeCompare(b.key));
   });
 
   selectedMonthKey = signal<string | null>(null);
 
   selectMonth(key: string): void {
+    if (this.availableMonths().find(m => m.key === key)?.alreadyImported) return;
     this.selectedMonthKey.set(key);
     this.previewAccountFilter.set(null);
     this.previewProviderFilter.set(null);
