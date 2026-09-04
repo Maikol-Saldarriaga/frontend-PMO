@@ -83,9 +83,9 @@
             @for (m of availableMonths(); track m.key) {
               <button type="button" (click)="selectMonth(m.key)" [disabled]="m.alreadyImported"
                 [title]="m.alreadyImported ? 'Ya importaste todas las filas de este mes' : ''"
-                class="px-3 py-2.5 rounded-xl border text-left transition-colors"
-                [class.border-gray-200]="!m.alreadyImported" [class.hover:border-accent]="!m.alreadyImported" [class.hover:bg-accent/5]="!m.alreadyImported"
-                [class.border-gray-100]="m.alreadyImported" [class.bg-gray-50]="m.alreadyImported" [class.opacity-50]="m.alreadyImported" [class.cursor-not-allowed]="m.alreadyImported">
+                [class]="m.alreadyImported
+                  ? 'px-3 py-2.5 rounded-xl border border-gray-100 bg-gray-50 text-left transition-colors opacity-50 cursor-not-allowed'
+                  : 'px-3 py-2.5 rounded-xl border border-gray-200 hover:border-accent hover:bg-accent/5 text-left transition-colors'">
                 <p class="text-sm font-bold text-gray-900 capitalize">{{ m.label }}</p>
                 @if (m.alreadyImported) {
                   <p class="text-[11px] text-gray-400">Ya importado</p>
