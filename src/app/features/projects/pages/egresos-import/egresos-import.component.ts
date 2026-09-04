@@ -94,9 +94,13 @@ export class EgresosImportComponent implements OnInit, OnDestroy {
     return (v ?? '').trim().toLowerCase();
   }
 
+  /** Igual criterio que duplicateAccountKey en el backend (budget_execution.go): si el egreso
+   * tiene cuenta PUC (cargado a mano), la clave es su CÓDIGO, no su id — así un egreso manual y
+   * una fila del Excel para la misma transacción real (que solo trae source_account_code, nunca
+   * un puc_account_id) comparan igual. */
   duplicateKeyForExecution(e: BudgetExecution): string {
     const accountKey = e.puc_account_id
-      ? e.puc_account_id
+      ? this.normalizeKeyPart(this.pucAccounts().find(a => a.id === e.puc_account_id)?.code)
       : this.normalizeKeyPart(e.source_account_code);
     return `${(e.date ?? '').slice(0, 10)}|${(e.value ?? 0).toFixed(2)}|${accountKey}|${this.normalizeKeyPart(e.provider)}|${this.normalizeKeyPart(e.description)}`;
   }
@@ -135,6 +139,9 @@ export class EgresosImportComponent implements OnInit, OnDestroy {
 
     this.svc.getExecutionsMonthlySummary(this.projectId).subscribe({
       next: s => this.executionsMonthlySummary.set(s ?? {}), error: () => {},
+    });
+    this.svc.listPUCAccounts().subscribe({
+      next: items => this.pucAccounts.set(items ?? []), error: () => {},
     });
     this.svc.getBudgetWizard(this.projectId).subscribe({
       next: w => {
