@@ -74,17 +74,24 @@
         }
       </div>
 
+      @if (checkingDuplicates()) {
+        <div class="flex items-center gap-2 text-xs text-sky-600 font-medium px-1">
+          <div class="w-3.5 h-3.5 border-2 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+          Revisando cuáles filas ya están registradas en la plataforma…
+        </div>
+      }
+
       <!-- Paso 2: elegir el mes a importar -->
-      @if (parsedRows().length > 0 && !selectedMonthKey()) {
+      @if (parsedRows().length > 0 && !selectedMonthKey() && !checkingDuplicates()) {
         <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 space-y-3">
           <h3 class="text-xs font-bold text-gray-700 uppercase tracking-wide">2. Elige el mes que quieres ingresar</h3>
           <p class="text-xs text-gray-400">{{ parsedRows().length }} fila(s) de este proyecto en total — se importa un mes a la vez.</p>
           <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
             @for (m of availableMonths(); track m.key) {
-              <button type="button" (click)="selectMonth(m.key)"
-                [title]="m.alreadyImported ? 'Parece que ya importaste todo este mes — igual podés entrar a confirmarlo.' : ''"
+              <button type="button" (click)="selectMonth(m.key)" [disabled]="m.alreadyImported"
+                [title]="m.alreadyImported ? 'Ya importaste todas las filas de este mes' : ''"
                 [class]="m.alreadyImported
-                  ? 'px-3 py-2.5 rounded-xl border border-gray-100 bg-gray-50 text-left transition-colors opacity-60'
+                  ? 'px-3 py-2.5 rounded-xl border border-gray-100 bg-gray-50 text-left transition-colors opacity-50 cursor-not-allowed'
                   : 'px-3 py-2.5 rounded-xl border border-gray-200 hover:border-accent hover:bg-accent/5 text-left transition-colors'">
                 <p class="text-sm font-bold text-gray-900 capitalize">{{ m.label }}</p>
                 @if (m.alreadyImported) {
@@ -100,12 +107,6 @@
 
       <!-- Paso 3: vista previa editable del mes elegido -->
       @if (selectedMonthKey()) {
-        @if (checkingExistingRows()) {
-          <div class="flex items-center gap-2 text-xs text-sky-600 font-medium px-1">
-            <div class="w-3.5 h-3.5 border-2 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
-            Revisando si alguna fila de este mes ya está registrada…
-          </div>
-        }
         <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
           <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between flex-wrap gap-2">
             <div class="flex items-center gap-3">

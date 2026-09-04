@@ -79,6 +79,7 @@ export const ENDPOINTS = {
     executionById:     (id: string, eid: string) => `${API_URL}/projects/${id}/executions/${eid}`,
     executionsMonthlySummary: (id: string) => `${API_URL}/projects/${id}/executions/summary`,
     executionsBulkImport: (id: string) => `${API_URL}/projects/${id}/executions/bulk-import`,
+    executionsCheckDuplicates: (id: string) => `${API_URL}/projects/${id}/executions/check-duplicates`,
     hitos:             (id: string) => `${API_URL}/projects/${id}/hitos`,
     hitoById:          (id: string, hid: string) => `${API_URL}/projects/${id}/hitos/${hid}`,
     hitoComplete:      (id: string, hid: string) => `${API_URL}/projects/${id}/hitos/${hid}/complete`,

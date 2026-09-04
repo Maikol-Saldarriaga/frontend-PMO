@@ -1616,6 +1616,16 @@ export interface BulkExecutionRowResult {
   skipped?:   boolean;
 }
 
+/** Respuesta de POST .../executions/check-duplicates — para una fila del Excel todavía sin
+ * enviar, dice si ya existe en la plataforma y con qué rubro/cuenta PUC quedó. El backend decide
+ * esto (misma regla que usa el import real), el frontend solo muestra el resultado. */
+export interface DuplicateCheckResult {
+  row_number:      number;
+  exists:          boolean;
+  budget_item_id:  string | null;
+  puc_account_id:  string | null;
+}
+
 export interface BulkExecutionImportResult {
   committed: boolean;
   inserted:  number;

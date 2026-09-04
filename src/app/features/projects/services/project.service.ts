@@ -94,6 +94,7 @@ import {
   UpdateBudgetExecutionRequest,
   BulkExecutionRowRequest,
   BulkExecutionImportResult,
+  DuplicateCheckResult,
   Hito,
   HitoRequest,
   Guarantee,
@@ -613,6 +614,13 @@ export class ProjectService {
    * si `committed` viene en false, no se insertó nada y `rows` trae el motivo por fila. */
   bulkImportExecutions(id: string, rows: BulkExecutionRowRequest[]): Observable<BulkExecutionImportResult> {
     return this.http.post<BulkExecutionImportResult>(ENDPOINTS.projects.executionsBulkImport(id), { rows });
+  }
+
+  /** Preview de solo lectura para "importar auxiliares": para cada fila del Excel (todavía sin
+   * rubro elegido ni enviada) dice si ya existe y con qué rubro/cuenta PUC quedó — el backend
+   * decide esto con la misma regla que usa el import real, acá no se recalcula nada. */
+  checkDuplicates(id: string, rows: BulkExecutionRowRequest[]): Observable<{ rows: DuplicateCheckResult[] }> {
+    return this.http.post<{ rows: DuplicateCheckResult[] }>(ENDPOINTS.projects.executionsCheckDuplicates(id), { rows });
   }
 
   // ── Hitos: registro de hitos del proyecto, con disparo automático opcional ────────────────

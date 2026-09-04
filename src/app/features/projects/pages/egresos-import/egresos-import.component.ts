@@ -3,8 +3,6 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import * as XLSX from 'xlsx';
-import { forkJoin, of } from 'rxjs';
-import { catchError, map } from 'rxjs/operators';
 
 import { ProjectService } from '../../services/project.service';
 import { RubroPickerComponent, RubroPickerGroup } from '../../../../shared/components/rubro-picker/rubro-picker.component';
@@ -12,7 +10,7 @@ import { PUCAccountLite } from '../../../../../core/puc-accounts/models/puc-acco
 import { CostCenterService } from '../../../../../core/cost-centers/services/cost-center.service';
 import { CostCenter } from '../../../../../core/cost-centers/models/cost-center.model';
 import { buildRubroPickerGroups, RubroPickerRubroInfo } from '../../utils/rubro-picker-groups';
-import { BudgetEntry, BudgetItem, BulkExecutionRowRequest, BulkExecutionRowResult, BudgetExecution } from '../../models/project.model';
+import { BudgetEntry, BudgetItem, BulkExecutionRowRequest, BulkExecutionRowResult } from '../../models/project.model';
 
 /** Orden EXACTO esperado del Excel de auxiliares contables — "Cuenta" aparece dos veces (la
  * primera es la cuenta detallada, la segunda es el código de mayor) y esa repetición es
@@ -90,89 +88,56 @@ export class EgresosImportComponent implements OnInit, OnDestroy {
   costCenters = signal<CostCenter[]>([]);
   rubroInfos = signal<RubroPickerRubroInfo[]>([]);
   executionsMonthlySummary = signal<Record<string, Record<string, number>>>({});
-  /** { monthKey: cantidad de egresos YA registrados en el proyecto en ese rango de fechas } —
-   * solo el CONTEO (summary.count), nunca las filas — una consulta liviana por mes (limit:1, el
-   * dato real viaja en summary, no en data) para poder atenuar en el selector los meses que ya
-   * parecen completos, sin pagar el costo de traer todas las filas de todos los meses de una. Es
-   * una señal aproximada (compara cantidades, no fila por fila) — la verificación exacta pasa
-   * recién al entrar al mes, ver checkExistingRowsForMonth. */
-  monthExistingCounts = signal<Record<string, number>>({});
 
-  private normalizeKeyPart(v: string | null | undefined): string {
-    return (v ?? '').trim().toLowerCase();
+  /** true mientras se consulta al backend, en un solo pedido, cuáles filas del archivo ya
+   * existen — antes esto se intentaba resolver acá mismo (comparando fechas/cuentas/proveedor a
+   * mano contra listados traídos por HTTP) y quedó desalineado de la regla real más de una vez.
+   * Ahora el backend decide con la misma lógica que usa el import real (ver
+   * BudgetExecutionService.CheckDuplicates) y el frontend solo pinta el resultado. */
+  checkingDuplicates = signal(false);
+
+  private rowToPayload(r: ParsedRow, budgetItemId: string | null): BulkExecutionRowRequest {
+    return {
+      row_number: r.rowNumber,
+      budget_item_id: budgetItemId,
+      value: r.value,
+      date: r.date ?? '',
+      description: r.nota || null,
+      puc_account_id: null,
+      provider: r.tercero || null,
+      invoice_number: null,
+      cheque: r.cheque || null,
+      doc_num: r.docNum || null,
+      mvto: r.mvto || null,
+      saldo: r.saldo,
+      source_account_code: r.sourceAccountCode || null,
+      source_account_name: r.sourceAccountName || null,
+      source_mayor_code: r.sourceMayorCode || null,
+      source_cost_center_raw: r.sourceCostCenterRaw || null,
+      source_mes: r.sourceMes || null,
+      source_tercero_raw: r.tercero || null,
+      source_nota: r.nota || null,
+    };
   }
 
-  /** Igual criterio que duplicateAccountKey en el backend (budget_execution.go): si el egreso
-   * tiene cuenta PUC (cargado a mano), la clave es su CÓDIGO, no su id — así un egreso manual y
-   * una fila del Excel para la misma transacción real (que solo trae source_account_code, nunca
-   * un puc_account_id) comparan igual. */
-  duplicateKeyForExecution(e: BudgetExecution): string {
-    const accountKey = e.puc_account_id
-      ? this.normalizeKeyPart(this.pucAccounts().find(a => a.id === e.puc_account_id)?.code)
-      : this.normalizeKeyPart(e.source_account_code);
-    return `${(e.date ?? '').slice(0, 10)}|${(e.value ?? 0).toFixed(2)}|${accountKey}|${this.normalizeKeyPart(e.provider)}|${this.normalizeKeyPart(e.description)}`;
-  }
-
-  duplicateKeyForRow(r: ParsedRow): string {
-    const accountKey = this.normalizeKeyPart(r.sourceAccountCode);
-    return `${r.date ?? ''}|${r.value.toFixed(2)}|${accountKey}|${this.normalizeKeyPart(r.tercero)}|${this.normalizeKeyPart(r.nota)}`;
-  }
-
-  /** true mientras se consulta si las filas del mes elegido ya estaban registradas — solo se
-   * dispara AL ELEGIR un mes puntual, nunca para el archivo entero (que puede abarcar varios
-   * meses y miles de filas acumuladas en el proyecto — pedir eso de una sola vez satura la red
-   * y el backend de lejos sin necesidad, ver commit que acotaba a rango de fechas: acá se acota
-   * más todavía, a un solo mes). */
-  checkingExistingRows = signal(false);
-
-  /** Trae solo los egresos ya registrados en el rango de fechas de ESTE MES puntual (no el
-   * archivo completo) y marca en el momento las filas que hagan match como `imported` — así el
-   * usuario ve de entrada, sin enviar nada, cuáles de este mes ya están en la plataforma. */
-  private checkExistingRowsForMonth(monthKey: string): void {
-    const rowsInMonth = this.parsedRows().filter(r => this.monthKeyForRow(r) === monthKey);
-    const dates = rowsInMonth.map(r => r.date).filter((d): d is string => !!d).sort();
-    if (dates.length === 0) return;
-
-    this.checkingExistingRows.set(true);
-    this.svc.listAllExecutions(this.projectId, { date_from: dates[0], date_to: dates[dates.length - 1] }).subscribe({
-      next: items => {
-        this.checkingExistingRows.set(false);
-        const keys = new Set((items ?? []).map(e => this.duplicateKeyForExecution(e)));
-        this.parsedRows.update(rows => rows.map(r =>
-          this.monthKeyForRow(r) === monthKey && keys.has(this.duplicateKeyForRow(r)) ? { ...r, imported: true } : r
-        ));
+  /** Pide al backend, en UN solo pedido, cuáles filas del archivo entero ya existen — y con qué
+   * rubro quedaron — y las marca en el momento. Se acota a los pocos campos que hacen falta para
+   * comparar (nunca se manda el archivo, solo lo ya parseado), y la respuesta es liviana (un
+   * booleano + dos ids por fila, no el egreso completo). */
+  private checkDuplicates(rows: ParsedRow[]): void {
+    this.checkingDuplicates.set(true);
+    const payload = rows.map(r => this.rowToPayload(r, null));
+    this.svc.checkDuplicates(this.projectId, payload).subscribe({
+      next: ({ rows: results }) => {
+        this.checkingDuplicates.set(false);
+        const byRowNumber = new Map(results.map(r => [r.row_number, r]));
+        this.parsedRows.update(current => current.map(r => {
+          const match = byRowNumber.get(r.rowNumber);
+          if (!match?.exists) return r;
+          return { ...r, imported: true, budgetItemId: match.budget_item_id ?? r.budgetItemId };
+        }));
       },
-      error: () => this.checkingExistingRows.set(false),
-    });
-  }
-
-  /** Para cada mes del archivo, pide SOLO el conteo (limit:1 — el número real viaja en
-   * summary.count, no en data) de egresos ya registrados en ese rango de fechas, y lo compara
-   * contra cuántas filas trae el archivo para ese mes: si ya hay tantos o más, el mes se atenúa
-   * en el selector como probablemente completo. Una consulta liviana por mes en paralelo — nunca
-   * las filas completas de todos los meses de una, que es lo que saturaba antes. */
-  private checkMonthCompletionCounts(rows: ParsedRow[]): void {
-    const byMonth = new Map<string, ParsedRow[]>();
-    for (const r of rows) {
-      const key = this.monthKeyForRow(r);
-      if (!byMonth.has(key)) byMonth.set(key, []);
-      byMonth.get(key)!.push(r);
-    }
-
-    const entries = [...byMonth.entries()];
-    const calls = entries.map(([, monthRows]) => {
-      const dates = monthRows.map(r => r.date).filter((d): d is string => !!d).sort();
-      if (dates.length === 0) return of(0);
-      return this.svc.listExecutions(this.projectId, { limit: 1, date_from: dates[0], date_to: dates[dates.length - 1] }).pipe(
-        map(page => page.summary.count),
-        catchError(() => of(0)),
-      );
-    });
-
-    forkJoin(calls).subscribe(counts => {
-      const next: Record<string, number> = {};
-      entries.forEach(([key], i) => { next[key] = counts[i]; });
-      this.monthExistingCounts.set(next);
+      error: () => this.checkingDuplicates.set(false),
     });
   }
 
@@ -325,7 +290,7 @@ export class EgresosImportComponent implements OnInit, OnDestroy {
               : 'No se encontraron filas de datos en el archivo.'
           );
         } else {
-          this.checkMonthCompletionCounts(rows);
+          this.checkDuplicates(rows);
         }
       } catch (err) {
         // eslint-disable-next-line no-console
@@ -464,24 +429,23 @@ export class EgresosImportComponent implements OnInit, OnDestroy {
     return key.replace('mes-', 'Mes ');
   }
 
-  /** Meses presentes en el archivo ya filtrado por centro de costos, con cuántas filas tiene
-   * cada uno — el usuario elige uno para traer solo ese lote a la vista previa. No se sabe de
-   * antemano cuáles ya están importados (eso saldría de consultar TODO el archivo de una, algo
-   * pesado si abarca varios meses) — se chequea recién al elegir un mes puntual, ver
-   * checkExistingRowsForMonth. */
+  /** Meses presentes en el archivo, con cuántas filas tiene cada uno y cuántas de esas YA
+   * quedaron marcadas `imported` por checkDuplicates (que corre una sola vez, sobre el archivo
+   * entero, apenas se parsea) — alreadyImported es exacto acá, fila por fila, no una
+   * aproximación por cantidades. */
   availableMonths = computed(() => {
-    const counts = new Map<string, number>();
+    const counts = new Map<string, { count: number; importedCount: number }>();
     for (const row of this.parsedRows()) {
       const key = this.monthKeyForRow(row);
-      counts.set(key, (counts.get(key) ?? 0) + 1);
+      const entry = counts.get(key) ?? { count: 0, importedCount: 0 };
+      entry.count++;
+      if (row.imported) entry.importedCount++;
+      counts.set(key, entry);
     }
-    const existingCounts = this.monthExistingCounts();
     return [...counts.entries()]
-      .map(([key, count]) => ({
+      .map(([key, { count, importedCount }]) => ({
         key, count, label: this.monthKeyLabel(key),
-        // Señal aproximada (conteos, no fila por fila) — "probablemente completo", confirmado o
-        // corregido al entrar (checkExistingRowsForMonth marca fila por fila).
-        alreadyImported: (existingCounts[key] ?? 0) >= count,
+        alreadyImported: count > 0 && importedCount === count,
       }))
       .sort((a, b) => a.key.localeCompare(b.key));
   });
@@ -492,7 +456,6 @@ export class EgresosImportComponent implements OnInit, OnDestroy {
     this.selectedMonthKey.set(key);
     this.previewAccountFilter.set(null);
     this.previewProviderFilter.set(null);
-    this.checkExistingRowsForMonth(key);
   }
 
   backToMonthSelection(): void {
@@ -649,27 +612,7 @@ export class EgresosImportComponent implements OnInit, OnDestroy {
     // Carga parcial deliberada: solo se manda lo que ya tiene rubro asignado — lo que falta se
     // queda en la tabla para resolver después, sin bloquear lo que sí está listo.
     const rowsToSend = this.rowsReadyToImport();
-    const payload: BulkExecutionRowRequest[] = rowsToSend.map(r => ({
-      row_number: r.rowNumber,
-      budget_item_id: r.budgetItemId!,
-      value: r.value,
-      date: r.date ?? '',
-      description: r.nota || null,
-      puc_account_id: null,
-      provider: r.tercero || null,
-      invoice_number: null,
-      cheque: r.cheque || null,
-      doc_num: r.docNum || null,
-      mvto: r.mvto || null,
-      saldo: r.saldo,
-      source_account_code: r.sourceAccountCode || null,
-      source_account_name: r.sourceAccountName || null,
-      source_mayor_code: r.sourceMayorCode || null,
-      source_cost_center_raw: r.sourceCostCenterRaw || null,
-      source_mes: r.sourceMes || null,
-      source_tercero_raw: r.tercero || null,
-      source_nota: r.nota || null,
-    }));
+    const payload: BulkExecutionRowRequest[] = rowsToSend.map(r => this.rowToPayload(r, r.budgetItemId));
 
     this.svc.bulkImportExecutions(this.projectId, payload).subscribe({
       next: result => {
