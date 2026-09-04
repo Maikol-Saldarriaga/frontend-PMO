@@ -49,6 +49,10 @@ interface ParsedRow {
   sourceCostCenterRaw: string;
   sourceMes: string;
   submitError?: string;        // motivo devuelto por el backend, si esta fila falló al importar
+  /** true una vez que esta fila ya quedó registrada (recién importada, o el backend avisó que
+   * ya existía) — se queda visible en la tabla marcada como lista, no desaparece, así el usuario
+   * ve de un vistazo cuáles le faltan todavía dentro del mes. */
+  imported?: boolean;
 }
 
 /** Mensajes rotativos del overlay de carga — puramente cosmético, no reflejan pasos reales del
@@ -501,9 +505,18 @@ export class EgresosImportComponent implements OnInit, OnDestroy {
     this.parsedRows.update(rows => rows.map(r => r === row ? { ...r, selected: !r.selected } : r));
   }
 
-  rowsNeedingReview = computed(() => this.visibleRows().filter(r => !r.budgetItemId));
+  /** Filas del mes que ya se importaron (recién o en un envío anterior) — se ignoran para todo
+   * lo que sigue: no cuentan como "por revisar" ni se vuelven a enviar. */
+  importedRows = computed(() => this.visibleRows().filter(r => r.imported));
 
-  canImport = computed(() => this.parsedRows().length > 0 && this.rowsNeedingReview().length === 0 && !this.importing());
+  rowsNeedingReview = computed(() => this.visibleRows().filter(r => !r.imported && !r.budgetItemId));
+
+  /** Filas listas para enviar: tienen rubro asignado y todavía no se importaron. La carga es
+   * deliberadamente parcial — no hace falta resolver el mes entero de una — así que esto NO
+   * exige que rowsNeedingReview esté vacío, solo que haya algo nuevo para mandar. */
+  rowsReadyToImport = computed(() => this.visibleRows().filter(r => !r.imported && !!r.budgetItemId));
+
+  canImport = computed(() => this.rowsReadyToImport().length > 0 && !this.importing());
 
   // ── Selector de cuenta PUC por fila ─────────────────────────────────────────
 
@@ -585,7 +598,9 @@ export class EgresosImportComponent implements OnInit, OnDestroy {
     this.importResultCommitted.set(null);
     const startedAt = this.startLoadingOverlay();
 
-    const rowsToSend = this.visibleRows();
+    // Carga parcial deliberada: solo se manda lo que ya tiene rubro asignado — lo que falta se
+    // queda en la tabla para resolver después, sin bloquear lo que sí está listo.
+    const rowsToSend = this.rowsReadyToImport();
     const payload: BulkExecutionRowRequest[] = rowsToSend.map(r => ({
       row_number: r.rowNumber,
       budget_item_id: r.budgetItemId!,
@@ -616,9 +631,25 @@ export class EgresosImportComponent implements OnInit, OnDestroy {
           this.importedCount.set(result.inserted);
           this.importSkippedCount.set((result.rows ?? []).filter(r => r.skipped).length);
           if (result.committed) {
-            const sentRowNumbers = new Set(rowsToSend.map(r => r.rowNumber));
-            this.parsedRows.update(rows => rows.filter(r => !sentRowNumbers.has(r.rowNumber)));
-            this.selectedMonthKey.set(null);
+            // Insertadas Y salteadas-por-duplicado quedan "listas" — ambas ya están en la
+            // plataforma, solo que una se acaba de crear y la otra ya existía. Se quedan
+            // visibles en la tabla marcadas como tal, no desaparecen: así el usuario ve de un
+            // vistazo cuáles le faltan todavía dentro del mes.
+            const doneRowNumbers = new Set(rowsToSend.map(r => r.rowNumber));
+            this.parsedRows.update(rows => rows.map(r => doneRowNumbers.has(r.rowNumber) ? { ...r, imported: true, submitError: undefined } : r));
+            // La tarjeta de "mes ya importado" del selector se calcula contra
+            // existingDuplicateKeys (lo que había en el servidor al abrir el archivo) — sin esto,
+            // recién se enteraría del progreso de este envío si se recarga la página.
+            this.existingDuplicateKeys.update(keys => {
+              const next = new Set(keys);
+              for (const r of rowsToSend) next.add(this.duplicateKeyForRow(r));
+              return next;
+            });
+            // Si ya no queda nada por hacer en este mes (nada por asignar y nada listo sin
+            // enviar), no tiene sentido seguir mostrando la tabla — se vuelve al selector.
+            if (this.rowsNeedingReview().length === 0 && this.rowsReadyToImport().length === 0) {
+              this.selectedMonthKey.set(null);
+            }
           } else {
             this.applyRowErrors(result.rows);
           }
