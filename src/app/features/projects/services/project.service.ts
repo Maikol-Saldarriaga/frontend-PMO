@@ -586,10 +586,13 @@ export class ProjectService {
   }
 
   /** Recorre todas las páginas — para consumidores que necesitan el set completo en memoria
-   * (ej. resumen por rubro en la pestaña Egresos) y no muestran scroll infinito. */
-  listAllExecutions(id: string): Observable<BudgetExecution[]> {
-    return this.listExecutions(id, { limit: 100 }).pipe(
-      expand(page => page.next_cursor ? this.listExecutions(id, { limit: 100, cursor: page.next_cursor }) : EMPTY),
+   * (ej. resumen por rubro en la pestaña Egresos) y no muestran scroll infinito. Acepta
+   * date_from/date_to para acotar el rango — evita traer TODO el historial del proyecto cuando
+   * el consumidor solo necesita comparar contra un rango puntual (ver egresos-import, que solo
+   * pide los meses presentes en el Excel que se está por importar, no el proyecto entero). */
+  listAllExecutions(id: string, params?: { date_from?: string; date_to?: string }): Observable<BudgetExecution[]> {
+    return this.listExecutions(id, { limit: 100, ...params }).pipe(
+      expand(page => page.next_cursor ? this.listExecutions(id, { limit: 100, cursor: page.next_cursor, ...params }) : EMPTY),
       reduce<CursorPage<BudgetExecution>, BudgetExecution[]>((acc, page) => acc.concat(page.data), []),
     );
   }

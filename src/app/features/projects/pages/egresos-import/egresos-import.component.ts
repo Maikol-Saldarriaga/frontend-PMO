@@ -106,6 +106,19 @@ export class EgresosImportComponent implements OnInit, OnDestroy {
     return `${r.date ?? ''}|${r.value.toFixed(2)}|${accountKey}|${this.normalizeKeyPart(r.tercero)}|${this.normalizeKeyPart(r.nota)}`;
   }
 
+  /** Trae solo los egresos ya registrados en el RANGO DE FECHAS del archivo recién parseado —
+   * nunca el historial completo del proyecto, que puede tener miles de filas acumuladas (ver
+   * date_from/date_to en listAllExecutions). Sin filas con fecha reconocible no hay nada que
+   * consultar. */
+  private loadExistingDuplicateKeys(rows: ParsedRow[]): void {
+    const dates = rows.map(r => r.date).filter((d): d is string => !!d).sort();
+    if (dates.length === 0) { this.existingDuplicateKeys.set(new Set()); return; }
+    this.svc.listAllExecutions(this.projectId, { date_from: dates[0], date_to: dates[dates.length - 1] }).subscribe({
+      next: items => this.existingDuplicateKeys.set(new Set((items ?? []).map(e => this.duplicateKeyForExecution(e)))),
+      error: () => this.existingDuplicateKeys.set(new Set()),
+    });
+  }
+
   ngOnInit(): void {
     this.projectId = this.route.snapshot.paramMap.get('id') ?? '';
     if (!this.projectId) { this.router.navigate(['/projects']); return; }
@@ -122,10 +135,6 @@ export class EgresosImportComponent implements OnInit, OnDestroy {
 
     this.svc.getExecutionsMonthlySummary(this.projectId).subscribe({
       next: s => this.executionsMonthlySummary.set(s ?? {}), error: () => {},
-    });
-    this.svc.listAllExecutions(this.projectId).subscribe({
-      next: items => this.existingDuplicateKeys.set(new Set((items ?? []).map(e => this.duplicateKeyForExecution(e)))),
-      error: () => {},
     });
     this.svc.getBudgetWizard(this.projectId).subscribe({
       next: w => {
@@ -256,6 +265,7 @@ export class EgresosImportComponent implements OnInit, OnDestroy {
               : 'No se encontraron filas de datos en el archivo.'
           );
         }
+        this.loadExistingDuplicateKeys(rows);
       } catch (err) {
         // eslint-disable-next-line no-console
         console.error('Error al parsear el Excel de auxiliares:', err);
