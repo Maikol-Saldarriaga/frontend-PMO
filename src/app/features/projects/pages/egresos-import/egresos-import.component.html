@@ -82,9 +82,16 @@
           <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
             @for (m of availableMonths(); track m.key) {
               <button type="button" (click)="selectMonth(m.key)"
-                class="px-3 py-2.5 rounded-xl border border-gray-200 hover:border-accent hover:bg-accent/5 text-left transition-colors">
+                [title]="m.alreadyImported ? 'Parece que ya importaste todo este mes — igual podés entrar a confirmarlo.' : ''"
+                [class]="m.alreadyImported
+                  ? 'px-3 py-2.5 rounded-xl border border-gray-100 bg-gray-50 text-left transition-colors opacity-60'
+                  : 'px-3 py-2.5 rounded-xl border border-gray-200 hover:border-accent hover:bg-accent/5 text-left transition-colors'">
                 <p class="text-sm font-bold text-gray-900 capitalize">{{ m.label }}</p>
-                <p class="text-[11px] text-gray-400">{{ m.count }} fila(s)</p>
+                @if (m.alreadyImported) {
+                  <p class="text-[11px] text-gray-400">Ya importado</p>
+                } @else {
+                  <p class="text-[11px] text-gray-400">{{ m.count }} fila(s)</p>
+                }
               </button>
             }
           </div>

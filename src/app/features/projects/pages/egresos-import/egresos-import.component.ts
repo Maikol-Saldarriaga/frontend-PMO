@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import * as XLSX from 'xlsx';
+import { forkJoin, of } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
 
 import { ProjectService } from '../../services/project.service';
 import { RubroPickerComponent, RubroPickerGroup } from '../../../../shared/components/rubro-picker/rubro-picker.component';
@@ -88,6 +90,13 @@ export class EgresosImportComponent implements OnInit, OnDestroy {
   costCenters = signal<CostCenter[]>([]);
   rubroInfos = signal<RubroPickerRubroInfo[]>([]);
   executionsMonthlySummary = signal<Record<string, Record<string, number>>>({});
+  /** { monthKey: cantidad de egresos YA registrados en el proyecto en ese rango de fechas } —
+   * solo el CONTEO (summary.count), nunca las filas — una consulta liviana por mes (limit:1, el
+   * dato real viaja en summary, no en data) para poder atenuar en el selector los meses que ya
+   * parecen completos, sin pagar el costo de traer todas las filas de todos los meses de una. Es
+   * una señal aproximada (compara cantidades, no fila por fila) — la verificación exacta pasa
+   * recién al entrar al mes, ver checkExistingRowsForMonth. */
+  monthExistingCounts = signal<Record<string, number>>({});
 
   private normalizeKeyPart(v: string | null | undefined): string {
     return (v ?? '').trim().toLowerCase();
@@ -134,6 +143,36 @@ export class EgresosImportComponent implements OnInit, OnDestroy {
         ));
       },
       error: () => this.checkingExistingRows.set(false),
+    });
+  }
+
+  /** Para cada mes del archivo, pide SOLO el conteo (limit:1 — el número real viaja en
+   * summary.count, no en data) de egresos ya registrados en ese rango de fechas, y lo compara
+   * contra cuántas filas trae el archivo para ese mes: si ya hay tantos o más, el mes se atenúa
+   * en el selector como probablemente completo. Una consulta liviana por mes en paralelo — nunca
+   * las filas completas de todos los meses de una, que es lo que saturaba antes. */
+  private checkMonthCompletionCounts(rows: ParsedRow[]): void {
+    const byMonth = new Map<string, ParsedRow[]>();
+    for (const r of rows) {
+      const key = this.monthKeyForRow(r);
+      if (!byMonth.has(key)) byMonth.set(key, []);
+      byMonth.get(key)!.push(r);
+    }
+
+    const entries = [...byMonth.entries()];
+    const calls = entries.map(([, monthRows]) => {
+      const dates = monthRows.map(r => r.date).filter((d): d is string => !!d).sort();
+      if (dates.length === 0) return of(0);
+      return this.svc.listExecutions(this.projectId, { limit: 1, date_from: dates[0], date_to: dates[dates.length - 1] }).pipe(
+        map(page => page.summary.count),
+        catchError(() => of(0)),
+      );
+    });
+
+    forkJoin(calls).subscribe(counts => {
+      const next: Record<string, number> = {};
+      entries.forEach(([key], i) => { next[key] = counts[i]; });
+      this.monthExistingCounts.set(next);
     });
   }
 
@@ -285,6 +324,8 @@ export class EgresosImportComponent implements OnInit, OnDestroy {
               ? 'Ninguna fila del archivo corresponde al centro de costos de este proyecto.'
               : 'No se encontraron filas de datos en el archivo.'
           );
+        } else {
+          this.checkMonthCompletionCounts(rows);
         }
       } catch (err) {
         // eslint-disable-next-line no-console
@@ -434,8 +475,14 @@ export class EgresosImportComponent implements OnInit, OnDestroy {
       const key = this.monthKeyForRow(row);
       counts.set(key, (counts.get(key) ?? 0) + 1);
     }
+    const existingCounts = this.monthExistingCounts();
     return [...counts.entries()]
-      .map(([key, count]) => ({ key, count, label: this.monthKeyLabel(key) }))
+      .map(([key, count]) => ({
+        key, count, label: this.monthKeyLabel(key),
+        // Señal aproximada (conteos, no fila por fila) — "probablemente completo", confirmado o
+        // corregido al entrar (checkExistingRowsForMonth marca fila por fila).
+        alreadyImported: (existingCounts[key] ?? 0) >= count,
+      }))
       .sort((a, b) => a.key.localeCompare(b.key));
   });
 
