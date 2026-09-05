@@ -79,7 +79,7 @@ export class TabEgresosComponent implements OnInit {
     this.svc.getCashFlowReport(this.projectId).subscribe({
       next: r => {
         this.report.set(r);
-        this.svc.listExecutions(this.projectId).subscribe({
+        this.svc.listAllExecutions(this.projectId).subscribe({
           next: list => { this.executions.set(list ?? []); this.loading.set(false); },
           error: () => { this.error.set('No se pudieron cargar los egresos registrados.'); this.loading.set(false); },
         });
@@ -126,10 +126,14 @@ export class TabEgresosComponent implements OnInit {
 
   // ── Resumen agrupado por Componente Técnico → Rubro ─────────────────────────
 
-  /** Cuántos egresos hay registrados por rubro — cuenta simple sobre executions(). */
+  /** Cuántos egresos hay registrados por rubro — cuenta simple sobre executions(). Los egresos
+   * "Pendiente" (sin rubro, ver import multi-proyecto) no cuentan para ningún rubro todavía. */
   rubroExecutionCounts = computed<Map<string, number>>(() => {
     const counts = new Map<string, number>();
-    for (const e of this.executions()) counts.set(e.budget_item_id, (counts.get(e.budget_item_id) ?? 0) + 1);
+    for (const e of this.executions()) {
+      if (!e.budget_item_id) continue;
+      counts.set(e.budget_item_id, (counts.get(e.budget_item_id) ?? 0) + 1);
+    }
     return counts;
   });
 

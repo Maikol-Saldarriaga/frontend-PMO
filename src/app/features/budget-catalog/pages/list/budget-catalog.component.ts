@@ -1,10 +1,12 @@
-import { Component, OnInit, signal, inject } from '@angular/core';
+import { Component, OnInit, HostListener, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
 import { BudgetCatalogService } from '../../../../../core/budget-catalog/services/budget-catalog.service';
 import { BudgetComponentCatalogItem, BudgetComponentCatalogRequest, BudgetCostType } from '../../../../../core/budget-catalog/models/budget-catalog.model';
 import { ConfirmDialogService } from '../../../../shared/components/confirm-dialog/confirm-dialog.service';
+
+const PAGE_SIZE = 40;
 
 interface CatalogForm {
   name:       string;
@@ -28,8 +30,11 @@ export class BudgetCatalogComponent implements OnInit {
 
   items       = signal<BudgetComponentCatalogItem[]>([]);
   loading     = signal(true);
+  loadingMore = signal(false);
   error       = signal<string | null>(null);
   statusFilter = signal<'all' | 'active' | 'inactive'>('all');
+
+  private nextCursor = signal<string | number | null>(null);
 
   showForm     = signal(false);
   editingItem  = signal<BudgetComponentCatalogItem | null>(null);
@@ -44,14 +49,43 @@ export class BudgetCatalogComponent implements OnInit {
   load(): void {
     this.loading.set(true);
     this.error.set(null);
-    this.svc.list().subscribe({
-      next: items => {
-        this.items.set([...items].sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name)));
+    this.nextCursor.set(null);
+    this.svc.list({ limit: PAGE_SIZE }).subscribe({
+      next: page => {
+        this.items.set([...page.data].sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name)));
+        this.nextCursor.set(page.next_cursor);
         this.loading.set(false);
       },
       error: () => { this.error.set('No se pudo cargar el catálogo de rubros.'); this.loading.set(false); },
     });
   }
+
+  /** Trae la siguiente página y la agrega al final — se dispara solo al llegar al fondo
+   * del scroll, nunca de forma proactiva. */
+  loadMore(): void {
+    const cursor = this.nextCursor();
+    if (!cursor || this.loading() || this.loadingMore()) return;
+
+    this.loadingMore.set(true);
+    this.svc.list({ cursor, limit: PAGE_SIZE }).subscribe({
+      next: page => {
+        this.items.update(current =>
+          [...current, ...page.data].sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name)));
+        this.nextCursor.set(page.next_cursor);
+        this.loadingMore.set(false);
+      },
+      error: () => { this.loadingMore.set(false); },
+    });
+  }
+
+  @HostListener('window:scroll')
+  onWindowScroll(): void {
+    const scrolledToBottom =
+      window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 200;
+    if (scrolledToBottom) this.loadMore();
+  }
+
+  get hasMore(): boolean { return this.nextCursor() !== null; }
 
   onStatusFilterChange(status: 'all' | 'active' | 'inactive'): void {
     this.statusFilter.set(status);

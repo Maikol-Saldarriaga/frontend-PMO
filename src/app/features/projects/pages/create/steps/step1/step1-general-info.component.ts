@@ -106,7 +106,7 @@ export class Step1GeneralInfoComponent implements OnInit, OnChanges {
       error: () => this.allies.set([]),
     });
 
-    this.costCenterSvc.list().subscribe({
+    this.costCenterSvc.listAll().subscribe({
       next: items => this.costCenters.set((items ?? []).filter(c => c.is_active)),
       error: () => this.costCenters.set([]),
     });

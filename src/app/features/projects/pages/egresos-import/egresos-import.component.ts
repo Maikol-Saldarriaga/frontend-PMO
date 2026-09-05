@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, computed, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
@@ -49,7 +49,22 @@ interface ParsedRow {
   sourceCostCenterRaw: string;
   sourceMes: string;
   submitError?: string;        // motivo devuelto por el backend, si esta fila falló al importar
+  /** true una vez que esta fila ya quedó registrada (recién importada, o el backend avisó que
+   * ya existía) — se queda visible en la tabla marcada como lista, no desaparece, así el usuario
+   * ve de un vistazo cuáles le faltan todavía dentro del mes. */
+  imported?: boolean;
 }
+
+/** Mensajes rotativos del overlay de carga — puramente cosmético, no reflejan pasos reales del
+ * parseo/envío, solo dan sensación de "algo inteligente está pasando" mientras se espera. */
+const LOADING_MESSAGES = [
+  'Carga inteligente…',
+  'Detectando cuentas contables…',
+  'Separando código y nombre de cuenta…',
+  'Cruzando auxiliares contables…',
+  'Verificando centros de costo…',
+  'Organizando filas por rubro…',
+];
 
 @Component({
   selector: 'app-egresos-import',
@@ -57,7 +72,7 @@ interface ParsedRow {
   imports: [CommonModule, FormsModule, RubroPickerComponent],
   templateUrl: './egresos-import.component.html',
 })
-export class EgresosImportComponent implements OnInit {
+export class EgresosImportComponent implements OnInit, OnDestroy {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private costCenterSvc = inject(CostCenterService);
@@ -73,6 +88,58 @@ export class EgresosImportComponent implements OnInit {
   costCenters = signal<CostCenter[]>([]);
   rubroInfos = signal<RubroPickerRubroInfo[]>([]);
   executionsMonthlySummary = signal<Record<string, Record<string, number>>>({});
+
+  /** true mientras se consulta al backend, en un solo pedido, cuáles filas del archivo ya
+   * existen — antes esto se intentaba resolver acá mismo (comparando fechas/cuentas/proveedor a
+   * mano contra listados traídos por HTTP) y quedó desalineado de la regla real más de una vez.
+   * Ahora el backend decide con la misma lógica que usa el import real (ver
+   * BudgetExecutionService.CheckDuplicates) y el frontend solo pinta el resultado. */
+  checkingDuplicates = signal(false);
+
+  private rowToPayload(r: ParsedRow, budgetItemId: string | null): BulkExecutionRowRequest {
+    return {
+      row_number: r.rowNumber,
+      budget_item_id: budgetItemId,
+      value: r.value,
+      date: r.date ?? '',
+      description: r.nota || null,
+      puc_account_id: null,
+      provider: r.tercero || null,
+      invoice_number: null,
+      cheque: r.cheque || null,
+      doc_num: r.docNum || null,
+      mvto: r.mvto || null,
+      saldo: r.saldo,
+      source_account_code: r.sourceAccountCode || null,
+      source_account_name: r.sourceAccountName || null,
+      source_mayor_code: r.sourceMayorCode || null,
+      source_cost_center_raw: r.sourceCostCenterRaw || null,
+      source_mes: r.sourceMes || null,
+      source_tercero_raw: r.tercero || null,
+      source_nota: r.nota || null,
+    };
+  }
+
+  /** Pide al backend, en UN solo pedido, cuáles filas del archivo entero ya existen — y con qué
+   * rubro quedaron — y las marca en el momento. Se acota a los pocos campos que hacen falta para
+   * comparar (nunca se manda el archivo, solo lo ya parseado), y la respuesta es liviana (un
+   * booleano + dos ids por fila, no el egreso completo). */
+  private checkDuplicates(rows: ParsedRow[]): void {
+    this.checkingDuplicates.set(true);
+    const payload = rows.map(r => this.rowToPayload(r, null));
+    this.svc.checkDuplicates(this.projectId, payload).subscribe({
+      next: ({ rows: results }) => {
+        this.checkingDuplicates.set(false);
+        const byRowNumber = new Map(results.map(r => [r.row_number, r]));
+        this.parsedRows.update(current => current.map(r => {
+          const match = byRowNumber.get(r.rowNumber);
+          if (!match?.exists) return r;
+          return { ...r, imported: true, budgetItemId: match.budget_item_id ?? r.budgetItemId };
+        }));
+      },
+      error: () => this.checkingDuplicates.set(false),
+    });
+  }
 
   ngOnInit(): void {
     this.projectId = this.route.snapshot.paramMap.get('id') ?? '';
@@ -91,6 +158,9 @@ export class EgresosImportComponent implements OnInit {
     this.svc.getExecutionsMonthlySummary(this.projectId).subscribe({
       next: s => this.executionsMonthlySummary.set(s ?? {}), error: () => {},
     });
+    this.svc.listPUCAccounts().subscribe({
+      next: items => this.pucAccounts.set(items ?? []), error: () => {},
+    });
     this.svc.getBudgetWizard(this.projectId).subscribe({
       next: w => {
         const infos: RubroPickerRubroInfo[] = (w.components ?? []).flatMap(comp =>
@@ -107,7 +177,7 @@ export class EgresosImportComponent implements OnInit {
       },
       error: () => this.rubroInfos.set([]),
     });
-    this.costCenterSvc.list().subscribe({ next: items => this.costCenters.set(items ?? []), error: () => {} });
+    this.costCenterSvc.listAll().subscribe({ next: items => this.costCenters.set(items ?? []), error: () => {} });
 
     this.svc.getProjectDetails(this.projectId).subscribe({
       next: details => {
@@ -116,7 +186,7 @@ export class EgresosImportComponent implements OnInit {
         // costCenters puede no haber llegado todavía — se resuelve otra vez cuando llegue
         this.projectCostCenterCode.set(cc?.code ?? null);
         if (!cc) {
-          this.costCenterSvc.list().subscribe({
+          this.costCenterSvc.listAll().subscribe({
             next: items => {
               this.costCenters.set(items ?? []);
               const match = (items ?? []).find(c => c.id === details.cost_center_id);
@@ -137,6 +207,44 @@ export class EgresosImportComponent implements OnInit {
   fileName = signal<string | null>(null);
   parsing = signal(false);
 
+  // ── Overlay de carga bonita ──────────────────────────────────────────────
+  // Reemplaza el "Leyendo archivo…" seco de antes por una pantalla completa con mensaje
+  // rotativo, y le impone un mínimo de tiempo visible (LOADING_MIN_MS) aunque el parseo real
+  // sea casi instantáneo — así el usuario siempre alcanza a verla, sin que se sienta un delay
+  // artificial largo cuando el archivo sí es grande y ya toma su tiempo real.
+  private static readonly LOADING_MIN_MS = 1100;
+  private static readonly LOADING_MESSAGE_INTERVAL_MS = 900;
+  loadingOverlayVisible = signal(false);
+  loadingMessage = signal(LOADING_MESSAGES[0]);
+  private loadingMessageTimer: ReturnType<typeof setInterval> | null = null;
+
+  private startLoadingOverlay(): number {
+    this.loadingMessage.set(LOADING_MESSAGES[0]);
+    this.loadingOverlayVisible.set(true);
+    let i = 0;
+    this.loadingMessageTimer = setInterval(() => {
+      i = (i + 1) % LOADING_MESSAGES.length;
+      this.loadingMessage.set(LOADING_MESSAGES[i]);
+    }, EgresosImportComponent.LOADING_MESSAGE_INTERVAL_MS);
+    return Date.now();
+  }
+
+  /** Corta el overlay respetando el mínimo de tiempo visible, y ejecuta done() (que a su vez
+   * baja parsing()/importing()) recién en ese momento. */
+  private stopLoadingOverlay(startedAt: number, done: () => void): void {
+    const elapsed = Date.now() - startedAt;
+    const remaining = Math.max(0, EgresosImportComponent.LOADING_MIN_MS - elapsed);
+    setTimeout(() => {
+      if (this.loadingMessageTimer) { clearInterval(this.loadingMessageTimer); this.loadingMessageTimer = null; }
+      this.loadingOverlayVisible.set(false);
+      done();
+    }, remaining);
+  }
+
+  ngOnDestroy(): void {
+    if (this.loadingMessageTimer) clearInterval(this.loadingMessageTimer);
+  }
+
   onFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
@@ -150,6 +258,7 @@ export class EgresosImportComponent implements OnInit {
     this.sampleRawCostCenters.set([]);
     this.fileName.set(file.name);
     this.parsing.set(true);
+    const startedAt = this.startLoadingOverlay();
 
     const reader = new FileReader();
     reader.onload = () => {
@@ -165,7 +274,7 @@ export class EgresosImportComponent implements OnInit {
             'Cheque, Doc Num, Debitos, Creditos, Saldo, Centro de Costos, Mvto, Cuenta, Mayor, Mes). ' +
             'Verifica que no se hayan movido ni renombrado columnas antes de continuar.'
           );
-          this.parsing.set(false);
+          this.stopLoadingOverlay(startedAt, () => this.parsing.set(false));
           return;
         }
 
@@ -180,6 +289,8 @@ export class EgresosImportComponent implements OnInit {
               ? 'Ninguna fila del archivo corresponde al centro de costos de este proyecto.'
               : 'No se encontraron filas de datos en el archivo.'
           );
+        } else {
+          this.checkDuplicates(rows);
         }
       } catch (err) {
         // eslint-disable-next-line no-console
@@ -187,12 +298,12 @@ export class EgresosImportComponent implements OnInit {
         const detail = err instanceof Error ? err.message : String(err);
         this.fileError.set(`No se pudo leer el archivo: ${detail}`);
       } finally {
-        this.parsing.set(false);
+        this.stopLoadingOverlay(startedAt, () => this.parsing.set(false));
       }
     };
     reader.onerror = () => {
       this.fileError.set('No se pudo leer el archivo.');
-      this.parsing.set(false);
+      this.stopLoadingOverlay(startedAt, () => this.parsing.set(false));
     };
     reader.readAsArrayBuffer(file);
   }
@@ -318,16 +429,26 @@ export class EgresosImportComponent implements OnInit {
     return key.replace('mes-', 'Mes ');
   }
 
-  /** Meses presentes en el archivo ya filtrado por centro de costos, con cuántas filas tiene
-   * cada uno — el usuario elige uno para traer solo ese lote a la vista previa. */
+  /** Meses presentes en el archivo, con cuántas filas tiene cada uno y cuántas de esas YA
+   * quedaron marcadas `imported` por checkDuplicates (que corre una sola vez, sobre el archivo
+   * entero, apenas se parsea) — alreadyImported es exacto acá, fila por fila, no una
+   * aproximación por cantidades. */
   availableMonths = computed(() => {
-    const counts = new Map<string, number>();
+    const counts = new Map<string, { count: number; importedCount: number }>();
     for (const row of this.parsedRows()) {
       const key = this.monthKeyForRow(row);
-      counts.set(key, (counts.get(key) ?? 0) + 1);
+      const entry = counts.get(key) ?? { count: 0, importedCount: 0 };
+      entry.count++;
+      if (row.imported) entry.importedCount++;
+      counts.set(key, entry);
     }
     return [...counts.entries()]
-      .map(([key, count]) => ({ key, count, label: this.monthKeyLabel(key) }))
+      .map(([key, { count, importedCount }]) => ({
+        key, count, label: this.monthKeyLabel(key),
+        importedCount,
+        pendingCount: count - importedCount,
+        alreadyImported: count > 0 && importedCount === count,
+      }))
       .sort((a, b) => a.key.localeCompare(b.key));
   });
 
@@ -397,9 +518,18 @@ export class EgresosImportComponent implements OnInit {
     this.parsedRows.update(rows => rows.map(r => r === row ? { ...r, selected: !r.selected } : r));
   }
 
-  rowsNeedingReview = computed(() => this.visibleRows().filter(r => !r.budgetItemId));
+  /** Filas del mes que ya se importaron (recién o en un envío anterior) — se ignoran para todo
+   * lo que sigue: no cuentan como "por revisar" ni se vuelven a enviar. */
+  importedRows = computed(() => this.visibleRows().filter(r => r.imported));
 
-  canImport = computed(() => this.parsedRows().length > 0 && this.rowsNeedingReview().length === 0 && !this.importing());
+  rowsNeedingReview = computed(() => this.visibleRows().filter(r => !r.imported && !r.budgetItemId));
+
+  /** Filas listas para enviar: tienen rubro asignado y todavía no se importaron. La carga es
+   * deliberadamente parcial — no hace falta resolver el mes entero de una — así que esto NO
+   * exige que rowsNeedingReview esté vacío, solo que haya algo nuevo para mandar. */
+  rowsReadyToImport = computed(() => this.visibleRows().filter(r => !r.imported && !!r.budgetItemId));
+
+  canImport = computed(() => this.rowsReadyToImport().length > 0 && !this.importing());
 
   // ── Selector de cuenta PUC por fila ─────────────────────────────────────────
 
@@ -471,52 +601,51 @@ export class EgresosImportComponent implements OnInit {
   importing = signal(false);
   importResultCommitted = signal<boolean | null>(null);
   importedCount = signal(0);
+  /** Filas que no se importaron porque YA EXISTÍAN (misma fecha, valor, cuenta y tercero) — no
+   * cuentan como error, el backend simplemente las saltó. */
+  importSkippedCount = signal(0);
 
   submit(): void {
     if (!this.canImport()) return;
     this.importing.set(true);
     this.importResultCommitted.set(null);
+    const startedAt = this.startLoadingOverlay();
 
-    const rowsToSend = this.visibleRows();
-    const payload: BulkExecutionRowRequest[] = rowsToSend.map(r => ({
-      row_number: r.rowNumber,
-      budget_item_id: r.budgetItemId!,
-      value: r.value,
-      date: r.date ?? '',
-      description: r.nota || null,
-      puc_account_id: null,
-      provider: r.tercero || null,
-      invoice_number: null,
-      cheque: r.cheque || null,
-      doc_num: r.docNum || null,
-      mvto: r.mvto || null,
-      saldo: r.saldo,
-      source_account_code: r.sourceAccountCode || null,
-      source_account_name: r.sourceAccountName || null,
-      source_mayor_code: r.sourceMayorCode || null,
-      source_cost_center_raw: r.sourceCostCenterRaw || null,
-      source_mes: r.sourceMes || null,
-      source_tercero_raw: r.tercero || null,
-      source_nota: r.nota || null,
-    }));
+    // Carga parcial deliberada: solo se manda lo que ya tiene rubro asignado — lo que falta se
+    // queda en la tabla para resolver después, sin bloquear lo que sí está listo.
+    const rowsToSend = this.rowsReadyToImport();
+    const payload: BulkExecutionRowRequest[] = rowsToSend.map(r => this.rowToPayload(r, r.budgetItemId));
 
     this.svc.bulkImportExecutions(this.projectId, payload).subscribe({
       next: result => {
-        this.importing.set(false);
-        this.importResultCommitted.set(result.committed);
-        this.importedCount.set(result.inserted);
-        if (result.committed) {
-          const sentRowNumbers = new Set(rowsToSend.map(r => r.rowNumber));
-          this.parsedRows.update(rows => rows.filter(r => !sentRowNumbers.has(r.rowNumber)));
-          this.selectedMonthKey.set(null);
-        } else {
-          this.applyRowErrors(result.rows);
-        }
+        this.stopLoadingOverlay(startedAt, () => {
+          this.importing.set(false);
+          this.importResultCommitted.set(result.committed);
+          this.importedCount.set(result.inserted);
+          this.importSkippedCount.set((result.rows ?? []).filter(r => r.skipped).length);
+          if (result.committed) {
+            // Insertadas Y salteadas-por-duplicado quedan "listas" — ambas ya están en la
+            // plataforma, solo que una se acaba de crear y la otra ya existía. Se quedan
+            // visibles en la tabla marcadas como tal, no desaparecen: así el usuario ve de un
+            // vistazo cuáles le faltan todavía dentro del mes.
+            const doneRowNumbers = new Set(rowsToSend.map(r => r.rowNumber));
+            this.parsedRows.update(rows => rows.map(r => doneRowNumbers.has(r.rowNumber) ? { ...r, imported: true, submitError: undefined } : r));
+            // Si ya no queda nada por hacer en este mes (nada por asignar y nada listo sin
+            // enviar), no tiene sentido seguir mostrando la tabla — se vuelve al selector.
+            if (this.rowsNeedingReview().length === 0 && this.rowsReadyToImport().length === 0) {
+              this.selectedMonthKey.set(null);
+            }
+          } else {
+            this.applyRowErrors(result.rows);
+          }
+        });
       },
       error: err => {
-        this.importing.set(false);
-        this.importResultCommitted.set(false);
-        this.submitGeneralError.set(err?.error?.message ?? err?.error?.error ?? 'Error al importar los auxiliares.');
+        this.stopLoadingOverlay(startedAt, () => {
+          this.importing.set(false);
+          this.importResultCommitted.set(false);
+          this.submitGeneralError.set(err?.error?.message ?? err?.error?.error ?? 'Error al importar los auxiliares.');
+        });
       },
     });
   }

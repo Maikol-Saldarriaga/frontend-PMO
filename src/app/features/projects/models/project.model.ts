@@ -77,6 +77,9 @@ export interface ProjectCreateResponse {
   extended_end_date?:  string | null;
   /** Fecha final anterior a la extensión vigente. Solo viene poblado si extended_end_date no es null. */
   previous_end_date?:  string | null;
+  /** Centro de costo del proyecto — usado para matchear filas del Excel de auxiliares al
+   * proyecto correcto en la carga masiva multi-proyecto (ver egresos-import-multi). */
+  cost_center_id?:     string | null;
 }
 
 export interface ProjectsSummary {
@@ -1546,7 +1549,9 @@ export interface BudgetExecution {
   id:                     string;
   company_id:             string;
   contract_agreement_id:  string;
-  budget_item_id:         string;
+  /** null = "Pendiente" — egreso importado en bloque sin rubro asignado todavía (ver
+   * BudgetExecutionEntry.BudgetItemID en el backend); se asigna una sola vez vía UpdateExecution. */
+  budget_item_id:         string | null;
   user_id:                string | null;
   value:                  number;
   date:                   string;
@@ -1595,19 +1600,26 @@ export interface UpdateBudgetExecutionRequest {
   value:           number;
   date:            string;
   description?:    string | null;
-  puc_account_id:  string;
+  /** A diferencia de crear, editar no exige cuenta PUC — un egreso importado en bloque
+   * normalmente no tiene una (ver UpdateExecution en el backend). */
+  puc_account_id:  string | null;
   provider?:       string | null;
   invoice_number?: string | null;
   tercero_id?:     string | null;
+  /** Solo se aplica cuando el egreso todavía está "Pendiente" (budget_item_id null) — el backend
+   * lo ignora si el egreso ya tiene rubro asignado. */
+  budget_item_id?: string | null;
 }
 
 // ── Importar auxiliares: carga masiva de egresos desde el Excel de auxiliares contables ───────
 
 /** Una fila del Excel de auxiliares ya parseada, filtrada por centro de costos, con el rubro y
- *  la cuenta PUC asignados por el usuario en la vista previa — lista para enviar al backend. */
+ *  la cuenta PUC asignados por el usuario en la vista previa — lista para enviar al backend.
+ *  budget_item_id es opcional: una fila sin rubro se importa como "Pendiente" y se asigna
+ *  después desde el listado de Egresos del proyecto. */
 export interface BulkExecutionRowRequest {
   row_number:              number;
-  budget_item_id:          string;
+  budget_item_id?:         string | null;
   value:                   number;
   date:                    string;
   description?:            string | null;
@@ -1632,6 +1644,19 @@ export interface BulkExecutionRowResult {
   row_number: number;
   success:    boolean;
   error?:     string;
+  /** true = esta fila no se importó porque YA EXISTÍA (misma fecha, valor, cuenta y tercero) —
+   * a diferencia de un error real, esto nunca aborta el resto del lote. */
+  skipped?:   boolean;
+}
+
+/** Respuesta de POST .../executions/check-duplicates — para una fila del Excel todavía sin
+ * enviar, dice si ya existe en la plataforma y con qué rubro/cuenta PUC quedó. El backend decide
+ * esto (misma regla que usa el import real), el frontend solo muestra el resultado. */
+export interface DuplicateCheckResult {
+  row_number:      number;
+  exists:          boolean;
+  budget_item_id:  string | null;
+  puc_account_id:  string | null;
 }
 
 export interface BulkExecutionImportResult {

@@ -143,7 +143,7 @@ export class TabFlujoCajaComponent implements OnInit {
       error: () => {},
     });
 
-    this.service.listDisbursements(this.projectId).subscribe({
+    this.service.listAllDisbursements(this.projectId).subscribe({
       next: list => this.disbursements.set([...(list ?? [])].sort((a, b) => a.sort_order - b.sort_order)),
       error: () => this.disbursements.set([]),
     });

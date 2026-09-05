@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, expand, reduce, EMPTY } from 'rxjs';
 import { ApiHttpClient } from '../../../../core/api/http-client';
+import { CursorPage } from '../../../../core/api/paginate';
 import { ENDPOINTS } from '../../../../core/api/endpoints';
 import {
   ContractStep1Request, ContractStep1Response,
@@ -115,8 +116,20 @@ export class ContractService {
 
   // ── Matriz de Cumplimiento (Compliance Matrix) ──────────────────────────────
 
+  /** Página paginada (keyset) — el backend ahora limita a max 100/página. */
+  private getObligationsPage(contractId: string, params?: { cursor?: string | number; limit?: number }): Observable<CursorPage<ContractObligation>> {
+    const query: Record<string, string> = { limit: String(params?.limit ?? 100) };
+    if (params?.cursor) query['cursor'] = String(params.cursor);
+    return this.http.get<CursorPage<ContractObligation>>(ENDPOINTS.obligations.list(contractId), { params: query });
+  }
+
+  /** Recorre todas las páginas — la matriz de cumplimiento se muestra completa (no hay scroll
+   * infinito en esta pantalla), así que se resuelve el set entero acá adentro. */
   getObligations(contractId: string): Observable<ContractObligation[]> {
-    return this.http.get<ContractObligation[]>(ENDPOINTS.obligations.list(contractId));
+    return this.getObligationsPage(contractId).pipe(
+      expand(page => page.next_cursor ? this.getObligationsPage(contractId, { cursor: page.next_cursor }) : EMPTY),
+      reduce<CursorPage<ContractObligation>, ContractObligation[]>((acc, page) => acc.concat(page.data), []),
+    );
   }
 
   getObligationById(contractId: string, id: string): Observable<ContractObligation> {
@@ -164,14 +177,24 @@ export class ContractService {
 
   // ── Plan de Abastecimiento (Supply Plan) ────────────────────────────────────
 
-  getSupplyPlan(contractId: string, filters: SupplyPlanFilters = {}): Observable<SupplyPlanItem[]> {
+  private getSupplyPlanPage(contractId: string, filters: SupplyPlanFilters = {}, cursor?: string | number): Observable<CursorPage<SupplyPlanItem>> {
     const params = new URLSearchParams();
     if (filters.year)     params.set('year',     String(filters.year));
     if (filters.month)    params.set('month',    String(filters.month));
     if (filters.category) params.set('category', filters.category);
     if (filters.status)   params.set('status',   filters.status);
-    const qs = params.toString();
-    return this.http.get<SupplyPlanItem[]>(`${ENDPOINTS.supplyPlan.list(contractId)}${qs ? '?' + qs : ''}`);
+    params.set('limit', '100');
+    if (cursor) params.set('cursor', String(cursor));
+    return this.http.get<CursorPage<SupplyPlanItem>>(`${ENDPOINTS.supplyPlan.list(contractId)}?${params.toString()}`);
+  }
+
+  /** Recorre todas las páginas — el plan de abastecimiento se muestra completo (no hay scroll
+   * infinito en esta pantalla), así que se resuelve el set entero acá adentro. */
+  getSupplyPlan(contractId: string, filters: SupplyPlanFilters = {}): Observable<SupplyPlanItem[]> {
+    return this.getSupplyPlanPage(contractId, filters).pipe(
+      expand(page => page.next_cursor ? this.getSupplyPlanPage(contractId, filters, page.next_cursor) : EMPTY),
+      reduce<CursorPage<SupplyPlanItem>, SupplyPlanItem[]>((acc, page) => acc.concat(page.data), []),
+    );
   }
 
   createSupplyPlanItem(contractId: string, data: SupplyPlanRequest): Observable<SupplyPlanItem> {
@@ -200,8 +223,19 @@ export class ContractService {
 
   // ── Pagos reales a proveedor (contra un requerimiento del plan de abastecimiento) ──
 
+  private listProcurementPaymentsPage(contractId: string, supplyPlanItemId: string, params?: { cursor?: string | number; limit?: number }): Observable<CursorPage<ProcurementPayment>> {
+    const query: Record<string, string> = { limit: String(params?.limit ?? 100) };
+    if (params?.cursor) query['cursor'] = String(params.cursor);
+    return this.http.get<CursorPage<ProcurementPayment>>(ENDPOINTS.supplyPlan.payments(contractId, supplyPlanItemId), { params: query });
+  }
+
+  /** Recorre todas las páginas — los pagos de un ítem del plan se muestran completos (no hay
+   * scroll infinito en este panel), así que se resuelve el set entero acá adentro. */
   listProcurementPayments(contractId: string, supplyPlanItemId: string): Observable<ProcurementPayment[]> {
-    return this.http.get<ProcurementPayment[]>(ENDPOINTS.supplyPlan.payments(contractId, supplyPlanItemId));
+    return this.listProcurementPaymentsPage(contractId, supplyPlanItemId).pipe(
+      expand(page => page.next_cursor ? this.listProcurementPaymentsPage(contractId, supplyPlanItemId, { cursor: page.next_cursor }) : EMPTY),
+      reduce<CursorPage<ProcurementPayment>, ProcurementPayment[]>((acc, page) => acc.concat(page.data), []),
+    );
   }
 
   createProcurementPayment(contractId: string, supplyPlanItemId: string, data: ProcurementPaymentRequest): Observable<ProcurementPayment> {

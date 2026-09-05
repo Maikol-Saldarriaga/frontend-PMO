@@ -14,10 +14,35 @@ export class NotificationStoreService {
   notifications = signal<Notification[]>([]);
   unreadCount = computed(() => this.notifications().filter(n => !n.is_read).length);
 
+  loadingMore = signal(false);
+  private nextCursor = signal<string | number | null>(null);
+  get hasMore(): boolean { return this.nextCursor() !== null; }
+
+  /** Recarga desde el inicio — usada por el polling del topbar. */
   refresh(): void {
     this.svc.list().subscribe({
-      next: items => this.notifications.set(items ?? []),
+      next: page => {
+        this.notifications.set(page.data ?? []);
+        this.nextCursor.set(page.next_cursor);
+      },
       error: () => {},
+    });
+  }
+
+  /** Trae la siguiente página y la agrega al final — se dispara al llegar al fondo del
+   * dropdown de notificaciones, nunca de forma proactiva. */
+  loadMore(): void {
+    const cursor = this.nextCursor();
+    if (!cursor || this.loadingMore()) return;
+
+    this.loadingMore.set(true);
+    this.svc.list({ cursor }).subscribe({
+      next: page => {
+        this.notifications.update(current => [...current, ...(page.data ?? [])]);
+        this.nextCursor.set(page.next_cursor);
+        this.loadingMore.set(false);
+      },
+      error: () => { this.loadingMore.set(false); },
     });
   }
 

@@ -88,7 +88,7 @@ export class TabHitosComponent implements OnInit {
       error: () => {},
     });
 
-    this.svc.listDisbursements(this.projectId).subscribe({
+    this.svc.listAllDisbursements(this.projectId).subscribe({
       next: list => this.disbursements.set([...(list ?? [])].sort((a, b) => a.sort_order - b.sort_order)),
       error: () => this.disbursements.set([]),
     });
@@ -114,7 +114,7 @@ export class TabHitosComponent implements OnInit {
       error: () => { this.technicalComponents.set([]); this.activitiesByComponent.set(new Map()); },
     });
 
-    this.svc.listHitos(this.projectId).subscribe({
+    this.svc.listAllHitos(this.projectId).subscribe({
       next: list => { this.hitos.set([...(list ?? [])].sort((a, b) => a.sort_order - b.sort_order)); this.loading.set(false); },
       error: () => { this.error.set('No se pudieron cargar los hitos.'); this.loading.set(false); },
     });

@@ -3,6 +3,7 @@ import { Observable, expand, map, reduce, EMPTY } from 'rxjs';
 
 import { ApiHttpClient } from '../../api/http-client';
 import { ENDPOINTS } from '../../api/endpoints';
+import { fetchAllPages } from '../../api/paginate';
 import { PUCAccount, PUCAccountRequest, PUCAccountListParams, PUCAccountPage, PUCAccountLite } from '../models/puc-account.model';
 
 @Injectable({ providedIn: 'root' })
@@ -32,9 +33,11 @@ export class PUCAccountService {
   }
 
   /** Solo cuentas activas, orden sort_order/code — para dropdowns/pickers. Cacheado 30min
-   * en backend, no usar para el catálogo administrable (esa sigue paginada por /puc-accounts). */
+   * en backend, no usar para el catálogo administrable (esa sigue paginada por /puc-accounts).
+   * El backend ahora pagina (data, next_cursor) — se recorren todas las páginas acá adentro
+   * porque los consumidores necesitan el set completo en memoria. */
   picker(): Observable<PUCAccountLite[]> {
-    return this.api.get<PUCAccountLite[]>(ENDPOINTS.pucAccounts.picker);
+    return fetchAllPages<PUCAccountLite>(this.api, ENDPOINTS.pucAccounts.picker);
   }
 
   create(body: PUCAccountRequest): Observable<PUCAccount> {

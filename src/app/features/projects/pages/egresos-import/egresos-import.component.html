@@ -47,7 +47,6 @@
             <input type="file" accept=".xlsx,.xls" class="hidden" (change)="onFileSelected($event)"/>
           </label>
           @if (fileName()) { <span class="text-xs text-gray-500">{{ fileName() }}</span> }
-          @if (parsing()) { <span class="text-xs text-sky-600 font-semibold">Leyendo archivo…</span> }
         </div>
         @if (fileError()) {
           <div class="p-3 rounded-lg bg-red-50 border border-red-100 text-xs text-red-600 font-medium">{{ fileError() }}</div>
@@ -75,17 +74,33 @@
         }
       </div>
 
+      @if (checkingDuplicates()) {
+        <div class="flex items-center gap-2 text-xs text-sky-600 font-medium px-1">
+          <div class="w-3.5 h-3.5 border-2 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+          Revisando cuáles filas ya están registradas en la plataforma…
+        </div>
+      }
+
       <!-- Paso 2: elegir el mes a importar -->
-      @if (parsedRows().length > 0 && !selectedMonthKey()) {
+      @if (parsedRows().length > 0 && !selectedMonthKey() && !checkingDuplicates()) {
         <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 space-y-3">
           <h3 class="text-xs font-bold text-gray-700 uppercase tracking-wide">2. Elige el mes que quieres ingresar</h3>
           <p class="text-xs text-gray-400">{{ parsedRows().length }} fila(s) de este proyecto en total — se importa un mes a la vez.</p>
           <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
             @for (m of availableMonths(); track m.key) {
-              <button type="button" (click)="selectMonth(m.key)"
-                class="px-3 py-2.5 rounded-xl border border-gray-200 hover:border-accent hover:bg-accent/5 text-left transition-colors">
+              <button type="button" (click)="selectMonth(m.key)" [disabled]="m.alreadyImported"
+                [title]="m.alreadyImported ? 'Ya importaste todas las filas de este mes' : ''"
+                [class]="m.alreadyImported
+                  ? 'px-3 py-2.5 rounded-xl border border-gray-100 bg-gray-50 text-left transition-colors opacity-50 cursor-not-allowed'
+                  : 'px-3 py-2.5 rounded-xl border border-gray-200 hover:border-accent hover:bg-accent/5 text-left transition-colors'">
                 <p class="text-sm font-bold text-gray-900 capitalize">{{ m.label }}</p>
-                <p class="text-[11px] text-gray-400">{{ m.count }} fila(s)</p>
+                @if (m.alreadyImported) {
+                  <p class="text-[11px] text-gray-400">Ya importado — {{ m.count }} fila(s)</p>
+                } @else if (m.importedCount > 0) {
+                  <p class="text-[11px] text-gray-400">{{ m.count }} total · {{ m.pendingCount }} pendiente(s)</p>
+                } @else {
+                  <p class="text-[11px] text-gray-400">{{ m.count }} fila(s)</p>
+                }
               </button>
             }
           </div>
@@ -142,8 +157,8 @@
               </thead>
               <tbody>
                 @for (row of filteredPreviewRows(); track trackByRow($index, row)) {
-                  <tr class="border-b border-gray-50 hover:bg-gray-50/60" [class.bg-red-50]="row.submitError">
-                    <td class="px-3 py-2"><input type="checkbox" [checked]="row.selected" (change)="toggleRowSelected(row)"/></td>
+                  <tr class="border-b border-gray-50 hover:bg-gray-50/60" [class.bg-red-50]="row.submitError" [class.opacity-50]="row.imported">
+                    <td class="px-3 py-2"><input type="checkbox" [checked]="row.selected" (change)="toggleRowSelected(row)" [disabled]="row.imported"/></td>
                     <td class="px-3 py-2 text-gray-400">{{ row.rowNumber }}</td>
                     <td class="px-3 py-2 text-gray-700">{{ row.date ?? '—' }}</td>
                     <td class="px-3 py-2 text-gray-700 max-w-[160px] truncate" [title]="row.tercero">{{ row.tercero || '—' }}</td>
@@ -153,20 +168,22 @@
                       {{ row.sourceAccountCode }} <span class="text-gray-400">{{ row.sourceAccountName }}</span>
                     </td>
                     <td class="px-3 py-2">
-                      <button type="button" (click)="openRubroPickerForRow(row)"
-                        class="px-2 py-1 rounded-md text-left w-full border text-[11px]"
+                      <button type="button" (click)="openRubroPickerForRow(row)" [disabled]="row.imported"
+                        class="px-2 py-1 rounded-md text-left w-full border text-[11px] disabled:cursor-not-allowed"
                         [class.border-red-300]="!row.budgetItemId" [class.bg-red-50]="!row.budgetItemId"
                         [class.border-gray-200]="row.budgetItemId" [class.bg-gray-50]="row.budgetItemId">
                         {{ rubroLabel(row.budgetItemId) }}
                       </button>
                     </td>
                     <td class="px-3 py-2">
-                      @if (row.submitError) {
+                      @if (row.imported) {
+                        <span class="text-emerald-600 font-semibold">✓ Importado</span>
+                      } @else if (row.submitError) {
                         <span class="text-red-600 font-semibold" [title]="row.submitError">Error</span>
                       } @else if (!row.budgetItemId) {
                         <span class="text-amber-600 font-semibold">Pendiente</span>
                       } @else {
-                        <span class="text-emerald-600 font-semibold">Listo</span>
+                        <span class="text-sky-600 font-semibold">Listo para enviar</span>
                       }
                     </td>
                   </tr>
@@ -185,9 +202,18 @@
           }
 
           @if (importResultCommitted() === true) {
-            <div class="p-3 rounded-lg bg-emerald-50 border border-emerald-100 text-xs text-emerald-700 font-medium">
-              Se importaron {{ importedCount() }} egreso(s) correctamente.
-            </div>
+            @if (importedCount() > 0) {
+              <div class="p-3 rounded-lg bg-emerald-50 border border-emerald-100 text-xs text-emerald-700 font-medium">
+                Se importaron {{ importedCount() }} egreso(s) correctamente.
+                @if (importSkippedCount() > 0) {
+                  <span class="text-emerald-600 font-normal">({{ importSkippedCount() }} ya estaban importados — se saltaron.)</span>
+                }
+              </div>
+            } @else {
+              <div class="p-3 rounded-lg bg-sky-50 border border-sky-100 text-xs text-sky-700 font-medium">
+                Ya habías importado todo este mes — no se agregó nada nuevo ({{ importSkippedCount() }} fila(s) ya existían).
+              </div>
+            }
           }
           @if (importResultCommitted() === false) {
             <div class="p-3 rounded-lg bg-red-50 border border-red-100 text-xs text-red-600 font-medium space-y-2">
@@ -205,13 +231,18 @@
                 <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                 Importando…
               } @else {
-                Importar {{ visibleRows().length }} egreso(s)
+                Importar {{ rowsReadyToImport().length }} egreso(s)
               }
             </button>
             @if (rowsNeedingReview().length > 0) {
-              <span class="text-xs text-amber-600 font-semibold">Asigna el rubro en todas las filas para poder importar.</span>
+              <span class="text-xs text-amber-600 font-semibold">
+                {{ rowsNeedingReview().length }} fila(s) sin rubro todavía — se pueden dejar para después, no bloquean el resto.
+              </span>
             }
           </div>
+          <p class="text-[11px] text-gray-400">
+            {{ importedRows().length }} lista(s) en la plataforma · {{ rowsReadyToImport().length }} por enviar · {{ rowsNeedingReview().length }} sin rubro
+          </p>
         </div>
       }
     }
@@ -219,5 +250,20 @@
 
   <app-rubro-picker [open]="rubroPickerOpen()" [groups]="activeRubroPickerGroups()" [monthLabel]="activeRubroPickerMonthLabel()"
     (closed)="rubroPickerOpen.set(false)" (picked)="onRubroPicked($event)"></app-rubro-picker>
+
+  @if (loadingOverlayVisible()) {
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 backdrop-blur-sm">
+      <div class="flex flex-col items-center gap-5 px-8 py-10 rounded-2xl bg-white shadow-xl max-w-sm text-center">
+        <div class="relative w-16 h-16">
+          <div class="absolute inset-0 border-4 border-accent-100 rounded-full"></div>
+          <div class="absolute inset-0 border-4 border-accent border-t-transparent rounded-full animate-spin"></div>
+        </div>
+        <div class="space-y-1">
+          <p class="text-sm font-bold text-gray-800">{{ loadingMessage() }}</p>
+          <p class="text-xs text-gray-400">Esto no debería tardar mucho…</p>
+        </div>
+      </div>
+    </div>
+  }
 
 </div>

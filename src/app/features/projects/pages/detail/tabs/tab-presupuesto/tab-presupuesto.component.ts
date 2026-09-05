@@ -310,7 +310,7 @@ export class TabPresupuestoComponent implements OnInit {
 
   private loadCatalog(): void {
     if (this.catalogLoaded) return;
-    this.catalogSvc.list().subscribe({
+    this.catalogSvc.listAll().subscribe({
       next: items => {
         this.catalogItems.set((items ?? []).filter(i => i.is_active));
         this.catalogLoaded = true;

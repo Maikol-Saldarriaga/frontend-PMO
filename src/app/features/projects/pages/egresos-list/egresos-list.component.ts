@@ -1,7 +1,9 @@
-import { Component, OnInit, signal, computed, inject } from '@angular/core';
+import { Component, OnInit, HostListener, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute, RouterLink } from '@angular/router';
+import { forkJoin, of } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
 import { MoneyMaskDirective } from '../../../../shared/directives/money-mask.directive';
 import { ProjectService } from '../../services/project.service';
 import { ConfirmDialogService } from '../../../../shared/components/confirm-dialog/confirm-dialog.service';
@@ -19,6 +21,7 @@ import { CostCenterService } from '../../../../../core/cost-centers/services/cos
 import { buildRubroPickerGroups } from '../../utils/rubro-picker-groups';
 
 const AMOUNT_EPSILON = 0.01;
+const PAGE_SIZE = 40;
 const MESES_ES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
 /** Mismo color por rubro que en Presupuesto/Abastecimiento/Flujo de Caja, para que un rubro se
@@ -82,9 +85,14 @@ export class EgresosListComponent implements OnInit {
   locked = false;
 
   loading = signal(true);
+  loadingMore = signal(false);
   error   = signal<string | null>(null);
   report  = signal<CashFlowReport | null>(null);
   executions = signal<BudgetExecution[]>([]);
+  /** Conteo y total reales del proyecto completo (sin paginar) — vienen del backend, no se
+   * recalculan sumando las filas ya cargadas en pantalla. */
+  executionsSummary = signal<{ count: number; total_value: number }>({ count: 0, total_value: 0 });
+  private nextExecutionsCursor = signal<string | number | null>(null);
   /** /puc-accounts/picker ya devuelve solo activas, ordenadas — sin filtro extra acá. */
   pucAccounts = signal<PUCAccountLite[]>([]);
   activePUCAccounts = computed(() => this.pucAccounts());
@@ -132,7 +140,7 @@ export class EgresosListComponent implements OnInit {
       next: items => this.terceros.set(items ?? []),
       error: () => {},
     });
-    this.costCenterSvc.list().subscribe({
+    this.costCenterSvc.listAll().subscribe({
       next: items => this.costCenters.set(items ?? []),
       error: () => {},
     });
@@ -161,14 +169,81 @@ export class EgresosListComponent implements OnInit {
     this.svc.getCashFlowReport(this.projectId).subscribe({
       next: r => {
         this.report.set(r);
-        this.svc.listExecutions(this.projectId).subscribe({
-          next: list => { this.executions.set(list ?? []); this.loading.set(false); },
-          error: () => { this.error.set('No se pudieron cargar los egresos registrados.'); this.loading.set(false); },
-        });
+        this.loadExecutions();
       },
       error: () => { this.error.set('No se pudo cargar el flujo de caja.'); this.loading.set(false); },
     });
   }
+
+  private static readonly UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  /** budget_item_id/technical_component_id/activity_id/provider/date_from/date_to/cuenta que el
+   * backend ya sabe filtrar. accountKey() devuelve o bien un puc_account_id (uuid, cuenta manual)
+   * o un source_account_code (cuenta importada del Excel) — se manda el que corresponda según su
+   * forma, nunca ambos. */
+  private executionServerFilters() {
+    const accountKey = this.filterAccountCode();
+    const isPucId = !!accountKey && EgresosListComponent.UUID_RE.test(accountKey);
+    return {
+      budget_item_id: this.filterBudgetItemId() ?? undefined,
+      technical_component_id: this.filterTechnicalComponentId() ?? undefined,
+      activity_id: this.filterActivityId() ?? undefined,
+      puc_account_id: isPucId ? accountKey! : undefined,
+      source_account_code: accountKey && !isPucId ? accountKey : undefined,
+      provider: this.filterProvider() ?? undefined,
+      date_from: this.filterDateFrom() ?? undefined,
+      date_to: this.filterDateTo() ?? undefined,
+      pending_only: this.filterPendingOnly() || undefined,
+    };
+  }
+
+  /** Recarga desde la primera página con los filtros server-side actuales — se dispara al
+   * cambiar cualquiera de esos filtros (ver onServerFilterChange) o al cargar el tab. */
+  loadExecutions(): void {
+    this.loading.set(true);
+    this.nextExecutionsCursor.set(null);
+    this.svc.listExecutions(this.projectId, { limit: PAGE_SIZE, ...this.executionServerFilters() }).subscribe({
+      next: page => {
+        this.executions.set(page.data ?? []);
+        this.executionsSummary.set(page.summary);
+        this.nextExecutionsCursor.set(page.next_cursor);
+        this.loading.set(false);
+      },
+      error: () => { this.error.set('No se pudieron cargar los egresos registrados.'); this.loading.set(false); },
+    });
+  }
+
+  /** Cualquier cambio a un filtro con soporte server-side reinicia la paginación y recarga. */
+  onServerFilterChange(): void {
+    this.loadExecutions();
+  }
+
+  /** Trae la siguiente página de egresos (con los mismos filtros activos) y la agrega al final —
+   * se dispara solo al llegar al fondo del scroll, nunca de forma proactiva. */
+  loadMoreExecutions(): void {
+    const cursor = this.nextExecutionsCursor();
+    if (!cursor || this.loading() || this.loadingMore()) return;
+
+    this.loadingMore.set(true);
+    this.svc.listExecutions(this.projectId, { cursor, limit: PAGE_SIZE, ...this.executionServerFilters() }).subscribe({
+      next: page => {
+        this.executions.update(current => [...current, ...(page.data ?? [])]);
+        this.executionsSummary.set(page.summary);
+        this.nextExecutionsCursor.set(page.next_cursor);
+        this.loadingMore.set(false);
+      },
+      error: () => { this.loadingMore.set(false); },
+    });
+  }
+
+  @HostListener('window:scroll')
+  onWindowScroll(): void {
+    const scrolledToBottom =
+      window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 200;
+    if (scrolledToBottom) this.loadMoreExecutions();
+  }
+
+  get hasMoreExecutions(): boolean { return this.nextExecutionsCursor() !== null; }
 
   rubroInfo(budgetItemId: string | null | undefined): RubroInfo | undefined {
     return this.rubroInfos().find(r => r.id === budgetItemId);
@@ -187,6 +262,7 @@ export class EgresosListComponent implements OnInit {
   filterProvider               = signal<string | null>(null);
   filterDateFrom               = signal<string | null>(null);
   filterDateTo                 = signal<string | null>(null);
+  filterPendingOnly             = signal(false);
 
   /** Clave estable de "Cuenta" de un egreso — prioriza lo importado del Excel (source_account_*),
    * cae a la cuenta PUC del formulario manual si no hay nada importado. */
@@ -197,6 +273,21 @@ export class EgresosListComponent implements OnInit {
   accountLabel(e: BudgetExecution): string {
     if (e.source_account_code) return `${e.source_account_code} — ${e.source_account_name ?? ''}`.trim().replace(/—\s*$/, '—');
     if (e.puc_account_id) return this.pucAccountLabel(e.puc_account_id);
+    return '—';
+  }
+
+  /** Código de cuenta solo (columna separada del nombre en la tabla) — prioriza lo importado del
+   * Excel (source_account_code), cae al código de la cuenta PUC del formulario manual. */
+  accountCode(e: BudgetExecution): string {
+    if (e.source_account_code) return e.source_account_code;
+    if (e.puc_account_id) return this.pucAccounts().find(x => x.id === e.puc_account_id)?.code ?? '—';
+    return '—';
+  }
+
+  /** Nombre de cuenta solo (columna separada del código en la tabla) — mismo criterio que accountCode. */
+  accountName(e: BudgetExecution): string {
+    if (e.source_account_code) return e.source_account_name ?? '—';
+    if (e.puc_account_id) return this.pucAccounts().find(x => x.id === e.puc_account_id)?.name ?? '—';
     return '—';
   }
 
@@ -245,7 +336,8 @@ export class EgresosListComponent implements OnInit {
 
   hasActiveFilters = computed(() =>
     !!this.filterBudgetItemId() || !!this.filterTechnicalComponentId() || !!this.filterActivityId() ||
-    !!this.filterAccountCode() || !!this.filterProvider() || !!this.filterDateFrom() || !!this.filterDateTo()
+    !!this.filterAccountCode() || !!this.filterProvider() || !!this.filterDateFrom() || !!this.filterDateTo() ||
+    this.filterPendingOnly()
   );
 
   clearFilters(): void {
@@ -256,45 +348,36 @@ export class EgresosListComponent implements OnInit {
     this.filterProvider.set(null);
     this.filterDateFrom.set(null);
     this.filterDateTo.set(null);
+    this.filterPendingOnly.set(false);
+    this.onServerFilterChange();
   }
 
-  /** Egresos filtrados por rubro/componente técnico/actividad/cuenta/tercero/rango de fechas —
-   * todo en cliente, ya que el dataset es de un solo proyecto (acotado por diseño). Cuenta y
-   * Tercero filtran por valor exacto (solo los que realmente aparecen, ver accountOptions/
-   * providerOptions), no por texto libre. */
-  filteredExecutions = computed<BudgetExecution[]>(() => {
-    const budgetItemId = this.filterBudgetItemId();
-    const techId = this.filterTechnicalComponentId();
-    const activityId = this.filterActivityId();
-    const accountKey = this.filterAccountCode();
-    const provider = this.filterProvider();
-    const from = this.filterDateFrom();
-    const to = this.filterDateTo();
+  // ── Setters de filtro con soporte server-side — actualizan el signal y recargan. ──────────
 
-    return this.sortedExecutions().filter(e => {
-      if (budgetItemId && e.budget_item_id !== budgetItemId) return false;
-      const info = this.rubroInfo(e.budget_item_id);
-      if (techId && info?.technicalComponentId !== techId) return false;
-      if (activityId && !(info?.activities ?? []).some(a => a.id === activityId)) return false;
-      if (accountKey && this.accountKey(e) !== accountKey) return false;
-      if (provider && (e.provider ?? '') !== provider) return false;
-      const d = e.date?.slice(0, 10) ?? null;
-      if (from && (!d || d < from)) return false;
-      if (to && (!d || d > to)) return false;
-      return true;
-    });
-  });
+  setFilterPendingOnly(v: boolean): void { this.filterPendingOnly.set(v); this.onServerFilterChange(); }
+  setFilterAccountCode(v: string | null): void { this.filterAccountCode.set(v || null); this.onServerFilterChange(); }
+  setFilterBudgetItemId(v: string | null): void { this.filterBudgetItemId.set(v || null); this.onServerFilterChange(); }
+  setFilterTechnicalComponentId(v: string | null): void { this.filterTechnicalComponentId.set(v || null); this.onServerFilterChange(); }
+  setFilterActivityId(v: string | null): void { this.filterActivityId.set(v || null); this.onServerFilterChange(); }
+  setFilterProvider(v: string | null): void { this.filterProvider.set(v || null); this.onServerFilterChange(); }
+  setFilterDateFrom(v: string | null): void { this.filterDateFrom.set(v || null); this.onServerFilterChange(); }
+  setFilterDateTo(v: string | null): void { this.filterDateTo.set(v || null); this.onServerFilterChange(); }
 
-  // ── KPIs de lo filtrado en pantalla — se recalculan solos al cambiar cualquier filtro ──────
+  /** Todos los filtros — incluida Cuenta — ya vienen aplicados desde el backend (ver
+   * executionServerFilters): executions() solo trae filas que ya los cumplen. */
+  filteredExecutions = computed<BudgetExecution[]>(() => this.sortedExecutions());
 
-  kpiCount = computed(() => this.filteredExecutions().length);
+  // ── KPIs — siempre del summary del backend (exacto sobre todo el dataset filtrado, no solo lo
+  // cargado en pantalla). ───────────────────────────────────────────────────────────────────
+
+  kpiCount = computed(() => this.executionsSummary().count);
   kpiTotalDebito = computed(() =>
     this.filteredExecutions().filter(e => e.value > 0).reduce((sum, e) => sum + e.value, 0)
   );
   kpiTotalCredito = computed(() =>
     this.filteredExecutions().filter(e => e.value < 0).reduce((sum, e) => sum + Math.abs(e.value), 0)
   );
-  kpiTotalNeto = computed(() => this.filteredExecutions().reduce((sum, e) => sum + e.value, 0));
+  kpiTotalNeto = computed(() => this.executionsSummary().total_value);
 
   pucAccountLabel(id: string | null | undefined): string {
     if (!id) return '—';
@@ -316,6 +399,7 @@ export class EgresosListComponent implements OnInit {
   }
 
   rubroLabel(budgetItemId: string | null | undefined): string {
+    if (!budgetItemId) return 'Pendiente';
     return this.rubros().find(r => r.budget_item_id === budgetItemId)?.concept ?? 'Rubro desconocido';
   }
 
@@ -341,6 +425,96 @@ export class EgresosListComponent implements OnInit {
   onRubroPicked(budgetItemId: string): void {
     this.updateFormField('budget_item_id', budgetItemId);
     this.rubroPickerOpen.set(false);
+  }
+
+  // ── Asignar rubro a varios "Pendiente" a la vez ─────────────────────────────
+  // Mismo criterio que "Importar auxiliares": marcá con el check las filas que querés (usá los
+  // filtros de arriba — cuenta, proveedor, fecha — para acotar el lote), elegí un rubro una sola
+  // vez y se aplica a todas. Nunca pide cuenta PUC (ver UpdateExecution) — eso se puede agregar
+  // después, fila por fila, si hace falta.
+
+  bulkSelectedIds = signal<Set<string>>(new Set());
+
+  // Angular no permite "new" dentro de una expresión de plantilla — de ahí este método en vez de
+  // llamar bulkSelectedIds.set(new Set()) directo desde el (click).
+  clearBulkSelection(): void { this.bulkSelectedIds.set(new Set()); }
+  bulkRubroPickerOpen = signal(false);
+  bulkApplying = signal(false);
+  bulkResultMessage = signal<string | null>(null);
+
+  /** Solo las "Pendiente" (sin rubro) del listado ya filtrado pueden entrar a la selección
+   * masiva — una fila que ya tiene rubro se edita individualmente si hace falta cambiar algo. */
+  pendingVisible = computed(() => this.filteredExecutions().filter(e => !e.budget_item_id));
+
+  isBulkSelected(id: string): boolean { return this.bulkSelectedIds().has(id); }
+
+  toggleBulkSelected(id: string): void {
+    this.bulkSelectedIds.update(ids => {
+      const next = new Set(ids);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  allPendingVisibleSelected = computed(() => {
+    const pending = this.pendingVisible();
+    return pending.length > 0 && pending.every(e => this.bulkSelectedIds().has(e.id));
+  });
+
+  toggleSelectAllPendingVisible(): void {
+    const next = !this.allPendingVisibleSelected();
+    const pendingIds = this.pendingVisible().map(e => e.id);
+    this.bulkSelectedIds.update(ids => {
+      const copy = new Set(ids);
+      pendingIds.forEach(id => next ? copy.add(id) : copy.delete(id));
+      return copy;
+    });
+  }
+
+  /** Sin fecha puntual (las filas seleccionadas pueden ser de meses distintos) — el picker
+   * simplemente no muestra presupuestado/ejecutado del mes, igual que "aplicar a selección" en
+   * Importar auxiliares. */
+  bulkRubroPickerGroups = computed<RubroPickerGroup[]>(() =>
+    buildRubroPickerGroups(this.rubroInfos(), this.executionsMonthlySummary(), null)
+  );
+
+  onBulkRubroPicked(budgetItemId: string): void {
+    this.bulkRubroPickerOpen.set(false);
+    const ids = [...this.bulkSelectedIds()];
+    if (ids.length === 0) return;
+    const rows = this.executions().filter(e => ids.includes(e.id));
+
+    this.bulkApplying.set(true);
+    this.bulkResultMessage.set(null);
+    const calls = rows.map(e => {
+      const payload: UpdateBudgetExecutionRequest = {
+        value: e.value,
+        date: e.date?.slice(0, 10) ?? '',
+        description: e.description,
+        puc_account_id: e.puc_account_id,
+        provider: e.tercero_id ? null : e.provider,
+        tercero_id: e.tercero_id,
+        invoice_number: e.invoice_number,
+        budget_item_id: budgetItemId,
+      };
+      return this.svc.updateExecution(this.projectId, e.id, payload).pipe(
+        map(() => true),
+        catchError(() => of(false)),
+      );
+    });
+
+    forkJoin(calls).subscribe(results => {
+      this.bulkApplying.set(false);
+      const okCount = results.filter(Boolean).length;
+      const failCount = results.length - okCount;
+      this.bulkResultMessage.set(
+        failCount === 0
+          ? `Se asignó el rubro a ${okCount} egreso(s).`
+          : `Se asignó el rubro a ${okCount} egreso(s) — ${failCount} no se pudieron actualizar, revisalos individualmente.`
+      );
+      this.bulkSelectedIds.set(new Set());
+      this.load();
+    });
   }
 
   // ── Terceros (proveedor/contratista/tercero) reutilizables por proyecto ─────
@@ -424,9 +598,11 @@ export class EgresosListComponent implements OnInit {
 
   formOverAvailable = computed(() => (Number(this.form().value) || 0) > this.formAvailable() + AMOUNT_EPSILON);
 
+  // Cuenta PUC obligatoria solo al CREAR desde cero — al editar (f.id) no, un egreso importado
+  // en bloque normalmente no tiene una y no hace falta forzarla solo para asignarle rubro.
   canSave(): boolean {
     const f = this.form();
-    return !!f.budget_item_id && !!f.value && f.value > 0 && !!f.date && !!f.puc_account_id && !this.formOverAvailable();
+    return !!f.budget_item_id && !!f.value && f.value > 0 && !!f.date && (!!f.id || !!f.puc_account_id) && !this.formOverAvailable();
   }
 
   openCreate(): void {
@@ -462,7 +638,7 @@ export class EgresosListComponent implements OnInit {
     if (!f.budget_item_id) { this.saveError.set('Selecciona un rubro.'); return; }
     if (!f.value || f.value <= 0) { this.saveError.set('Ingresa un valor mayor a cero.'); return; }
     if (!f.date) { this.saveError.set('Selecciona una fecha.'); return; }
-    if (!f.puc_account_id) { this.saveError.set('Selecciona una cuenta PUC.'); return; }
+    if (!f.id && !f.puc_account_id) { this.saveError.set('Selecciona una cuenta PUC.'); return; }
     if (this.formOverAvailable()) {
       this.saveError.set(`El valor supera lo disponible para ejecutar en este rubro (disponible: ${this.formatCurrency(this.formAvailable())}).`);
       return;
@@ -480,9 +656,12 @@ export class EgresosListComponent implements OnInit {
         provider: f.tercero_id ? null : (f.provider.trim() || null),
         tercero_id: f.tercero_id,
         invoice_number: f.invoice_number.trim() || null,
+        // El backend solo lo aplica si el egreso todavía está "Pendiente" — enviarlo siempre acá
+        // no hace nada distinto para uno que ya tiene rubro (queda ignorado).
+        budget_item_id: f.budget_item_id,
       };
       this.svc.updateExecution(this.projectId, f.id, payload).subscribe({
-        next: () => { this.saving.set(false); this.panelOpen.set(false); this.load(); },
+        next: () => { this.saving.set(false); this.panelOpen.set(false); this.load(); this.showSuccessMessage('Egreso actualizado correctamente.'); },
         error: err => { this.saving.set(false); this.saveError.set(err?.error?.message ?? err?.error?.error ?? 'Error al actualizar el egreso.'); },
       });
     } else {
@@ -490,17 +669,28 @@ export class EgresosListComponent implements OnInit {
         budget_item_id: f.budget_item_id,
         value: Number(f.value) || 0,
         date: f.date,
-        puc_account_id: f.puc_account_id,
+        puc_account_id: f.puc_account_id!, // canSave() ya exigió esto cuando f.id no está seteado
         provider: f.tercero_id ? null : (f.provider.trim() || null),
         tercero_id: f.tercero_id,
         invoice_number: f.invoice_number.trim() || null,
         description: f.description.trim() || null,
       };
       this.svc.createExecution(this.projectId, payload).subscribe({
-        next: () => { this.saving.set(false); this.panelOpen.set(false); this.load(); },
+        next: () => { this.saving.set(false); this.panelOpen.set(false); this.load(); this.showSuccessMessage('Egreso registrado correctamente.'); },
         error: err => { this.saving.set(false); this.saveError.set(err?.error?.message ?? err?.error?.error ?? 'Error al registrar el egreso.'); },
       });
     }
+  }
+
+  /** Banner de éxito arriba del listado — el panel ya se cerró para este punto, así que no
+   * alcanza con mostrar algo adentro de él. Se autooculta sola para no quedar pegada. */
+  successMessage = signal<string | null>(null);
+  private successMessageTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private showSuccessMessage(msg: string): void {
+    if (this.successMessageTimer) clearTimeout(this.successMessageTimer);
+    this.successMessage.set(msg);
+    this.successMessageTimer = setTimeout(() => this.successMessage.set(null), 4000);
   }
 
   async deleteExecution(e: BudgetExecution): Promise<void> {
