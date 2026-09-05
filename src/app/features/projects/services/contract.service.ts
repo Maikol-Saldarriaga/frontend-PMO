@@ -128,7 +128,7 @@ export class ContractService {
   getObligations(contractId: string): Observable<ContractObligation[]> {
     return this.getObligationsPage(contractId).pipe(
       expand(page => page.next_cursor ? this.getObligationsPage(contractId, { cursor: page.next_cursor }) : EMPTY),
-      reduce<CursorPage<ContractObligation>, ContractObligation[]>((acc, page) => acc.concat(page.data), []),
+      reduce<CursorPage<ContractObligation>, ContractObligation[]>((acc, page) => acc.concat(page.data ?? []), []),
     );
   }
 
