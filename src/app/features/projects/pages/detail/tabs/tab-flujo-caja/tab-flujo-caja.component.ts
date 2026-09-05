@@ -250,12 +250,17 @@ export class TabFlujoCajaComponent implements OnInit {
 
   viewModeLabel = computed(() => this.viewMode() === 'planeado' ? 'Planeado' : this.viewMode() === 'proyectado' ? 'Proyectado' : 'Real');
 
-  /** Total de ingreso antes de IVA (suma de m.ingreso_neto), para el pie de la tabla mensual —
-   * siempre real, no depende del modo (no existe un "IVA planeado" independiente). */
-  totalIngresoAntesIva = computed(() => this.displayMonths().reduce((s, m) => s + m.ingreso_neto, 0));
+  /** Total de IVA cobrado (suma de m.iva_cobrada), para el pie de la tabla mensual — siempre
+   * real, no depende del modo (el IVA se factura y cobra como su propia factura independiente,
+   * nunca como una resta sobre el valor de la factura general). */
+  totalIvaCobrada = computed(() => this.displayMonths().reduce((s, m) => s + (m.iva_cobrada || 0), 0));
 
   /** Total de egresos reales registrados (budget_executions), para el pie de la tabla mensual. */
   totalEjecutadoReal = computed(() => this.displayMonths().reduce((s, m) => s + (m.egreso_real_registrado || 0), 0));
+
+  /** Totales planeados de contraparte/aliado, para el pie de la tabla mensual. */
+  totalEgresoContraparte = computed(() => this.displayMonths().reduce((s, m) => s + (m.egreso_contraparte || 0), 0));
+  totalEgresoAliado = computed(() => this.displayMonths().reduce((s, m) => s + (m.egreso_aliado || 0), 0));
 
   /** Totales del modo activo, sobre el rango de años filtrado — alimentan los KPIs superiores. */
   activeIngresoTotal = computed(() => this.displayMonths().reduce((s, m) => s + this.activeRow(m).ingreso, 0));
@@ -301,13 +306,6 @@ export class TabFlujoCajaComponent implements OnInit {
     return disponible / burn;
   });
 
-  /** % de IVA implícito en el ingreso de un mes, derivado de ingreso_bruto vs. ingreso_neto
-   * (mismo cálculo que a nivel de factura/cobro, aplicado al agregado mensual). */
-  ingresoIvaPercentage(m: CashFlowMonth): number | null {
-    if (!m.ingreso_neto || m.ingreso_neto <= 0) return null;
-    return Math.round(((m.ingreso_bruto / m.ingreso_neto) - 1) * 10000) / 100;
-  }
-
   /** % de administración configurado en el contrato — antes se derivaba dividiendo
    * admin_fee_retenido del mes entre ingreso_bruto del mes, pero esos dos números vienen de
    * fechas distintas (retenido = fecha de factura, ingreso = fecha de cobro), así que un mes
@@ -316,14 +314,6 @@ export class TabFlujoCajaComponent implements OnInit {
   adminFeePercentageOfMonth(m: CashFlowMonth): number | null {
     if (!m.admin_fee_retenido) return null;
     return this.adminFeePercentage();
-  }
-
-  /** % de IVA implícito en el total del reporte (para el pie de la tabla mensual). */
-  totalIngresoIvaPercentage(): number | null {
-    const neto = this.totalIngresoAntesIva();
-    const bruto = this.report()?.total_ingresos ?? 0;
-    if (!neto || neto <= 0) return null;
-    return Math.round(((bruto / neto) - 1) * 10000) / 100;
   }
 
   /** % de administración configurado en el contrato — ver nota en adminFeePercentageOfMonth. */

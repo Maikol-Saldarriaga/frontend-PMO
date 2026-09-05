@@ -4,8 +4,6 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { forkJoin, of, switchMap } from 'rxjs';
 import { ProjectService } from '../../../../services/project.service';
-import { ContractService } from '../../../../services/contract.service';
-import { ContractResponse } from '../../../../models/contract.model';
 import {
   Invoice, InvoiceRequest,
   FundingReceipt, FundingReceiptRequest, FundingReceiptStatus,
@@ -53,7 +51,6 @@ export class TabFacturacionComponent implements OnInit {
   @Input() locked = false;
 
   private svc  = inject(ProjectService);
-  private contractSvc = inject(ContractService);
   private confirmDialog = inject(ConfirmDialogService);
 
   // ── Reporte de presupuesto (planeado/ejecutado/facturación/desembolsos/flujo de caja) ──
@@ -151,20 +148,57 @@ export class TabFacturacionComponent implements OnInit {
   appliesAdminFee    = signal(false);
   adminFeePercentage = signal<number | null>(null);
 
-  /** Estimado en vivo del % de administración sobre el valor que se está digitando en el
-   * formulario de factura — el monto real lo calcula y guarda el backend al facturar. Usa los
-   * valores del propio formulario (editables ahí mismo), no los del proyecto ya guardados,
-   * para que el estimado reaccione al toggle/porcentaje antes de guardar. Es un método (no un
-   * computed()) porque `form` es un objeto plano mutado directamente, no un signal. */
-  formAdminFeeEstimate(): { fee: number; net: number } | null {
-    if (!this.form.applies_admin_fee || this.form.admin_fee_percentage == null || !this.form.value) return null;
-    const fee = this.form.value * (this.form.admin_fee_percentage / 100);
-    return { fee, net: this.form.value - fee };
+  /** Monto de administración en vivo — value * admin_fee_percentage/100. Siempre calculada sobre
+   * el valor de la factura. El valor de la factura (this.form.value) nunca cambia por esto —
+   * es lo único que cuenta como ingreso del proyecto. */
+  formAdminFeeAmount(): number | null {
+    if (!this.form.admin_fee_applies || this.form.admin_fee_percentage == null || !this.form.value) return null;
+    return this.form.value * (this.form.admin_fee_percentage / 100);
+  }
+
+  /** Base sobre la que se calcula el IVA: el valor de la factura, o el valor de la
+   * administración ya calculado arriba — según iva_base. */
+  formIvaBaseAmount(): number | null {
+    if (!this.form.value) return null;
+    if (this.form.iva_base === 'administracion') return this.formAdminFeeAmount() ?? 0;
+    return this.form.value;
+  }
+
+  /** Estimado en vivo del monto de IVA — el monto real lo calcula y guarda el backend al
+   * facturar. Es un método (no un computed()) porque `form` es un objeto plano mutado
+   * directamente, no un signal. */
+  formIvaEstimate(): { amount: number } | null {
+    const base = this.formIvaBaseAmount();
+    if (!this.form.iva_applies || this.form.iva_percentage == null || base == null) return null;
+    return { amount: base * (this.form.iva_percentage / 100) };
+  }
+
+  /** Valor antes de IVA — solo tiene sentido mostrarlo cuando el IVA es sobre el valor de la
+   * factura (misma factura, sin factura propia de IVA): value - ivaAmount. Cuando el IVA es
+   * sobre la administración, es una factura totalmente independiente y este dato no aplica. */
+  formValueBeforeIva(): number | null {
+    if (!this.form.iva_applies || this.form.iva_base !== 'factura' || !this.form.value) return null;
+    const iva = this.formIvaEstimate();
+    if (!iva) return null;
+    return this.form.value - iva.amount;
   }
 
   onFormAdminToggle(applies: boolean): void {
-    this.form.applies_admin_fee = applies;
-    if (!applies) this.form.admin_fee_percentage = null;
+    this.form.admin_fee_applies = applies;
+    if (!applies) { this.form.admin_fee_percentage = null; this.form.admin_fee_invoice_number = ''; }
+  }
+
+  onFormIvaToggle(applies: boolean): void {
+    this.form.iva_applies = applies;
+    if (!applies) { this.form.iva_percentage = null; this.form.iva_invoice_number = ''; }
+  }
+
+  /** Cuando el IVA se calcula sobre el valor de la factura, es la MISMA factura — no lleva
+   * número propio (se limpia y deshabilita en el template). Sobre la administración, es una
+   * factura independiente y sí necesita su propio número. */
+  onFormIvaBaseChange(base: 'factura' | 'administracion'): void {
+    this.form.iva_base = base;
+    if (base === 'factura') this.form.iva_invoice_number = '';
   }
 
   selectedDisbursement = signal<Disbursement | null>(null);
@@ -197,17 +231,21 @@ export class TabFacturacionComponent implements OnInit {
   editingInvoice = computed<Invoice | null>(() => this.invoices().find(i => i.id === this.editingInvoiceId()) ?? null);
 
   form: {
-    value:                  number | null;
-    value_before_tax:       number | null;
-    no_iva:                 boolean;
-    collection_act_number:  string;
-    date:                   string;
-    description:            string;
-    // Configuración de administración/IVA del PROYECTO, editable aquí mismo — se guarda contra
-    // el contrato (no por factura) justo antes de registrar/actualizar esta factura si cambió.
-    applies_admin_fee:      boolean;
-    admin_fee_percentage:   number | null;
-    iva_percentage:         number;
+    value:                     number | null;
+    collection_act_number:     string;
+    date:                      string;
+    description:               string;
+    // Administración — propia de ESTA factura (precargada con la config del proyecto solo al
+    // crear una factura nueva, ver emptyForm; nunca se vuelve a guardar contra el proyecto).
+    admin_fee_applies:          boolean;
+    admin_fee_percentage:       number | null;
+    admin_fee_mode:              'suma' | 'disminuye';
+    admin_fee_invoice_number:   string;
+    // IVA — propio de ESTA factura, misma mecánica.
+    iva_applies:                boolean;
+    iva_percentage:             number | null;
+    iva_base:                    'factura' | 'administracion';
+    iva_invoice_number:         string;
   } = this.emptyForm();
 
   /** El candado real de esta pestaña: full_access, owner, coordinador, o un miembro de equipo
@@ -288,15 +326,21 @@ export class TabFacturacionComponent implements OnInit {
   private emptyForm() {
     return {
       value: null as number | null,
-      value_before_tax: null as number | null,
-      no_iva: false,
       collection_act_number: '',
       date: this.todayLocalDate(),
       description: '',
-      // Precargados con la configuración actual del proyecto — editables en el formulario.
-      applies_admin_fee: this.appliesAdminFee(),
-      admin_fee_percentage: this.adminFeePercentage(),
-      iva_percentage: this.ivaPercentage(),
+      // El check de "aplica" se precarga con la configuración del proyecto (para no tener que
+      // volver a activarlo cada vez), pero el % queda vacío a propósito — se muestra solo como
+      // placeholder (ver template) para que sea evidente que hay que confirmarlo/escribirlo,
+      // en vez de verse como si ya tuviera un valor real cargado.
+      admin_fee_applies: this.appliesAdminFee(),
+      admin_fee_percentage: null as number | null,
+      admin_fee_mode: 'suma' as 'suma' | 'disminuye',
+      admin_fee_invoice_number: '',
+      iva_applies: this.ivaPercentage() > 0,
+      iva_percentage: null as number | null,
+      iva_base: 'factura' as 'factura' | 'administracion',
+      iva_invoice_number: '',
     };
   }
 
@@ -337,31 +381,8 @@ export class TabFacturacionComponent implements OnInit {
     return null;
   }
 
-  /** Valor antes de IVA = valor / (1 + iva%/100), usando el % de IVA del propio formulario
-   * (editable ahí mismo, precargado con el del proyecto), salvo que la factura esté marcada
-   * "No incluye IVA", en cuyo caso valor antes de IVA = valor. No editable a mano. */
   onFormValueChange(value: number | null): void {
     this.form.value = value;
-    const factor = 1 + (this.form.iva_percentage || 0) / 100;
-    this.form.value_before_tax = value ? (this.form.no_iva ? value : Math.round((value / factor) * 100) / 100) : null;
-  }
-
-  onFormNoIvaChange(noIva: boolean): void {
-    this.form.no_iva = noIva;
-    this.onFormValueChange(this.form.value);
-  }
-
-  onFormIvaChange(iva: number | null): void {
-    this.form.iva_percentage = iva ?? 0;
-    this.onFormValueChange(this.form.value);
-  }
-
-  /** Valor del IVA en pesos = valor - antes de IVA. Puramente informativo — el flujo de caja
-   * sigue usando el valor bruto (con IVA) como ingreso real; esto solo discrimina cuánto de ese
-   * valor es IVA, no se resta de nada. */
-  formIvaAmount(): number | null {
-    if (this.form.value == null || this.form.value_before_tax == null) return null;
-    return this.form.value - this.form.value_before_tax;
   }
 
   startForm(): void {
@@ -377,17 +398,19 @@ export class TabFacturacionComponent implements OnInit {
     this.editingInvoiceId.set(inv.id);
     this.form = {
       value: inv.value,
-      value_before_tax: inv.value_before_tax,
-      no_iva: inv.value_before_tax != null && Math.abs(inv.value_before_tax - inv.value) < AMOUNT_EPSILON,
       collection_act_number: inv.collection_act_number ?? '',
       date: this.isoToDateInput(inv.date),
       description: inv.description ?? '',
-      applies_admin_fee: this.appliesAdminFee(),
-      admin_fee_percentage: this.adminFeePercentage(),
-      // Precargado con el % de IVA REAL de esta factura (derivado de su propio value/
-      // value_before_tax), no el del proyecto — así se ve y se puede corregir lo que
-      // realmente quedó facturado, y ese ajuste es justo lo que luego hereda el cobro.
-      iva_percentage: this.invoiceIvaPercentage(inv),
+      // Precargado con la config REAL guardada en esta factura, no la del proyecto — así se ve
+      // y se puede corregir lo que realmente quedó facturado.
+      admin_fee_applies: inv.admin_fee_applies,
+      admin_fee_percentage: inv.admin_fee_percentage ?? null,
+      admin_fee_mode: inv.admin_fee_mode ?? 'suma',
+      admin_fee_invoice_number: '',
+      iva_applies: inv.iva_applies,
+      iva_percentage: inv.iva_percentage ?? null,
+      iva_base: inv.iva_base ?? 'factura',
+      iva_invoice_number: '',
     };
     this.formError.set(null);
     this.showForm.set(true);
@@ -441,13 +464,23 @@ export class TabFacturacionComponent implements OnInit {
       return;
     }
 
-    if (this.form.iva_percentage == null || this.form.iva_percentage < 0 || this.form.iva_percentage > 100) {
+    if (this.form.iva_applies && (this.form.iva_percentage == null || this.form.iva_percentage < 0 || this.form.iva_percentage > 100)) {
       this.formError.set('El % de IVA debe estar entre 0 y 100.');
       return;
     }
+    // El N° de factura de IVA solo se requiere cuando se calcula sobre la administración —
+    // entonces es una factura independiente. Sobre el valor de la factura, es la misma factura.
+    if (this.form.iva_applies && this.form.iva_base === 'administracion' && !this.form.iva_invoice_number.trim()) {
+      this.formError.set('Ingresa el N° de factura de IVA.');
+      return;
+    }
 
-    if (this.form.applies_admin_fee && (this.form.admin_fee_percentage == null || this.form.admin_fee_percentage < 0 || this.form.admin_fee_percentage > 100)) {
+    if (this.form.admin_fee_applies && (this.form.admin_fee_percentage == null || this.form.admin_fee_percentage < 0 || this.form.admin_fee_percentage > 100)) {
       this.formError.set('El % de administración debe estar entre 0 y 100.');
+      return;
+    }
+    if (this.form.admin_fee_applies && !this.form.admin_fee_invoice_number.trim()) {
+      this.formError.set('Ingresa el N° de factura de administración.');
       return;
     }
 
@@ -456,10 +489,17 @@ export class TabFacturacionComponent implements OnInit {
 
     const payload: InvoiceRequest = {
       value: this.form.value,
-      value_before_tax: this.form.value_before_tax ?? undefined,
       collection_act_number: this.form.collection_act_number.trim() || undefined,
       description: this.form.description.trim() || undefined,
       date: this.form.date ? `${this.form.date}T00:00:00Z` : undefined,
+      admin_fee_applies: this.form.admin_fee_applies,
+      admin_fee_percentage: this.form.admin_fee_applies ? this.form.admin_fee_percentage : null,
+      admin_fee_mode: this.form.admin_fee_mode,
+      admin_fee_invoice_number: this.form.admin_fee_applies ? this.form.admin_fee_invoice_number.trim() : null,
+      iva_applies: this.form.iva_applies,
+      iva_percentage: this.form.iva_applies ? this.form.iva_percentage : null,
+      iva_base: this.form.iva_base,
+      iva_invoice_number: this.form.iva_applies && this.form.iva_base === 'administracion' ? this.form.iva_invoice_number.trim() : null,
     };
 
     const editingId = this.editingInvoiceId();
@@ -467,31 +507,7 @@ export class TabFacturacionComponent implements OnInit {
       ? this.svc.updateInvoiceForDisbursement(this.projectId, d.id, editingId, payload)
       : this.svc.createInvoiceForDisbursement(this.projectId, d.id, payload);
 
-    // Si el usuario tocó el % de administración/IVA en este mismo formulario, primero se
-    // guarda esa configuración a nivel de proyecto (afecta también desembolsos y flujo de
-    // caja) y solo después se registra/actualiza la factura, para que ya se calcule con el
-    // % nuevo. Si no cambió nada, se salta el PUT y va directo a la factura.
-    const configChanged =
-      this.form.applies_admin_fee !== this.appliesAdminFee() ||
-      this.form.admin_fee_percentage !== this.adminFeePercentage() ||
-      this.form.iva_percentage !== this.ivaPercentage();
-
-    const configUpdate$ = configChanged
-      ? this.contractSvc.updateAdminFeeConfig(this.projectId, {
-          applies_admin_fee: this.form.applies_admin_fee,
-          iva_percentage: this.form.iva_percentage,
-          ...(this.form.applies_admin_fee && { admin_fee_percentage: this.form.admin_fee_percentage }),
-        })
-      : of<ContractResponse | null>(null);
-
-    configUpdate$.pipe(switchMap(res => {
-      if (res) {
-        this.appliesAdminFee.set(res.applies_admin_fee ?? this.form.applies_admin_fee);
-        this.adminFeePercentage.set(res.admin_fee_percentage ?? null);
-        this.ivaPercentage.set(res.iva_percentage ?? this.form.iva_percentage);
-      }
-      return request$;
-    })).subscribe({
+    request$.subscribe({
       next: () => {
         this.formSaving.set(false);
         this.cancelForm();
@@ -541,19 +557,17 @@ export class TabFacturacionComponent implements OnInit {
     return inv.value;
   }
 
-  /** % de IVA efectivo de una factura, derivado de lo que ya quedó guardado en ella
-   * (value vs. value_before_tax) — no del ajuste actual del proyecto, que puede haber
-   * cambiado desde que se facturó. Esto es lo que se reutiliza al registrar un cobro,
-   * para no volver a preguntar algo que ya se definió al facturar. */
+  /** % de IVA REAL configurado en esta factura (guardado en ella al facturar) — no un ratio
+   * recalculado, y no el ajuste actual del proyecto, que puede haber cambiado desde entonces. */
   invoiceIvaPercentage(inv: Invoice): number {
-    if (inv.value_before_tax == null || inv.value_before_tax <= 0) return this.ivaPercentage();
-    return Math.round(((inv.value / inv.value_before_tax) - 1) * 10000) / 100;
+    return inv.iva_applies ? (inv.iva_percentage ?? 0) : 0;
   }
 
-  /** % de administración efectivo de una factura, derivado de admin_fee_amount/value. */
+  /** % de administración REAL configurado en esta factura — igual que invoiceIvaPercentage,
+   * el valor guardado, no un ratio recalculado contra el valor de la factura (que da un
+   * número distinto al % real cuando la base es "sobre el IVA"). */
   invoiceAdminFeePercentage(inv: Invoice): number | null {
-    if (!inv.admin_fee_amount || inv.value <= 0) return null;
-    return Math.round((inv.admin_fee_amount / inv.value) * 10000) / 100;
+    return inv.admin_fee_applies ? (inv.admin_fee_percentage ?? null) : null;
   }
 
   /** % de IVA de un cobro puntual, derivado de su propio value/value_before_tax — normalmente

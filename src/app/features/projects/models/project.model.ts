@@ -1350,19 +1350,35 @@ export interface Invoice {
   budget_component_name?:    string | null;
   technical_component_id?:   string | null;
   technical_component_name?: string | null;
-  /** % de administración retenido de esta factura (null si el contrato no aplica el fee) — calculado por el backend. */
+  /** Monto de administración retenido de esta factura (null si no aplica) — calculado por el backend. */
   admin_fee_amount?:         number | null;
+  /** % de administración configurado en esta factura. */
+  admin_fee_percentage?:     number | null;
   /** value - admin_fee_amount: lo que queda disponible para desembolso/ejecución — calculado por el backend. */
   net_value?:                number | null;
   /** Tramo de Solicitud de Desembolso al que corresponde esta factura — ver Disbursement. */
   disbursement_id?:          string | null;
-  /** Si esta factura nació como línea de una "factura general" (cabecera con varios rubros),
-   * aquí queda el id de esa cabecera — null/ausente para una factura individual normal. */
-  invoice_header_id?:        string | null;
   /** Soporte adjunto de la factura (no el comprobante de la "factura general"). document_key
    * ya viene como URL firmada lista para abrir cuando está poblado. */
   document_key?:             string | null;
   document_name?:            string | null;
+
+  // ── IVA / Administración: esta factura puede ser la "factura" general, o una factura
+  // derivada e independiente de IVA/administración generada junto con ella — ver
+  // record_type. Ninguna factura de tipo "iva"/"administracion" cuenta como ingreso del
+  // proyecto (solo el value de la factura general sí).
+  record_type:               'factura' | 'iva' | 'administracion';
+  parent_invoice_id?:        string | null;
+  iva_applies:                boolean;
+  iva_percentage?:            number | null;
+  /** "factura": el IVA se calcula sobre el valor de la factura.
+   *  "administracion": el IVA se calcula sobre el valor de la administración solamente. */
+  iva_base?:                  'factura' | 'administracion';
+  iva_amount?:                number | null;
+  admin_fee_applies:          boolean;
+  /** "suma": la administración se suma aparte (predeterminado).
+   *  "disminuye": la administración se resta del valor de la factura (solo afecta el neto informativo). */
+  admin_fee_mode?:            'suma' | 'disminuye';
 }
 
 export interface InvoiceRequest {
@@ -1376,6 +1392,17 @@ export interface InvoiceRequest {
   description?:           string;
   date?:                  string; // ISO 8601 completo, ej. "2026-01-15T00:00:00Z"
   disbursement_id?:       string | null;
+
+  iva_applies?:            boolean;
+  iva_percentage?:         number | null;
+  iva_base?:               'factura' | 'administracion';
+  /** N° de factura propio de la factura de IVA derivada — requerido si iva_applies. */
+  iva_invoice_number?:     string | null;
+  admin_fee_applies?:      boolean;
+  admin_fee_percentage?:   number | null;
+  admin_fee_mode?:         'suma' | 'disminuye';
+  /** N° de factura propio de la factura de administración derivada — requerido si admin_fee_applies. */
+  admin_fee_invoice_number?: string | null;
 }
 
 // ── Solicitud de Desembolso ─────────────────────────────────────────────────────────────────
@@ -1476,6 +1503,10 @@ export interface CashFlowMonth {
   ingreso_neto:        number;
   /** % de administración retenido de lo facturado este mes. */
   admin_fee_retenido:  number;
+  /** IVA cobrado este mes, como su propia factura independiente (ver record_type en Invoice) —
+   * reemplaza al viejo "ingreso antes de IVA": el IVA ya no se resta del valor de la factura
+   * general, se factura y cobra aparte. Puramente informativo, nunca cuenta como ingreso. */
+  iva_cobrada:         number;
   /** ingreso_bruto - admin_fee_retenido: lo que realmente queda disponible para ejecución del proyecto. */
   ingreso_disponible:  number;
   /** ingreso_bruto - egreso_real_registrado (NO egreso_total, que es lo planeado). */

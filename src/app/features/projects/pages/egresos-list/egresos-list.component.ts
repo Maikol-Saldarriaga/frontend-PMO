@@ -105,6 +105,11 @@ export class EgresosListComponent implements OnInit {
     if (!this.projectId) { this.router.navigate(['/projects']); return; }
     this.locked = this.route.snapshot.queryParamMap.get('locked') === '1';
 
+    // Deep link desde "Movimientos" — llega ya filtrado al rubro sobre el que se quería ver
+    // el detalle de auxiliares.
+    const budgetItemId = this.route.snapshot.queryParamMap.get('budget_item_id');
+    if (budgetItemId) this.filterBudgetItemId.set(budgetItemId);
+
     this.load();
 
     if (this.route.snapshot.queryParamMap.get('new') === '1' && !this.locked) {

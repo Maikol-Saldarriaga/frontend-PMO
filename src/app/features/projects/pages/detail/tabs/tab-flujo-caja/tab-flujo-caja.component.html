@@ -171,10 +171,12 @@
           <thead>
             <tr class="bg-neutral-50 border-b border-gray-100 text-[10px] font-bold text-neutral-500 uppercase tracking-wide">
               <th class="text-left px-4 py-2.5">Mes</th>
-              <th class="text-right px-3 py-2.5">Ingreso ({{ viewModeLabel() }})</th>
-              <th class="text-right px-3 py-2.5" title="Siempre real — no existe un IVA planeado">Ingreso antes de IVA</th>
+              <th class="text-right px-3 py-2.5">Ingreso por desembolso ({{ viewModeLabel() }})</th>
+              <th class="text-right px-3 py-2.5" title="IVA cobrado como su propia factura independiente — nunca cuenta como ingreso del proyecto">Valor del IVA</th>
               <th class="text-right px-3 py-2.5" title="Siempre real">Admin. retenida</th>
               <th class="text-right px-3 py-2.5" title="Siempre real">Ingreso disponible</th>
+              <th class="text-right px-3 py-2.5" title="Egreso PLANEADO de contraparte — referencia, no cambia con el modo">Egresos aporte FODC (contraparte)</th>
+              <th class="text-right px-3 py-2.5" title="Egreso PLANEADO de aliado — referencia, no cambia con el modo">Egresos aporte aliado/cliente (cliente)</th>
               <th class="text-right px-3 py-2.5" title="Egreso PLANEADO (presupuesto distribuido por mes) — referencia, no cambia con el modo">Egreso total (planeado)</th>
               <th class="text-right px-3 py-2.5" title="Egreso REAL ejecutado — referencia, no cambia con el modo">Ejecutado real</th>
               <th class="text-right px-3 py-2.5">Egreso ({{ viewModeLabel() }})</th>
@@ -194,8 +196,7 @@
                 </td>
                 <td class="px-3 py-3 text-right text-xs font-semibold text-success whitespace-nowrap">{{ formatCurrency(activeRow(m).ingreso) }}</td>
                 <td class="px-3 py-3 text-right text-xs text-neutral-500 whitespace-nowrap">
-                  {{ formatCurrency(m.ingreso_neto) }}
-                  @if (ingresoIvaPercentage(m) !== null) { <span class="text-neutral-400">(IVA {{ ingresoIvaPercentage(m) }}%)</span> }
+                  {{ m.iva_cobrada > 0 ? formatCurrency(m.iva_cobrada) : '—' }}
                 </td>
                 <td class="px-3 py-3 text-right text-xs text-amber-600 whitespace-nowrap">
                   @if (m.admin_fee_retenido > 0) {
@@ -203,9 +204,11 @@
                   } @else { — }
                 </td>
                 <td class="px-3 py-3 text-right text-xs font-semibold text-primary-700 whitespace-nowrap">{{ formatCurrency(m.ingreso_disponible) }}</td>
+                <td class="px-3 py-3 text-right text-xs text-neutral-500 whitespace-nowrap">{{ formatCurrency(m.egreso_contraparte) }}</td>
+                <td class="px-3 py-3 text-right text-xs text-neutral-500 whitespace-nowrap">{{ formatCurrency(m.egreso_aliado) }}</td>
                 <td class="px-3 py-3 text-right text-xs text-neutral-500 whitespace-nowrap">{{ formatCurrency(m.egreso_total) }}</td>
-                <td class="px-3 py-3 text-right text-xs text-rose-500 whitespace-nowrap">{{ formatCurrency(m.egreso_real_registrado) }}</td>
-                <td class="px-3 py-3 text-right text-xs font-semibold text-danger whitespace-nowrap">{{ formatCurrency(activeRow(m).egreso) }}</td>
+                <td class="px-3 py-3 text-right text-xs text-orange-500 whitespace-nowrap">{{ formatCurrency(m.egreso_real_registrado) }}</td>
+                <td class="px-3 py-3 text-right text-xs font-semibold text-orange-600 whitespace-nowrap">{{ formatCurrency(activeRow(m).egreso) }}</td>
                 <td class="px-3 py-3 text-right text-xs font-bold whitespace-nowrap" [class.text-success]="(activeRow(m).ingreso - activeRow(m).egreso) >= 0" [class.text-danger]="(activeRow(m).ingreso - activeRow(m).egreso) < 0">
                   {{ formatCurrency(activeRow(m).ingreso - activeRow(m).egreso) }}
                 </td>
@@ -233,8 +236,7 @@
                 <td class="px-4 py-2.5 text-[10px] font-bold text-neutral-500 uppercase">Total</td>
                 <td class="px-3 py-2.5 text-right text-xs font-bold text-success">{{ formatCurrency(activeIngresoTotal()) }}</td>
                 <td class="px-3 py-2.5 text-right text-xs font-bold text-neutral-500">
-                  {{ formatCurrency(totalIngresoAntesIva()) }}
-                  @if (totalIngresoIvaPercentage() !== null) { <span class="text-neutral-400 font-normal">(IVA {{ totalIngresoIvaPercentage() }}%)</span> }
+                  {{ totalIvaCobrada() > 0 ? formatCurrency(totalIvaCobrada()) : '—' }}
                 </td>
                 <td class="px-3 py-2.5 text-right text-xs font-bold text-amber-600">
                   @if (r.total_admin_fee > 0) {
@@ -242,9 +244,11 @@
                   } @else { — }
                 </td>
                 <td class="px-3 py-2.5 text-right text-xs font-bold text-primary-700">{{ formatCurrency(r.total_ingresos - r.total_admin_fee) }}</td>
+                <td class="px-3 py-2.5 text-right text-xs font-bold text-neutral-500">{{ formatCurrency(totalEgresoContraparte()) }}</td>
+                <td class="px-3 py-2.5 text-right text-xs font-bold text-neutral-500">{{ formatCurrency(totalEgresoAliado()) }}</td>
                 <td></td>
-                <td class="px-3 py-2.5 text-right text-xs font-bold text-rose-500">{{ formatCurrency(totalEjecutadoReal()) }}</td>
-                <td class="px-3 py-2.5 text-right text-xs font-bold text-danger">{{ formatCurrency(activeEgresoTotal()) }}</td>
+                <td class="px-3 py-2.5 text-right text-xs font-bold text-orange-500">{{ formatCurrency(totalEjecutadoReal()) }}</td>
+                <td class="px-3 py-2.5 text-right text-xs font-bold text-orange-600">{{ formatCurrency(activeEgresoTotal()) }}</td>
                 <td class="px-3 py-2.5 text-right text-xs font-bold" [class.text-success]="activeFlujoNeto() >= 0" [class.text-danger]="activeFlujoNeto() < 0">{{ formatCurrency(activeFlujoNeto()) }}</td>
                 <td class="px-3 py-2.5 text-right text-xs font-bold" [class.text-success]="activeSaldoFinal() >= 0" [class.text-danger]="activeSaldoFinal() < 0">{{ formatCurrency(activeSaldoFinal()) }}</td>
                 <td></td>

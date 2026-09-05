@@ -1,16 +1,19 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { ProjectService } from '../../services/project.service';
 import {
   BudgetEntry, BudgetItem, BudgetMonthlyDistribution, BudgetWizardComponent,
-  BudgetExecutionSummary, BudgetExecutionTimeSeries,
+  BudgetExecutionSummary,
 } from '../../models/project.model';
 
 const MONTH_NAMES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
 /** Un punto planeado/ejecutado para un período (year-month) — la unidad mínima que se
- * agrega hacia arriba (ítem → rubro → componente → general). */
+ * agrega hacia arriba (ítem → rubro → componente → general). `ejecutado` viene SIEMPRE del
+ * resumen mensual de egresos reales cargados vía auxiliares (ver ProjectService
+ * .getExecutionsMonthlySummary), nunca del campo manual `executed_amount` de la distribución. */
 export interface MonthlyPoint {
   year:      number;
   month:     number;
@@ -80,10 +83,13 @@ function pct(ejecutado: number, planeado: number): number {
   return planeado > 0 ? Math.min(100, Math.round((ejecutado / planeado) * 1000) / 10) : 0;
 }
 
+function sumPlaneado(months: MonthlyPoint[]): number { return months.reduce((s, m) => s + m.planeado, 0); }
+function sumEjecutado(months: MonthlyPoint[]): number { return months.reduce((s, m) => s + m.ejecutado, 0); }
+
 @Component({
   selector: 'app-movimientos',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './movimientos.component.html',
 })
 export class MovimientosComponent implements OnInit {
@@ -97,21 +103,88 @@ export class MovimientosComponent implements OnInit {
   error   = signal<string | null>(null);
 
   generalSummary = signal<BudgetExecutionSummary | null>(null);
-  generalSeries  = signal<BudgetExecutionTimeSeries[]>([]);
-  components: ComponentNode[] = [];
+  /** Egresos reales por rubro y "YYYY-MM" (auxiliares) — fuente del "ejecutado" en todo este
+   * componente, reemplazando el viejo campo manual `executed_amount`. */
+  private executionsSummary = signal<Record<string, Record<string, number>>>({});
+  components = signal<ComponentNode[]>([]);
+
+  /** Filtro de año — 'all' agrega todos los períodos; un año concreto acota meses y recalcula
+   * totales/porcentajes solo con ese año, para poder ver "qué se planeó y qué se ejecutó" en
+   * un año puntual sin el ruido de los demás. */
+  selectedYear = signal<number | 'all'>('all');
+
+  availableYears = computed<number[]>(() => {
+    const years = new Set<number>();
+    for (const c of this.components()) {
+      for (const m of c.months) years.add(m.year);
+    }
+    return [...years].sort((a, b) => b - a);
+  });
+
+  /** Vista por año: recorta los meses de cada nodo al año seleccionado y recalcula sus totales
+   * y % localmente — la data cruda (this.components) nunca se muta, así cambiar de año no
+   * pierde nada. */
+  viewComponents = computed<ComponentNode[]>(() => {
+    const year = this.selectedYear();
+    if (year === 'all') return this.components();
+    return this.components().map(c => this.restrictComponentToYear(c, year));
+  });
+
+  private restrictItemToYear(item: ItemNode, year: number): ItemNode {
+    const months = item.months.filter(m => m.year === year);
+    const totalPlaneado = sumPlaneado(months);
+    const totalEjecutado = sumEjecutado(months);
+    return { ...item, months, totalPlaneado, totalEjecutado, pct: pct(totalEjecutado, totalPlaneado) };
+  }
+
+  private restrictRubroToYear(rubro: RubroNode, year: number): RubroNode {
+    const items = rubro.items.map(i => this.restrictItemToYear(i, year));
+    const months = rubro.months.filter(m => m.year === year);
+    const totalPlaneado = sumPlaneado(months);
+    const totalEjecutado = sumEjecutado(months);
+    return { ...rubro, items, months, totalPlaneado, totalEjecutado, pct: pct(totalEjecutado, totalPlaneado) };
+  }
+
+  private restrictComponentToYear(comp: ComponentNode, year: number): ComponentNode {
+    const rubros = comp.rubros.map(r => this.restrictRubroToYear(r, year));
+    const months = comp.months.filter(m => m.year === year);
+    const totalPlaneado = sumPlaneado(months);
+    const totalEjecutado = sumEjecutado(months);
+    return { ...comp, rubros, months, totalPlaneado, totalEjecutado, pct: pct(totalEjecutado, totalPlaneado) };
+  }
+
+  /** Totales generales sobre la vista actual (respeta el filtro de año) — reemplazan al
+   * `generalSummary`/`generalSeries` del backend (que son siempre "todo el histórico") cuando
+   * hay un año seleccionado, para que las tarjetas de arriba coincidan con la tabla de abajo. */
+  viewTotalPlaneado  = computed(() => this.viewComponents().reduce((s, c) => s + c.totalPlaneado, 0));
+  viewTotalEjecutado = computed(() => this.viewComponents().reduce((s, c) => s + c.totalEjecutado, 0));
+  viewPct            = computed(() => pct(this.viewTotalEjecutado(), this.viewTotalPlaneado()));
+  viewMonths         = computed(() => mergeMonths(this.viewComponents().map(c => c.months)));
+
+  selectYear(y: number | 'all'): void { this.selectedYear.set(y); }
 
   ngOnInit(): void {
     this.projectId = this.route.snapshot.paramMap.get('id') ?? '';
     if (!this.projectId) { this.router.navigate(['/projects']); return; }
 
+    this.service.getExecutionsMonthlySummary(this.projectId).subscribe({
+      next: summary => this.executionsSummary.set(summary ?? {}),
+      error: () => this.executionsSummary.set({}),
+    });
+
     this.service.getBudgetWizard(this.projectId).subscribe({
       next: (w) => {
         this.generalSummary.set(w.execution?.summary ?? null);
-        this.generalSeries.set(w.execution?.time_series ?? []);
-        this.components = (w.components ?? []).map(comp => this.buildComponentNode(comp));
+        const comps = (w.components ?? []).map(comp => this.buildComponentNode(comp));
         if (w.project_level_entries?.length) {
-          this.components.push(this.buildProjectLevelNode(w.project_level_entries));
+          comps.push(this.buildProjectLevelNode(w.project_level_entries));
         }
+        this.components.set(comps);
+        // El año más reciente con algún movimiento (planeado o real) es un punto de partida
+        // más útil que "todos los años" mezclados en una sola tabla ilegible.
+        const years = new Set<number>();
+        for (const c of comps) for (const m of c.months) years.add(m.year);
+        if (years.size) this.selectedYear.set(Math.max(...years));
         this.loading.set(false);
       },
       error: () => {
@@ -121,20 +194,41 @@ export class MovimientosComponent implements OnInit {
     });
   }
 
+  /** Ejecutado real de este ítem para un year-month, desde el resumen de auxiliares — 0 si
+   * el ítem no tiene ningún egreso registrado contra él en ese período. */
+  private realExecuted(itemId: string, year: number, month: number): number {
+    return this.executionsSummary()[itemId]?.[monthKey(year, month)] ?? 0;
+  }
+
   private itemMonths(item: BudgetItem): MonthlyPoint[] {
-    return [...(item.monthly_distributions ?? [])]
-      .sort((a, b) => (a.year * 12 + a.month) - (b.year * 12 + b.month))
-      .map((d: BudgetMonthlyDistribution) => ({
-        year: d.year, month: d.month, label: `${MONTH_NAMES[d.month - 1] ?? d.month} ${d.year}`,
+    // Unión de los meses PLANEADOS (de la distribución) y los meses con ejecución REAL
+    // (auxiliares) — un rubro puede tener gasto real en un mes sin programación, o viceversa.
+    const byKey = new Map<string, { year: number; month: number; planeado: number }>();
+    for (const d of item.monthly_distributions ?? []) {
+      byKey.set(monthKey(d.year, d.month), {
+        year: d.year, month: d.month,
         planeado: (d.counterpart_amount ?? 0) + (d.ally_amount ?? 0),
-        ejecutado: d.executed_amount ?? 0,
+      });
+    }
+    const realMonths = this.executionsSummary()[item.id] ?? {};
+    for (const key of Object.keys(realMonths)) {
+      if (!byKey.has(key)) {
+        const [y, m] = key.split('-').map(Number);
+        byKey.set(key, { year: y, month: m, planeado: 0 });
+      }
+    }
+    return [...byKey.values()]
+      .sort((a, b) => (a.year * 12 + a.month) - (b.year * 12 + b.month))
+      .map(({ year, month, planeado }) => ({
+        year, month, label: `${MONTH_NAMES[month - 1] ?? month} ${year}`,
+        planeado, ejecutado: this.realExecuted(item.id, year, month),
       }));
   }
 
   private buildItemNode(item: BudgetItem): ItemNode {
     const months = this.itemMonths(item);
-    const totalPlaneado = months.reduce((s, m) => s + m.planeado, 0);
-    const totalEjecutado = months.reduce((s, m) => s + m.ejecutado, 0);
+    const totalPlaneado = sumPlaneado(months);
+    const totalEjecutado = sumEjecutado(months);
     return {
       id: item.id, concept: item.concept ?? '(sin nombre)', unit: item.unit_measurement,
       totalPlaneado, totalEjecutado, pct: pct(totalEjecutado, totalPlaneado),
@@ -190,6 +284,12 @@ export class MovimientosComponent implements OnInit {
   toggleRubro(r: RubroNode): void { r.expanded = !r.expanded; }
   toggleItem(i: ItemNode): void { i.expanded = !i.expanded; }
 
+  /** Abre el listado de egresos (auxiliares) del proyecto, ya filtrado por este rubro — el
+   * detalle fila a fila de qué movimientos individuales componen su "ejecutado real". */
+  verAuxiliaresDeRubro(rubroId: string): void {
+    this.router.navigate(['/projects', this.projectId, 'egresos'], { queryParams: { budget_item_id: rubroId } });
+  }
+
   goBack(): void {
     this.router.navigate(['/projects', this.projectId], { queryParams: { tab: 'facturacion' } });
   }
@@ -209,4 +309,5 @@ export class MovimientosComponent implements OnInit {
   trackByRubro(_: number, r: RubroNode)     { return r.id; }
   trackByItem(_: number, i: ItemNode)       { return i.id; }
   trackByMonth(_: number, m: MonthlyPoint)  { return `${m.year}-${m.month}`; }
+  trackByYear(_: number, y: number | 'all') { return y; }
 }

@@ -248,7 +248,7 @@
                         <thead>
                           <tr class="bg-neutral-50 border-b border-gray-100 text-[10px] font-bold text-neutral-500 uppercase tracking-wide">
                             <th class="px-4 py-2.5 text-left">Fecha</th>
-                            <th class="px-4 py-2.5 text-left">N° acta de cobro</th>
+                            <th class="px-4 py-2.5 text-left">N° de factura</th>
                             <th class="px-4 py-2.5 text-right">Valor</th>
                             <th class="px-4 py-2.5 text-right">IVA</th>
                             <th class="px-4 py-2.5 text-right">Administración</th>
@@ -262,18 +262,37 @@
                             <tr class="hover:bg-neutral-50/60 transition-colors border-l-2 border-sky-400">
                               <td class="px-4 py-3 whitespace-nowrap text-xs text-neutral-600">{{ inv.date | date:'dd/MM/yyyy':'UTC' }}</td>
                               <td class="px-4 py-3 text-xs text-neutral-600">
-                                @if (inv.collection_act_number) { {{ inv.collection_act_number }} } @else { <span class="text-neutral-300">Sin N° de acta</span> }
+                                @if (inv.record_type !== 'factura') {
+                                  <span class="inline-block px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide mr-1"
+                                    [class.bg-amber-100]="inv.record_type === 'iva'" [class.text-amber-700]="inv.record_type === 'iva'"
+                                    [class.bg-violet-100]="inv.record_type === 'administracion'" [class.text-violet-700]="inv.record_type === 'administracion'">
+                                    {{ inv.record_type === 'iva' ? 'IVA' : 'Admin.' }}
+                                  </span>
+                                }
+                                @if (inv.collection_act_number) { {{ inv.collection_act_number }} } @else { <span class="text-neutral-300">Sin N° de factura</span> }
                               </td>
                               <td class="px-4 py-3 text-right text-xs font-semibold text-primary-700 whitespace-nowrap">{{ formatCurrency(inv.value) }}</td>
-                              <td class="px-4 py-3 text-right text-xs text-neutral-500 whitespace-nowrap">{{ invoiceIvaPercentage(inv) }}%</td>
-                              <td class="px-4 py-3 text-right text-xs whitespace-nowrap">
-                                @if (inv.admin_fee_amount) {
-                                  <span class="text-amber-600">{{ invoiceAdminFeePercentage(inv) }}% · {{ formatCurrency(inv.admin_fee_amount) }}</span>
+                              <td class="px-4 py-3 text-right text-xs text-neutral-500 whitespace-nowrap">
+                                @if (inv.record_type === 'factura' && inv.iva_applies) {
+                                  {{ inv.iva_percentage }}%
                                 } @else {
                                   <span class="text-neutral-300">—</span>
                                 }
                               </td>
-                              <td class="px-4 py-3 text-right text-xs text-neutral-600 whitespace-nowrap">{{ formatCurrency(inv.net_value ?? inv.value) }}</td>
+                              <td class="px-4 py-3 text-right text-xs whitespace-nowrap">
+                                @if (inv.record_type === 'factura' && inv.admin_fee_applies) {
+                                  <span class="text-amber-600">{{ inv.admin_fee_percentage }}% · {{ formatCurrency(inv.admin_fee_amount ?? 0) }}</span>
+                                } @else {
+                                  <span class="text-neutral-300">—</span>
+                                }
+                              </td>
+                              <td class="px-4 py-3 text-right text-xs text-neutral-600 whitespace-nowrap">
+                                @if (inv.record_type === 'factura') {
+                                  {{ formatCurrency(inv.net_value ?? inv.value) }}
+                                } @else {
+                                  <span class="text-neutral-300">—</span>
+                                }
+                              </td>
                               <td class="px-4 py-3 text-right whitespace-nowrap">
                                 <button type="button" (click)="goToCobros(inv)" title="Ver cobros de esta factura"
                                   class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-neutral-200 text-[10px] font-semibold text-neutral-500 hover:text-accent hover:border-accent-200 hover:bg-accent-50 transition-colors">
@@ -326,9 +345,12 @@
                           <div class="flex items-center justify-between gap-3 mb-2">
                             <div class="min-w-0">
                               <p class="text-xs font-semibold text-primary-700 flex items-center gap-1.5 flex-wrap">
-                                <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-sky-50 text-sky-700 text-[9px] font-bold uppercase tracking-wide flex-shrink-0">
+                                <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wide flex-shrink-0"
+                                  [class.bg-sky-50]="inv.record_type === 'factura'" [class.text-sky-700]="inv.record_type === 'factura'"
+                                  [class.bg-amber-100]="inv.record_type === 'iva'" [class.text-amber-700]="inv.record_type === 'iva'"
+                                  [class.bg-violet-100]="inv.record_type === 'administracion'" [class.text-violet-700]="inv.record_type === 'administracion'">
                                   <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                                  Factura
+                                  {{ inv.record_type === 'iva' ? 'IVA' : inv.record_type === 'administracion' ? 'Admin.' : 'Factura' }}
                                 </span>
                                 {{ formatCurrency(inv.value) }}
                                 <span class="text-[10px] font-medium text-neutral-400 ml-1">{{ inv.date | date:'dd/MM/yyyy':'UTC' }}</span>
@@ -457,12 +479,12 @@
   @if (showForm() && selectedDisbursement(); as d) {
     <div appPortalToBody class="fixed inset-0 bg-neutral-900/40 z-[200] transition-opacity" (click)="cancelForm()"></div>
 
-    <aside appPortalToBody class="fixed top-0 right-0 h-full w-full sm:w-[560px] lg:w-[640px] bg-surface shadow-2xl z-[201] flex flex-col">
+    <aside appPortalToBody class="fixed top-0 right-0 h-full w-full sm:w-[720px] lg:w-[860px] xl:w-[960px] bg-surface shadow-2xl z-[201] flex flex-col">
       <!-- Header -->
-      <div class="flex items-center justify-between gap-3 px-6 py-4 border-b border-neutral-100 flex-shrink-0">
+      <div class="flex items-center justify-between gap-3 px-8 py-5 border-b border-neutral-100 flex-shrink-0">
         <div>
-          <h2 class="text-base font-bold text-primary-700">{{ editingInvoiceId() ? 'Editar factura' : 'Registrar nueva factura' }}</h2>
-          <p class="text-xs text-neutral-400 mt-0.5">{{ d.name }} · {{ d.percentage }}%</p>
+          <h2 class="text-lg font-bold text-primary-700">{{ editingInvoiceId() ? 'Editar factura' : 'Registrar nueva factura' }}</h2>
+          <p class="text-xs text-neutral-400 mt-1">{{ d.name }} · {{ d.percentage }}%</p>
         </div>
         <button type="button" (click)="cancelForm()" class="p-2 rounded-lg text-neutral-400 hover:text-neutral-600 hover:bg-neutral-50 transition-colors">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -472,79 +494,150 @@
       </div>
 
       <!-- Body -->
-      <div class="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+      <div class="flex-1 overflow-y-auto px-8 py-6 space-y-6">
 
+        <!-- Valor + N° de factura: grande, fuera de la tabla -->
         <div>
-          <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Valor <span class="text-danger">*</span></label>
-          <input type="text" inputmode="numeric" appMoneyMask [ngModel]="form.value" (ngModelChange)="onFormValueChange($event)" placeholder="0"
-            class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
-        </div>
-        <div class="grid grid-cols-3 gap-3">
-          <div>
-            <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">% de IVA</label>
-            <div class="relative">
-              <input type="number" min="0" max="100" step="0.01" [ngModel]="form.iva_percentage" (ngModelChange)="onFormIvaChange($event)" placeholder="19"
-                class="w-full pr-7 pl-3 py-2 rounded-xl border border-neutral-200 text-sm font-semibold text-primary-700 placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
-              <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none"><span class="text-xs text-neutral-400 font-semibold">%</span></div>
+          <p class="text-[10px] font-bold text-neutral-400 uppercase tracking-wide mb-2">1. Valor de la factura</p>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Valor <span class="text-danger">*</span></label>
+              <input type="text" inputmode="numeric" appMoneyMask [ngModel]="form.value" (ngModelChange)="onFormValueChange($event)" placeholder="0"
+                class="w-full px-4 py-3 rounded-xl border border-neutral-200 text-xl font-bold text-primary-700 placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+            </div>
+            <div>
+              <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">N° de factura</label>
+              <input type="text" [(ngModel)]="form.collection_act_number" placeholder="Ej: No FODC 709"
+                class="w-full px-4 py-3 rounded-xl border border-neutral-200 text-xl font-bold text-primary-700 placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
             </div>
           </div>
-          <div>
-            <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Valor antes de IVA</label>
-            <input type="text" [value]="form.value_before_tax !== null ? formatCurrency(form.value_before_tax) : ''" readonly placeholder="—"
-              class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-neutral-500 placeholder-neutral-300 bg-neutral-100 cursor-not-allowed outline-none"/>
-          </div>
-          <div>
-            <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Valor del IVA</label>
-            <input type="text" [value]="formIvaAmount() !== null ? formatCurrency(formIvaAmount()!) : ''" readonly placeholder="—"
-              class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-amber-600 font-semibold placeholder-neutral-300 bg-neutral-100 cursor-not-allowed outline-none"/>
-          </div>
-        </div>
-        <div>
-          <label class="flex items-center gap-1.5 cursor-pointer select-none">
-            <input type="checkbox" [ngModel]="form.no_iva" (ngModelChange)="onFormNoIvaChange($event)"
-              class="w-3.5 h-3.5 rounded border-neutral-300 text-accent focus:ring-accent-200"/>
-            <span class="text-[11px] text-neutral-500">No incluye IVA</span>
-          </label>
-          <p class="text-[10px] text-neutral-400 mt-1">{{ form.no_iva ? 'Sin IVA: valor antes de IVA = valor' : 'Calculado automáticamente (valor sin ' + form.iva_percentage + '% de IVA)' }} — el IVA es solo informativo, no se resta del ingreso en Flujo de Caja.</p>
+          <p class="text-[10px] text-neutral-400 mt-2">Este es el único valor que cuenta como ingreso del proyecto.</p>
         </div>
 
-        <!-- % de administración: configurable aquí mismo, aplica a todo el proyecto (no solo a esta factura) -->
-        <div class="rounded-xl border border-neutral-200 px-3 py-3">
-          <div class="flex items-center gap-3">
-            <div class="flex-1">
-              <p class="text-xs font-bold text-primary-700">¿Aplica % de administración?</p>
-              <p class="text-[10px] text-neutral-400">La fundación/coordinador retiene un % sobre lo facturado en este proyecto</p>
-            </div>
-            <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
-              <input type="checkbox" [ngModel]="form.applies_admin_fee" (ngModelChange)="onFormAdminToggle($event)" class="sr-only peer"/>
-              <div class="w-10 h-5 bg-neutral-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-accent-100 rounded-full peer peer-checked:after:translate-x-[20px] peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-[16px] after:w-[16px] after:transition-all peer-checked:bg-accent shadow-input"></div>
-            </label>
+        <!-- Tabla: IVA / Administración -->
+        <div>
+          <p class="text-[10px] font-bold text-neutral-400 uppercase tracking-wide mb-2">2. IVA y administración (opcional)</p>
+          <p class="text-[11px] text-neutral-400 mb-3">Marca el check solo si esta factura lleva IVA y/o administración — cada uno se registrará como una factura aparte, con su propio número.</p>
+          <div class="rounded-xl border border-neutral-200 overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm min-w-[780px] border-collapse">
+              <thead>
+                <tr class="bg-neutral-50 border-b border-neutral-100 text-[10px] font-bold text-neutral-500 uppercase tracking-wide">
+                  <th class="text-left px-4 py-3">Concepto</th>
+                  <th class="text-center px-3 py-3 w-16">Aplica</th>
+                  <th class="text-left px-3 py-3 w-24">%</th>
+                  <th class="text-left px-3 py-3 w-56">Base / Modo</th>
+                  <th class="text-left px-3 py-3 w-40">N° factura</th>
+                  <th class="text-right px-4 py-3">Valor</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-neutral-100">
+                <!-- Administración -->
+                <tr [class]="form.admin_fee_applies ? 'bg-violet-50/30' : ''">
+                  <td class="px-4 py-3.5 font-semibold text-violet-700 align-middle">Administración</td>
+                  <td class="px-3 py-3.5 text-center align-middle">
+                    <input type="checkbox" [ngModel]="form.admin_fee_applies" (ngModelChange)="onFormAdminToggle($event)"
+                      class="w-5 h-5 rounded border-neutral-300 text-accent focus:ring-accent-200 cursor-pointer"/>
+                  </td>
+                  @if (form.admin_fee_applies) {
+                    <td class="px-3 py-3 align-middle">
+                      <div class="relative w-full">
+                        <input type="number" min="0" max="100" step="0.01" [ngModel]="form.admin_fee_percentage" (ngModelChange)="form.admin_fee_percentage = $event" [placeholder]="adminFeePercentage() || 10"
+                          class="w-full pr-6 pl-2.5 py-2 rounded-lg border border-neutral-200 text-sm font-semibold text-primary-700 placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+                        <span class="absolute inset-y-0 right-2 flex items-center text-xs text-neutral-400 font-semibold pointer-events-none">%</span>
+                      </div>
+                    </td>
+                    <td class="px-3 py-3 align-middle text-xs text-neutral-400">Sobre valor de factura</td>
+                    <td class="px-3 py-3 align-middle">
+                      <input type="text" [(ngModel)]="form.admin_fee_invoice_number" placeholder="N° de factura"
+                        class="w-full px-2.5 py-2 rounded-lg border border-neutral-200 text-sm placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+                    </td>
+                    <td class="px-4 py-3 align-middle text-right font-bold text-violet-600">{{ formAdminFeeAmount() !== null ? formatCurrency(formAdminFeeAmount()!) : '—' }}</td>
+                  } @else {
+                    <td class="px-3 py-3.5 align-middle text-neutral-300">—</td>
+                    <td class="px-3 py-3.5 align-middle text-neutral-300">—</td>
+                    <td class="px-3 py-3.5 align-middle text-neutral-300">—</td>
+                    <td class="px-4 py-3.5 align-middle text-right text-neutral-300">—</td>
+                  }
+                </tr>
+                <!-- IVA -->
+                <tr [class]="form.iva_applies ? 'bg-amber-50/30' : ''">
+                  <td class="px-4 py-3.5 font-semibold text-amber-700 align-middle">IVA</td>
+                  <td class="px-3 py-3.5 text-center align-middle">
+                    <input type="checkbox" [ngModel]="form.iva_applies" (ngModelChange)="onFormIvaToggle($event)"
+                      class="w-5 h-5 rounded border-neutral-300 text-accent focus:ring-accent-200 cursor-pointer"/>
+                  </td>
+                  @if (form.iva_applies) {
+                    <td class="px-3 py-3 align-middle">
+                      <div class="relative w-full">
+                        <input type="number" min="0" max="100" step="0.01" [ngModel]="form.iva_percentage" (ngModelChange)="form.iva_percentage = $event" [placeholder]="ivaPercentage() || 19"
+                          class="w-full pr-6 pl-2.5 py-2 rounded-lg border border-neutral-200 text-sm font-semibold text-primary-700 placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+                        <span class="absolute inset-y-0 right-2 flex items-center text-xs text-neutral-400 font-semibold pointer-events-none">%</span>
+                      </div>
+                    </td>
+                    <td class="px-3 py-3 align-middle">
+                      <select [ngModel]="form.iva_base" (ngModelChange)="onFormIvaBaseChange($event)" class="w-full px-2.5 py-2 rounded-lg border border-neutral-200 text-xs bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors cursor-pointer">
+                        <option value="factura">Sobre valor de factura</option>
+                        <option value="administracion">Sobre valor de administración</option>
+                      </select>
+                    </td>
+                    <td class="px-3 py-3 align-middle">
+                      @if (form.iva_base === 'administracion') {
+                        <input type="text" [(ngModel)]="form.iva_invoice_number" placeholder="N° de factura"
+                          class="w-full px-2.5 py-2 rounded-lg border border-neutral-200 text-sm placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+                      } @else {
+                        <input type="text" value="Misma factura" disabled title="El IVA sobre el valor de la factura es la misma factura, sin número propio."
+                          class="w-full px-2.5 py-2 rounded-lg border border-neutral-200 text-xs text-neutral-400 bg-neutral-100 cursor-not-allowed"/>
+                      }
+                    </td>
+                    <td class="px-4 py-3 align-middle text-right font-bold text-amber-600">{{ formIvaEstimate()?.amount !== undefined ? formatCurrency(formIvaEstimate()!.amount) : '—' }}</td>
+                  } @else {
+                    <td class="px-3 py-3.5 align-middle text-neutral-300">—</td>
+                    <td class="px-3 py-3.5 align-middle text-neutral-300">—</td>
+                    <td class="px-3 py-3.5 align-middle text-neutral-300">—</td>
+                    <td class="px-4 py-3.5 align-middle text-right text-neutral-300">—</td>
+                  }
+                </tr>
+              </tbody>
+            </table>
           </div>
-          @if (form.applies_admin_fee) {
-            <div class="mt-3">
-              <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">% de Administración</label>
-              <div class="relative max-w-[160px]">
-                <input type="number" min="0" max="100" step="0.01" [(ngModel)]="form.admin_fee_percentage" placeholder="Ej: 10"
-                  class="w-full pr-7 pl-3 py-2 rounded-xl border border-neutral-200 text-sm font-semibold text-primary-700 placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
-                <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none"><span class="text-xs text-neutral-400 font-semibold">%</span></div>
-              </div>
-              @if (formAdminFeeEstimate(); as estimate) {
-                <div class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 mt-2">
-                  <div class="flex items-center justify-between text-xs">
-                    <span class="text-amber-700">Retenido: <strong>{{ formatCurrency(estimate.fee) }}</strong></span>
-                    <span class="text-amber-700">Neto disponible: <strong>{{ formatCurrency(estimate.net) }}</strong></span>
-                  </div>
-                </div>
-              }
+          </div>
+        </div>
+
+        <!-- Resumen de la factura -->
+        <div>
+        <p class="text-[10px] font-bold text-neutral-400 uppercase tracking-wide mb-2">3. Resumen</p>
+        <div class="rounded-xl border border-accent-200 bg-accent-50/50 px-5 py-4 space-y-2.5">
+          <div class="flex items-center justify-between text-sm">
+            <span class="text-neutral-500">Valor de la factura (ingreso del proyecto)</span>
+            <span class="font-bold text-primary-700 text-base">{{ formatCurrency(form.value ?? 0) }}</span>
+          </div>
+          @if (form.admin_fee_applies) {
+            <div class="flex items-center justify-between text-sm">
+              <span class="text-neutral-500">Administración (sobre la factura)</span>
+              <span class="font-semibold text-violet-600">{{ formAdminFeeAmount() !== null ? formatCurrency(formAdminFeeAmount()!) : '—' }}</span>
             </div>
           }
-          <p class="text-[10px] text-neutral-400 mt-2">Esta configuración es del proyecto, no solo de esta factura — se guarda junto con la factura al presionar el botón de abajo.</p>
+          @if (form.iva_applies) {
+            <div class="flex items-center justify-between text-sm">
+              <span class="text-neutral-500">IVA ({{ form.iva_base === 'administracion' ? 'sobre la administración' : 'sobre la factura' }})</span>
+              <span class="font-semibold text-amber-600">{{ formIvaEstimate()?.amount !== undefined ? formatCurrency(formIvaEstimate()!.amount) : '—' }}</span>
+            </div>
+          }
+          @if (formValueBeforeIva() !== null) {
+            <div class="flex items-center justify-between text-sm">
+              <span class="text-neutral-500">Valor antes de IVA</span>
+              <span class="font-semibold text-neutral-600">{{ formatCurrency(formValueBeforeIva()!) }}</span>
+            </div>
+          }
+          <p class="text-[10px] text-neutral-400 pt-1.5">
+            Administración siempre se registra como factura independiente. IVA es independiente solo cuando se calcula sobre la administración; sobre la factura es la misma factura. Ninguna de las dos cuenta como ingreso del proyecto.
+          </p>
+        </div>
         </div>
 
         <div>
-          <label class="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">N° de factura</label>
-          <input type="text" [(ngModel)]="form.collection_act_number" placeholder="Ej: No FODC 709"
-            class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
+          <p class="text-[10px] font-bold text-neutral-400 uppercase tracking-wide mb-2">4. Detalles</p>
         </div>
 
         <div>
@@ -642,7 +735,7 @@
           </div>
           <div class="flex items-center justify-between px-4 py-3">
             <p class="text-xs font-semibold text-neutral-500">IVA aplicado en la factura</p>
-            <p class="text-sm font-bold text-neutral-700">{{ invoiceIvaPercentage(inv) }}% ({{ formatCurrency(inv.value - (inv.value_before_tax ?? inv.value)) }})</p>
+            <p class="text-sm font-bold text-neutral-700">{{ invoiceIvaPercentage(inv) }}% ({{ formatCurrency(inv.iva_amount ?? 0) }})</p>
           </div>
           @if (inv.admin_fee_amount) {
             <div class="flex items-center justify-between px-4 py-3">
