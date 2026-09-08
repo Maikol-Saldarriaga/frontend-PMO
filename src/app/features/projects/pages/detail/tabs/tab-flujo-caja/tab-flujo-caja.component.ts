@@ -369,25 +369,26 @@ export class TabFlujoCajaComponent implements OnInit {
   chartReady = computed(() => !this.loading() && !this.error() && !!this.report());
 
   /** Combo "Flujo neto y saldo acumulado" — misma composición que la gráfica de Excel que el
-   * equipo ya usaba: egresos por fuente (FODC/aliado) de fondo como referencia PLANEADA (esa
-   * división no existe en lo ejecutado real: los egresos registrados vía auxiliares no
-   * distinguen de qué fuente sale la plata), mientras que Ingreso, Egreso total, Flujo neto y
-   * Saldo acumulado sí reflejan el modo activo (Real por defecto — lo realmente cobrado/
-   * ejecutado, no lo presupuestado). */
+   * equipo ya usaba, pero en curvas suaves ("S") en vez de barras: egresos por fuente (FODC/
+   * aliado) de fondo como referencia PLANEADA (esa división no existe en lo ejecutado real: los
+   * egresos registrados vía auxiliares no distinguen de qué fuente sale la plata), mientras que
+   * Ingreso, Egreso total, Flujo neto y Saldo acumulado sí reflejan el modo activo (Real por
+   * defecto — lo realmente cobrado/ejecutado, no lo presupuestado). Todas las series son líneas
+   * (curve: 'smooth') — sin columnas — para que el gráfico se lea como una curva S continua. */
   chartOptions = computed<ComboChartOptions>(() => {
     const data = this.displayMonths();
     const round = (v: number) => Math.round(v);
     return {
       series: [
         { name: `Ingreso (${this.viewModeLabel()})`, type: 'line', data: data.map(m => round(this.activeRow(m).ingreso)) },
-        { name: 'Egreso aporte FODC (planeado)', type: 'column', data: data.map(m => round(m.egreso_contraparte)) },
-        { name: 'Egreso aporte aliado/cliente (planeado)', type: 'column', data: data.map(m => round(m.egreso_aliado)) },
+        { name: 'Egreso aporte FODC (planeado)', type: 'line', data: data.map(m => round(m.egreso_contraparte)) },
+        { name: 'Egreso aporte aliado/cliente (planeado)', type: 'line', data: data.map(m => round(m.egreso_aliado)) },
         { name: `Egreso total (${this.viewModeLabel()})`, type: 'line', data: data.map(m => round(this.activeRow(m).egreso)) },
         { name: `Flujo neto (${this.viewModeLabel()})`, type: 'line', data: data.map(m => round(this.activeRow(m).ingreso - this.activeRow(m).egreso)) },
         { name: `Saldo acumulado (${this.viewModeLabel()})`, type: 'line', data: data.map(m => round(this.activeRow(m).saldo)) },
       ],
       chart: { height: 380, type: 'line', toolbar: { show: false } },
-      stroke: { width: [2, 0, 0, 2, 2, 3], curve: 'straight' },
+      stroke: { width: [2, 2, 2, 2, 2, 3], curve: 'smooth' },
       markers: { size: 4, strokeWidth: 0, hover: { size: 6 } },
       colors: ['#2563eb', '#f59e0b', '#94a3b8', '#eab308', '#38bdf8', '#22c55e'],
       xaxis: { categories: data.map(m => this.monthLabel(m)) },
@@ -402,7 +403,7 @@ export class TabFlujoCajaComponent implements OnInit {
             label: s.name, value: this.formatCurrency(series[i][dataPointIndex]), color: w.globals.colors[i],
           }))),
       },
-      plotOptions: { bar: { columnWidth: '45%', borderRadius: 3 } },
+      plotOptions: {},
       grid: { borderColor: '#e2e8f0' },
     };
   });
