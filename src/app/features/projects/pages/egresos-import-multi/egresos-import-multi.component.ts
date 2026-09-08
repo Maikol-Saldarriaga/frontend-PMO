@@ -9,19 +9,9 @@ import { catchError } from 'rxjs/operators';
 import { ProjectService } from '../../services/project.service';
 import { CostCenterService } from '../../../../../core/cost-centers/services/cost-center.service';
 import { BulkExecutionRowRequest, BulkExecutionImportResult } from '../../models/project.model';
-
-/** Mismo orden de columnas que importar-auxiliares de un solo proyecto (ver
- * egresos-import.component.ts) — "Cuenta" aparece dos veces (detallada y de mayor). */
-const EXPECTED_HEADERS = [
-  'Cuenta', 'Tercero', 'Fecha', 'Nota', 'Cheque', 'Doc Num', 'Debitos', 'Creditos',
-  'Saldo', 'Centro de Costos', 'Mvto', 'Cuenta', 'Mayor', 'Mes',
-];
-const HEADER_SCAN_ROWS = 10;
-
-function normalizeHeaderCell(v: unknown): string {
-  return String(v ?? '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-}
-const EXPECTED_HEADERS_NORMALIZED = EXPECTED_HEADERS.map(normalizeHeaderCell);
+import {
+  AuxiliarLayout, AUXILIAR_HEADERS_ERROR_MESSAGE, findAuxiliarHeaderRow, parseAuxiliarRow,
+} from '../../utils/excel-auxiliares-parser';
 
 const LOADING_MESSAGES = [
   'Carga inteligente…',
@@ -197,6 +187,13 @@ export class EgresosImportMultiComponent implements OnInit, OnDestroy {
   parsing = signal(false);
   parsedRows = signal<ParsedMultiRow[]>([]);
 
+  /** Hojas del libro cuando trae más de una — se le pregunta al usuario cuál usar antes de
+   * parsear nada, ya que cada hoja del mismo archivo puede traer un formato de columnas
+   * distinto (ver excel-auxiliares-parser.ts). */
+  sheetPickerOpen = signal(false);
+  availableSheetNames = signal<string[]>([]);
+  private pendingWorkbook: XLSX.WorkBook | null = null;
+
   onFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
@@ -206,6 +203,8 @@ export class EgresosImportMultiComponent implements OnInit, OnDestroy {
     this.fileError.set(null);
     this.parsedRows.set([]);
     this.fileName.set(file.name);
+    this.sheetPickerOpen.set(false);
+    this.pendingWorkbook = null;
     this.parsing.set(true);
     const startedAt = this.startLoadingOverlay();
 
@@ -213,26 +212,13 @@ export class EgresosImportMultiComponent implements OnInit, OnDestroy {
     reader.onload = () => {
       try {
         const wb = XLSX.read(reader.result as ArrayBuffer, { type: 'array', cellDates: true });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const allRows: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-
-        const headerRowIndex = this.findHeaderRow(allRows);
-        if (headerRowIndex === -1) {
-          this.fileError.set(
-            'El archivo no tiene las columnas esperadas en el orden correcto (Cuenta, Tercero, Fecha, Nota, ' +
-            'Cheque, Doc Num, Debitos, Creditos, Saldo, Centro de Costos, Mvto, Cuenta, Mayor, Mes). ' +
-            'Verifica que no se hayan movido ni renombrado columnas antes de continuar.'
-          );
-          this.stopLoadingOverlay(startedAt, () => this.parsing.set(false));
+        if (wb.SheetNames.length > 1) {
+          this.pendingWorkbook = wb;
+          this.availableSheetNames.set(wb.SheetNames);
+          this.sheetPickerOpen.set(true);
           return;
         }
-
-        const dataRows = allRows.slice(headerRowIndex + 1);
-        const rows = this.parseDataRows(dataRows, headerRowIndex);
-        this.parsedRows.set(rows);
-        if (rows.length === 0) {
-          this.fileError.set('No se encontraron filas de datos en el archivo.');
-        }
+        this.parseSelectedSheet(wb, wb.SheetNames[0]);
       } catch (err) {
         // eslint-disable-next-line no-console
         console.error('Error al parsear el Excel de auxiliares:', err);
@@ -249,75 +235,74 @@ export class EgresosImportMultiComponent implements OnInit, OnDestroy {
     reader.readAsArrayBuffer(file);
   }
 
-  private findHeaderRow(rows: unknown[][]): number {
-    const limit = Math.min(HEADER_SCAN_ROWS, rows.length);
-    for (let i = 0; i < limit; i++) {
-      const row = rows[i] ?? [];
-      if (row.length < EXPECTED_HEADERS_NORMALIZED.length) continue;
-      const matches = EXPECTED_HEADERS_NORMALIZED.every((expected, col) => normalizeHeaderCell(row[col]) === expected);
-      if (matches) return i;
+  /** El usuario eligió una hoja del picker — recién acá se parsea de verdad. */
+  selectSheet(name: string): void {
+    const wb = this.pendingWorkbook;
+    if (!wb) return;
+    this.sheetPickerOpen.set(false);
+    this.parsing.set(true);
+    const startedAt = this.startLoadingOverlay();
+    try {
+      this.parseSelectedSheet(wb, name);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('Error al parsear el Excel de auxiliares:', err);
+      const detail = err instanceof Error ? err.message : String(err);
+      this.fileError.set(`No se pudo leer el archivo: ${detail}`);
+    } finally {
+      this.stopLoadingOverlay(startedAt, () => this.parsing.set(false));
     }
-    return -1;
   }
 
-  private parseColombianNumber(v: unknown): number {
-    const s = String(v ?? '').trim();
-    if (!s) return 0;
-    const normalized = s.replace(/\./g, '').replace(',', '.').replace(/[^\d.-]/g, '');
-    const n = parseFloat(normalized);
-    return isNaN(n) ? 0 : n;
+  cancelSheetPicker(): void {
+    this.sheetPickerOpen.set(false);
+    this.pendingWorkbook = null;
+    this.fileName.set(null);
   }
 
-  private parseDate(v: unknown): string | null {
-    if (v instanceof Date && !isNaN(v.getTime())) return v.toISOString().slice(0, 10);
-    const s = String(v ?? '').trim();
-    if (!s) return null;
-    const dmy = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
-    if (dmy) {
-      const [, d, m, y] = dmy;
-      return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  private parseSelectedSheet(wb: XLSX.WorkBook, sheetName: string): void {
+    this.pendingWorkbook = null;
+    const ws = wb.Sheets[sheetName];
+    const allRows: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+    const headerMatch = findAuxiliarHeaderRow(allRows);
+    if (!headerMatch) {
+      this.fileError.set(AUXILIAR_HEADERS_ERROR_MESSAGE);
+      return;
     }
-    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
-    return null;
+
+    const dataRows = allRows.slice(headerMatch.rowIndex + 1);
+    const rows = this.parseDataRows(dataRows, headerMatch.rowIndex, headerMatch.layout);
+    this.parsedRows.set(rows);
+    if (rows.length === 0) {
+      this.fileError.set('No se encontraron filas de datos en el archivo.');
+    }
   }
 
-  private parseDataRows(rows: unknown[][], headerRowIndex: number): ParsedMultiRow[] {
+  private parseDataRows(rows: unknown[][], headerRowIndex: number, layout: AuxiliarLayout): ParsedMultiRow[] {
     const out: ParsedMultiRow[] = [];
 
     rows.forEach((row, idx) => {
-      const cell = (i: number) => String(row[i] ?? '').trim();
-      if (row.every(c => String(c ?? '').trim() === '')) return;
+      const parsed = parseAuxiliarRow(row, headerRowIndex + idx + 2, layout);
+      if (!parsed) return;
 
-      const costCenterRaw = cell(9);
-      const matched = this.matchProjectForCostCenter(costCenterRaw);
-
-      const cuentaCell = cell(0);
-      const accountMatch = cuentaCell.match(/^(\d+)\s*(.*)$/);
-      const sourceAccountCode = accountMatch ? accountMatch[1] : '';
-      const sourceAccountName = accountMatch ? accountMatch[2].trim() : cuentaCell;
-
-      const debitos = this.parseColombianNumber(row[6]);
-      const creditos = this.parseColombianNumber(row[7]);
-      const value = debitos !== 0 ? debitos : (creditos !== 0 ? -creditos : 0);
-
-      const saldoRaw = cell(8);
-      const saldo = saldoRaw ? this.parseColombianNumber(row[8]) : null;
+      const matched = this.matchProjectForCostCenter(parsed.sourceCostCenterRaw);
 
       out.push({
-        rowNumber: headerRowIndex + idx + 2,
-        value,
-        date: this.parseDate(row[2]),
-        tercero: cell(1),
-        nota: cell(3),
-        docNum: cell(5),
-        cheque: cell(4),
-        mvto: cell(10),
-        saldo,
-        sourceAccountCode,
-        sourceAccountName,
-        sourceMayorCode: cell(11) || cell(12),
-        sourceCostCenterRaw: costCenterRaw,
-        sourceMes: cell(13),
+        rowNumber: parsed.rowNumber,
+        value: parsed.value,
+        date: parsed.date,
+        tercero: parsed.tercero,
+        nota: parsed.nota,
+        docNum: parsed.docNum,
+        cheque: parsed.cheque,
+        mvto: parsed.mvto,
+        saldo: parsed.saldo,
+        sourceAccountCode: parsed.sourceAccountCode,
+        sourceAccountName: parsed.sourceAccountName,
+        sourceMayorCode: parsed.sourceMayorCode,
+        sourceCostCenterRaw: parsed.sourceCostCenterRaw,
+        sourceMes: parsed.sourceMes,
         matchedProjectId: matched?.id ?? null,
         manualProjectId: null,
       });
@@ -361,6 +346,10 @@ export class EgresosImportMultiComponent implements OnInit, OnDestroy {
       })
       .sort((a, b) => a.projectLabel.localeCompare(b.projectLabel));
   });
+
+  /** Totales de resumen antes de importar — sobre todo lo cargado del archivo, matcheado o no. */
+  matchedRowsTotal = computed(() => this.matchedRows().reduce((s, r) => s + r.value, 0));
+  ignoredRowsTotal = computed(() => this.ignoredRows().reduce((s, r) => s + r.value, 0));
 
   /** Asigna a mano un proyecto a una fila "Ignorada" — no hace falta resolver TODAS, las que
    * queden sin tocar simplemente se quedan afuera del envío. */

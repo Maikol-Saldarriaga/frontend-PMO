@@ -11,24 +11,9 @@ import { CostCenterService } from '../../../../../core/cost-centers/services/cos
 import { CostCenter } from '../../../../../core/cost-centers/models/cost-center.model';
 import { buildRubroPickerGroups, RubroPickerRubroInfo } from '../../utils/rubro-picker-groups';
 import { BudgetEntry, BudgetItem, BulkExecutionRowRequest, BulkExecutionRowResult } from '../../models/project.model';
-
-/** Orden EXACTO esperado del Excel de auxiliares contables — "Cuenta" aparece dos veces (la
- * primera es la cuenta detallada, la segunda es el código de mayor) y esa repetición es
- * justo por lo que la validación compara posición por posición, no como un conjunto de nombres. */
-const EXPECTED_HEADERS = [
-  'Cuenta', 'Tercero', 'Fecha', 'Nota', 'Cheque', 'Doc Num', 'Debitos', 'Creditos',
-  'Saldo', 'Centro de Costos', 'Mvto', 'Cuenta', 'Mayor', 'Mes',
-];
-const HEADER_SCAN_ROWS = 10;
-
-function normalizeHeaderCell(v: unknown): string {
-  return String(v ?? '')
-    .trim()
-    .toLowerCase()
-    .normalize('NFD').replace(/[̀-ͯ]/g, ''); // quita tildes para comparar sin ser frágil
-}
-
-const EXPECTED_HEADERS_NORMALIZED = EXPECTED_HEADERS.map(normalizeHeaderCell);
+import {
+  AuxiliarLayout, AUXILIAR_HEADERS_ERROR_MESSAGE, findAuxiliarHeaderRow, parseAuxiliarRow,
+} from '../../utils/excel-auxiliares-parser';
 
 interface ParsedRow {
   rowNumber: number;           // fila real del Excel (1-based, contando el header)
@@ -245,6 +230,13 @@ export class EgresosImportComponent implements OnInit, OnDestroy {
     if (this.loadingMessageTimer) clearInterval(this.loadingMessageTimer);
   }
 
+  /** Hojas del libro cuando trae más de una — se le pregunta al usuario cuál usar antes de
+   * parsear nada, ya que cada hoja del mismo archivo puede traer un formato de columnas
+   * distinto (ver excel-auxiliares-parser.ts). */
+  sheetPickerOpen = signal(false);
+  availableSheetNames = signal<string[]>([]);
+  private pendingWorkbook: XLSX.WorkBook | null = null;
+
   onFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
@@ -257,6 +249,8 @@ export class EgresosImportComponent implements OnInit, OnDestroy {
     this.skippedByCostCenter.set(0);
     this.sampleRawCostCenters.set([]);
     this.fileName.set(file.name);
+    this.sheetPickerOpen.set(false);
+    this.pendingWorkbook = null;
     this.parsing.set(true);
     const startedAt = this.startLoadingOverlay();
 
@@ -264,34 +258,15 @@ export class EgresosImportComponent implements OnInit, OnDestroy {
     reader.onload = () => {
       try {
         const wb = XLSX.read(reader.result as ArrayBuffer, { type: 'array', cellDates: true });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const allRows: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-
-        const headerRowIndex = this.findHeaderRow(allRows);
-        if (headerRowIndex === -1) {
-          this.fileError.set(
-            'El archivo no tiene las columnas esperadas en el orden correcto (Cuenta, Tercero, Fecha, Nota, ' +
-            'Cheque, Doc Num, Debitos, Creditos, Saldo, Centro de Costos, Mvto, Cuenta, Mayor, Mes). ' +
-            'Verifica que no se hayan movido ni renombrado columnas antes de continuar.'
-          );
-          this.stopLoadingOverlay(startedAt, () => this.parsing.set(false));
+        if (wb.SheetNames.length > 1) {
+          // Varias hojas: se espera a que el usuario elija una antes de parsear (ver
+          // selectSheet) en vez de asumir siempre la primera.
+          this.pendingWorkbook = wb;
+          this.availableSheetNames.set(wb.SheetNames);
+          this.sheetPickerOpen.set(true);
           return;
         }
-
-        const dataRows = allRows.slice(headerRowIndex + 1);
-        const { rows, skipped, sampleRawCostCenters } = this.parseDataRows(dataRows, headerRowIndex);
-        this.parsedRows.set(rows);
-        this.skippedByCostCenter.set(skipped);
-        this.sampleRawCostCenters.set(sampleRawCostCenters);
-        if (rows.length === 0) {
-          this.fileError.set(
-            skipped > 0
-              ? 'Ninguna fila del archivo corresponde al centro de costos de este proyecto.'
-              : 'No se encontraron filas de datos en el archivo.'
-          );
-        } else {
-          this.checkDuplicates(rows);
-        }
+        this.parseSelectedSheet(wb, wb.SheetNames[0]);
       } catch (err) {
         // eslint-disable-next-line no-console
         console.error('Error al parsear el Excel de auxiliares:', err);
@@ -308,43 +283,56 @@ export class EgresosImportComponent implements OnInit, OnDestroy {
     reader.readAsArrayBuffer(file);
   }
 
-  /** Busca, entre las primeras filas del archivo, la que calce EXACTAMENTE (posición por
-   * posición, no como conjunto) con EXPECTED_HEADERS — devuelve su índice o -1 si ninguna calza. */
-  private findHeaderRow(rows: unknown[][]): number {
-    const limit = Math.min(HEADER_SCAN_ROWS, rows.length);
-    for (let i = 0; i < limit; i++) {
-      const row = rows[i] ?? [];
-      if (row.length < EXPECTED_HEADERS_NORMALIZED.length) continue;
-      const matches = EXPECTED_HEADERS_NORMALIZED.every((expected, col) => normalizeHeaderCell(row[col]) === expected);
-      if (matches) return i;
+  /** El usuario eligió una hoja del picker — recién acá se parsea de verdad. */
+  selectSheet(name: string): void {
+    const wb = this.pendingWorkbook;
+    if (!wb) return;
+    this.sheetPickerOpen.set(false);
+    this.parsing.set(true);
+    const startedAt = this.startLoadingOverlay();
+    try {
+      this.parseSelectedSheet(wb, name);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('Error al parsear el Excel de auxiliares:', err);
+      const detail = err instanceof Error ? err.message : String(err);
+      this.fileError.set(`No se pudo leer el archivo: ${detail}`);
+    } finally {
+      this.stopLoadingOverlay(startedAt, () => this.parsing.set(false));
     }
-    return -1;
   }
 
-  private parseColombianNumber(v: unknown): number {
-    const s = String(v ?? '').trim();
-    if (!s) return 0;
-    // formato colombiano: punto = miles, coma = decimales
-    const normalized = s.replace(/\./g, '').replace(',', '.').replace(/[^\d.-]/g, '');
-    const n = parseFloat(normalized);
-    return isNaN(n) ? 0 : n;
+  cancelSheetPicker(): void {
+    this.sheetPickerOpen.set(false);
+    this.pendingWorkbook = null;
+    this.fileName.set(null);
   }
 
-  private parseDate(v: unknown): string | null {
-    if (v instanceof Date && !isNaN(v.getTime())) {
-      return v.toISOString().slice(0, 10);
+  private parseSelectedSheet(wb: XLSX.WorkBook, sheetName: string): void {
+    this.pendingWorkbook = null;
+    const ws = wb.Sheets[sheetName];
+    const allRows: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+    const headerMatch = findAuxiliarHeaderRow(allRows);
+    if (!headerMatch) {
+      this.fileError.set(AUXILIAR_HEADERS_ERROR_MESSAGE);
+      return;
     }
-    const s = String(v ?? '').trim();
-    if (!s) return null;
-    // "DD/MM/YYYY" o "DD-MM-YYYY"
-    const dmy = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
-    if (dmy) {
-      const [, d, m, y] = dmy;
-      return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+
+    const dataRows = allRows.slice(headerMatch.rowIndex + 1);
+    const { rows, skipped, sampleRawCostCenters } = this.parseDataRows(dataRows, headerMatch.rowIndex, headerMatch.layout);
+    this.parsedRows.set(rows);
+    this.skippedByCostCenter.set(skipped);
+    this.sampleRawCostCenters.set(sampleRawCostCenters);
+    if (rows.length === 0) {
+      this.fileError.set(
+        skipped > 0
+          ? 'Ninguna fila del archivo corresponde al centro de costos de este proyecto.'
+          : 'No se encontraron filas de datos en el archivo.'
+      );
+    } else {
+      this.checkDuplicates(rows);
     }
-    // "YYYY-MM-DD"
-    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
-    return null;
   }
 
   matchesProjectCostCenter(cell: string): boolean {
@@ -354,50 +342,37 @@ export class EgresosImportComponent implements OnInit, OnDestroy {
     return numbers.includes(code);
   }
 
-  private parseDataRows(rows: unknown[][], headerRowIndex: number): { rows: ParsedRow[]; skipped: number; sampleRawCostCenters: string[] } {
+  private parseDataRows(rows: unknown[][], headerRowIndex: number, layout: AuxiliarLayout): { rows: ParsedRow[]; skipped: number; sampleRawCostCenters: string[] } {
     const out: ParsedRow[] = [];
     let skipped = 0;
     const sampleRawCostCenters: string[] = []; // primeros valores crudos de "Centro de Costos" vistos, para diagnóstico
 
     rows.forEach((row, idx) => {
-      const cell = (i: number) => String(row[i] ?? '').trim();
-      if (row.every(c => String(c ?? '').trim() === '')) return; // fila totalmente vacía
+      const parsed = parseAuxiliarRow(row, headerRowIndex + idx + 2, layout); // +1 por el header, +1 porque Excel es 1-based
+      if (!parsed) return; // fila totalmente vacía
 
-      const costCenterRaw = cell(9);
-      if (costCenterRaw && sampleRawCostCenters.length < 8 && !sampleRawCostCenters.includes(costCenterRaw)) {
-        sampleRawCostCenters.push(costCenterRaw);
+      if (parsed.sourceCostCenterRaw && sampleRawCostCenters.length < 8 && !sampleRawCostCenters.includes(parsed.sourceCostCenterRaw)) {
+        sampleRawCostCenters.push(parsed.sourceCostCenterRaw);
       }
-      if (!this.matchesProjectCostCenter(costCenterRaw)) { skipped++; return; }
-
-      const cuentaCell = cell(0);
-      const accountMatch = cuentaCell.match(/^(\d+)\s*(.*)$/);
-      const sourceAccountCode = accountMatch ? accountMatch[1] : '';
-      const sourceAccountName = accountMatch ? accountMatch[2].trim() : cuentaCell;
-
-      const debitos = this.parseColombianNumber(row[6]);
-      const creditos = this.parseColombianNumber(row[7]);
-      const value = debitos !== 0 ? debitos : (creditos !== 0 ? -creditos : 0);
-
-      const saldoRaw = cell(8);
-      const saldo = saldoRaw ? this.parseColombianNumber(row[8]) : null;
+      if (!this.matchesProjectCostCenter(parsed.sourceCostCenterRaw)) { skipped++; return; }
 
       out.push({
-        rowNumber: headerRowIndex + idx + 2, // +1 por el header, +1 porque Excel es 1-based
+        rowNumber: parsed.rowNumber,
         selected: false,
         budgetItemId: null,
-        value,
-        date: this.parseDate(row[2]),
-        tercero: cell(1),
-        nota: cell(3),
-        docNum: cell(5),
-        cheque: cell(4),
-        mvto: cell(10),
-        saldo,
-        sourceAccountCode,
-        sourceAccountName,
-        sourceMayorCode: cell(11) || cell(12),
-        sourceCostCenterRaw: costCenterRaw,
-        sourceMes: cell(13),
+        value: parsed.value,
+        date: parsed.date,
+        tercero: parsed.tercero,
+        nota: parsed.nota,
+        docNum: parsed.docNum,
+        cheque: parsed.cheque,
+        mvto: parsed.mvto,
+        saldo: parsed.saldo,
+        sourceAccountCode: parsed.sourceAccountCode,
+        sourceAccountName: parsed.sourceAccountName,
+        sourceMayorCode: parsed.sourceMayorCode,
+        sourceCostCenterRaw: parsed.sourceCostCenterRaw,
+        sourceMes: parsed.sourceMes,
       });
     });
 
@@ -530,6 +505,25 @@ export class EgresosImportComponent implements OnInit, OnDestroy {
   rowsReadyToImport = computed(() => this.visibleRows().filter(r => !r.imported && !!r.budgetItemId));
 
   canImport = computed(() => this.rowsReadyToImport().length > 0 && !this.importing());
+
+  // ── Totales de resumen (vista previa, antes de guardar) ─────────────────────
+
+  /** Total de TODO el mes elegido, sin importar los filtros de cuenta/proveedor de la vista
+   * previa — el "gran total" de lo que trae el archivo para ese período. */
+  visibleRowsTotal = computed(() => this.visibleRows().reduce((s, r) => s + r.value, 0));
+
+  /** Total de lo que se está viendo AHORA en la tabla (con los filtros de cuenta/proveedor
+   * aplicados) — distinto del total del mes en cuanto hay algún filtro activo. */
+  filteredPreviewTotal = computed(() => this.filteredPreviewRows().reduce((s, r) => s + r.value, 0));
+
+  /** true cuando hay un filtro de cuenta o proveedor activo — solo entonces tiene sentido
+   * mostrar el total filtrado aparte del total del mes (si no, son el mismo número). */
+  previewFilterActive = computed(() => this.previewAccountFilter() !== null || this.previewProviderFilter() !== null);
+
+  /** Total de las filas actualmente marcadas con el checkbox — útil antes de "Aplicar rubro a
+   * seleccionadas", para saber a cuánto dinero corresponde el lote que se va a mover de una. */
+  selectedRowsTotal = computed(() => this.filteredPreviewRows().filter(r => r.selected).reduce((s, r) => s + r.value, 0));
+  selectedRowsCount = computed(() => this.filteredPreviewRows().filter(r => r.selected).length);
 
   // ── Selector de cuenta PUC por fila ─────────────────────────────────────────
 

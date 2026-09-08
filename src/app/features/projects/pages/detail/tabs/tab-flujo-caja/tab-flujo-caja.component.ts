@@ -8,6 +8,7 @@ import {
   ApexDataLabels,
   ApexGrid,
   ApexLegend,
+  ApexMarkers,
   ApexStroke,
   ApexTooltip,
   ApexXAxis,
@@ -33,6 +34,7 @@ interface ComboChartOptions {
   yaxis: ApexYAxis;
   colors: string[];
   stroke: ApexStroke;
+  markers: ApexMarkers;
   dataLabels: ApexDataLabels;
   legend: ApexLegend;
   tooltip: ApexTooltip;
@@ -366,17 +368,28 @@ export class TabFlujoCajaComponent implements OnInit {
 
   chartReady = computed(() => !this.loading() && !this.error() && !!this.report());
 
+  /** Combo "Flujo neto y saldo acumulado" — misma composición que la gráfica de Excel que el
+   * equipo ya usaba: egresos por fuente (FODC/aliado) de fondo como referencia PLANEADA (esa
+   * división no existe en lo ejecutado real: los egresos registrados vía auxiliares no
+   * distinguen de qué fuente sale la plata), mientras que Ingreso, Egreso total, Flujo neto y
+   * Saldo acumulado sí reflejan el modo activo (Real por defecto — lo realmente cobrado/
+   * ejecutado, no lo presupuestado). */
   chartOptions = computed<ComboChartOptions>(() => {
     const data = this.displayMonths();
+    const round = (v: number) => Math.round(v);
     return {
       series: [
-        { name: `Egreso (${this.viewModeLabel()})`, type: 'column', data: data.map(m => Math.round(this.activeRow(m).egreso)) },
-        { name: `Ingreso (${this.viewModeLabel()})`, type: 'column', data: data.map(m => Math.round(this.activeRow(m).ingreso)) },
-        { name: 'Saldo acumulado', type: 'line', data: data.map(m => Math.round(this.activeRow(m).saldo)) },
+        { name: `Ingreso (${this.viewModeLabel()})`, type: 'line', data: data.map(m => round(this.activeRow(m).ingreso)) },
+        { name: 'Egreso aporte FODC (planeado)', type: 'column', data: data.map(m => round(m.egreso_contraparte)) },
+        { name: 'Egreso aporte aliado/cliente (planeado)', type: 'column', data: data.map(m => round(m.egreso_aliado)) },
+        { name: `Egreso total (${this.viewModeLabel()})`, type: 'line', data: data.map(m => round(this.activeRow(m).egreso)) },
+        { name: `Flujo neto (${this.viewModeLabel()})`, type: 'line', data: data.map(m => round(this.activeRow(m).ingreso - this.activeRow(m).egreso)) },
+        { name: `Saldo acumulado (${this.viewModeLabel()})`, type: 'line', data: data.map(m => round(this.activeRow(m).saldo)) },
       ],
-      chart: { height: 360, type: 'line', toolbar: { show: false } },
-      stroke: { width: [0, 0, 3], curve: 'smooth' },
-      colors: ['#ef4444', '#10b981', '#0ea5e9'],
+      chart: { height: 380, type: 'line', toolbar: { show: false } },
+      stroke: { width: [2, 0, 0, 2, 2, 3], curve: 'straight' },
+      markers: { size: 4, strokeWidth: 0, hover: { size: 6 } },
+      colors: ['#2563eb', '#f59e0b', '#94a3b8', '#eab308', '#38bdf8', '#22c55e'],
       xaxis: { categories: data.map(m => this.monthLabel(m)) },
       yaxis: { labels: { formatter: (val: number) => this.formatCompact(val) } },
       dataLabels: { enabled: false },
@@ -389,7 +402,7 @@ export class TabFlujoCajaComponent implements OnInit {
             label: s.name, value: this.formatCurrency(series[i][dataPointIndex]), color: w.globals.colors[i],
           }))),
       },
-      plotOptions: { bar: { columnWidth: '55%', borderRadius: 4 } },
+      plotOptions: { bar: { columnWidth: '45%', borderRadius: 3 } },
       grid: { borderColor: '#e2e8f0' },
     };
   });
@@ -397,9 +410,12 @@ export class TabFlujoCajaComponent implements OnInit {
   /** Leyenda propia del combo (no depende del render nativo de ApexCharts,
    * que se ve vacío/roto por el mismo problema de CSS que el tooltip). */
   chartLegend = computed(() => [
-    { label: `Egreso (${this.viewModeLabel()})`, color: '#ef4444' },
-    { label: `Ingreso (${this.viewModeLabel()})`, color: '#10b981' },
-    { label: 'Saldo acumulado', color: '#0ea5e9' },
+    { label: `Ingreso (${this.viewModeLabel()})`, color: '#2563eb' },
+    { label: 'Egreso aporte FODC (planeado)', color: '#f59e0b' },
+    { label: 'Egreso aporte aliado/cliente (planeado)', color: '#94a3b8' },
+    { label: `Egreso total (${this.viewModeLabel()})`, color: '#eab308' },
+    { label: `Flujo neto (${this.viewModeLabel()})`, color: '#38bdf8' },
+    { label: `Saldo acumulado (${this.viewModeLabel()})`, color: '#22c55e' },
   ]);
 
   onYearFromChange(value: string): void { this.yearFrom.set(Number(value)); }

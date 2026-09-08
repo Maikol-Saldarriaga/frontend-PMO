@@ -140,6 +140,27 @@
               </button>
             </div>
           </div>
+
+          <!-- Resumen de totales — refleja lo que hay en la tabla de abajo, con los filtros aplicados -->
+          <div class="px-5 py-3 border-b border-gray-100 bg-gray-50/60 flex items-center gap-5 flex-wrap text-xs">
+            <div>
+              <span class="text-gray-400 font-semibold">Total del mes</span>
+              <span class="ml-1.5 font-bold text-gray-900">{{ visibleRows().length }} fila(s) · {{ formatCurrency(visibleRowsTotal()) }}</span>
+            </div>
+            @if (previewFilterActive()) {
+              <div>
+                <span class="text-accent-700 font-semibold">Filtrado</span>
+                <span class="ml-1.5 font-bold text-accent-700">{{ filteredPreviewRows().length }} fila(s) · {{ formatCurrency(filteredPreviewTotal()) }}</span>
+              </div>
+            }
+            @if (someSelected()) {
+              <div>
+                <span class="text-sky-600 font-semibold">Seleccionadas</span>
+                <span class="ml-1.5 font-bold text-sky-700">{{ selectedRowsCount() }} fila(s) · {{ formatCurrency(selectedRowsTotal()) }}</span>
+              </div>
+            }
+          </div>
+
           <div class="overflow-x-auto max-h-[520px] overflow-y-auto">
             <table class="w-full text-xs min-w-[1400px] border-collapse">
               <thead class="sticky top-0 bg-neutral-50 z-10">
@@ -250,6 +271,29 @@
 
   <app-rubro-picker [open]="rubroPickerOpen()" [groups]="activeRubroPickerGroups()" [monthLabel]="activeRubroPickerMonthLabel()"
     (closed)="rubroPickerOpen.set(false)" (picked)="onRubroPicked($event)"></app-rubro-picker>
+
+  @if (sheetPickerOpen()) {
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 backdrop-blur-sm px-4">
+      <div class="w-full max-w-sm rounded-2xl bg-white shadow-xl p-5 space-y-4">
+        <div>
+          <h3 class="text-sm font-bold text-gray-800">Este archivo tiene varias hojas</h3>
+          <p class="text-xs text-gray-400 mt-1">Elige de cuál hoja quieres importar los auxiliares.</p>
+        </div>
+        <div class="space-y-2">
+          @for (name of availableSheetNames(); track name) {
+            <button type="button" (click)="selectSheet(name)"
+              class="w-full flex items-center gap-2.5 px-4 py-3 rounded-xl border border-gray-200 hover:border-accent hover:bg-accent-50 text-left transition-colors">
+              <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 17V7a2 2 0 012-2h6a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2v-2a2 2 0 012-2h2"/>
+              </svg>
+              <span class="text-sm font-semibold text-gray-700">{{ name }}</span>
+            </button>
+          }
+        </div>
+        <button type="button" (click)="cancelSheetPicker()" class="w-full text-xs font-semibold text-gray-400 hover:text-gray-600 py-1">Cancelar</button>
+      </div>
+    </div>
+  }
 
   @if (loadingOverlayVisible()) {
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 backdrop-blur-sm">

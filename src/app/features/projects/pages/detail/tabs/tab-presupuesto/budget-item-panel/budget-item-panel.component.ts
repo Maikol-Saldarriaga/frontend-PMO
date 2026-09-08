@@ -108,8 +108,12 @@ export class BudgetItemPanelComponent implements OnChanges {
     this.itemError.set(null);
     this.itemSaving.set(false);
 
-    this.periodsTouchedManually = false;
     const savedDists = item?.monthly_distributions ?? [];
+    // Si el ítem YA trae una distribución real guardada, se trata como "tocada a mano" desde
+    // el arranque — de lo contrario, cambiar la cantidad/periodicidad/fecha/aportes más arriba
+    // (markDistDirty) pisaría silenciosamente esos periodos ya digitalizados con la vista previa
+    // equitativa. Solo un ítem nuevo (o sin distribución aún) arranca en modo "vista previa".
+    this.periodsTouchedManually = savedDists.length > 0;
     this.periods.set(savedDists.length > 0
       ? savedDists.map(d => ({
           year: d.year, month: d.month,
@@ -326,6 +330,14 @@ export class BudgetItemPanelComponent implements OnChanges {
     this.itemDirty.set(true);
   }
 
+  /** Cada fila de la tabla de periodos representa una unidad de la periodicidad seleccionada
+   * (un mes, un trimestre, un semestre...) — la cantidad es, por definición, cuántas de esas
+   * unidades hay, así que se mantiene sincronizada con el número de filas cada vez que se
+   * agrega o quita un periodo a mano. */
+  private syncQuantityFromPeriods(): void {
+    this.quantity = this.periods().length;
+  }
+
   addPeriod(): void {
     if (this.periods().length >= this.maxQuantity) return;
     this.periodsTouchedManually = true;
@@ -334,12 +346,14 @@ export class BudgetItemPanelComponent implements OnChanges {
     let month = (last?.month ?? 0) + 1;
     if (month > 12) { month = 1; year++; }
     this.periods.update(list => [...list, { year, month, counterpart_amount: 0, ally_amount: 0, executed_amount: 0 }]);
+    this.syncQuantityFromPeriods();
     this.itemDirty.set(true);
   }
 
   removePeriod(i: number): void {
     this.periodsTouchedManually = true;
     this.periods.update(list => list.filter((_, idx) => idx !== i));
+    this.syncQuantityFromPeriods();
     this.itemDirty.set(true);
   }
 
