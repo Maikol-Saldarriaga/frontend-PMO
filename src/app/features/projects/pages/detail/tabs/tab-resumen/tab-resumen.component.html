@@ -19,7 +19,6 @@
       <div class="mt-2 h-1.5 rounded-full bg-gray-100 overflow-hidden">
         <div class="h-full rounded-full bg-gradient-to-r from-sky-400 to-sky-600 transition-all duration-700" [style.width.%]="details.overall_progress"></div>
       </div>
-      <p class="text-[11px] text-gray-400 mt-1">Ponderado real (actividades) · {{ realProgress | number:'1.0-1' }}%</p>
     </div>
 
     <!-- 2. Presupuesto -->
@@ -45,7 +44,7 @@
     <div class="relative bg-white rounded-2xl border border-gray-100 shadow-sm p-5 overflow-hidden">
       <div class="absolute top-0 left-0 w-1 h-full bg-amber-400 rounded-l-2xl"></div>
       <div class="flex items-start justify-between mb-3">
-        <p class="text-xs font-medium text-gray-400 uppercase tracking-wide leading-tight">Presupuesto<br>Restante</p>
+        <p class="text-xs font-medium text-gray-400 uppercase tracking-wide leading-tight">Presupuesto<br>Sin Asignar</p>
         <div class="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
           <svg class="w-4.5 h-4.5 text-amber-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
@@ -53,7 +52,9 @@
         </div>
       </div>
       <p class="text-2xl font-black text-gray-900 leading-none">{{ formatCompact(details.remaining_budget) }}</p>
-      <p class="text-[11px] text-gray-400 mt-1">{{ formatPct(details.remaining_budget_pct) }}% sin ejecutar</p>
+      <!-- Contrato aprobado menos lo ya asignado a rubros (Presupuesto) — NO es lo pendiente por
+           ejecutar (eso es budget_progress/"% ejecutado" arriba, calculado contra egresos reales). -->
+      <p class="text-[11px] text-gray-400 mt-1">{{ formatPct(details.remaining_budget_pct) }}% sin asignar a rubros</p>
       <div class="mt-3 h-1.5 rounded-full bg-gray-100 overflow-hidden">
         <div class="h-full rounded-full bg-gradient-to-r from-amber-300 to-amber-500 transition-all duration-700" [style.width.%]="details.remaining_budget_pct"></div>
       </div>
@@ -223,9 +224,8 @@
                 [attr.stroke-dashoffset]="-seg.offset"
                 stroke-linecap="butt" transform="rotate(-90 50 50)"/>
             }
-            <text x="50" y="45" text-anchor="middle" fill="#1e293b" font-size="13" font-weight="700">{{ realProgress | number:'1.0-1' }}%</text>
-            <text x="50" y="55" text-anchor="middle" fill="#94a3b8" font-size="6.5">avance real</text>
-            <text x="50" y="63" text-anchor="middle" fill="#cbd5e1" font-size="6">{{ details.overall_progress | number:'1.0-1' }}% binario</text>
+            <text x="50" y="47" text-anchor="middle" fill="#1e293b" font-size="13" font-weight="700">{{ details.overall_progress | number:'1.0-1' }}%</text>
+            <text x="50" y="58" text-anchor="middle" fill="#94a3b8" font-size="6.5">avance real</text>
           </svg>
           <div class="w-full space-y-2">
             @for (seg of donutSegments; track $index) {

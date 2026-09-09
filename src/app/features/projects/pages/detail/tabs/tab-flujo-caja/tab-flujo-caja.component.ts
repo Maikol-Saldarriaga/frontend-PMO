@@ -14,6 +14,7 @@ import {
   ApexXAxis,
   ApexYAxis,
   ApexPlotOptions,
+  ApexAnnotations,
 } from 'ng-apexcharts';
 import { ProjectService } from '../../../../services/project.service';
 import { CashFlowMonth, CashFlowReport, CashFlowRubro, FundingReceipt, BudgetEntry, BudgetItem, Disbursement } from '../../../../models/project.model';
@@ -40,6 +41,7 @@ interface ComboChartOptions {
   tooltip: ApexTooltip;
   plotOptions: ApexPlotOptions;
   grid: ApexGrid;
+  annotations: ApexAnnotations;
 }
 
 interface RubroName {
@@ -368,55 +370,112 @@ export class TabFlujoCajaComponent implements OnInit {
 
   chartReady = computed(() => !this.loading() && !this.error() && !!this.report());
 
-  /** Combo "Flujo neto y saldo acumulado" — misma composición que la gráfica de Excel que el
-   * equipo ya usaba, pero en curvas suaves ("S") en vez de barras: egresos por fuente (FODC/
-   * aliado) de fondo como referencia PLANEADA (esa división no existe en lo ejecutado real: los
-   * egresos registrados vía auxiliares no distinguen de qué fuente sale la plata), mientras que
-   * Ingreso, Egreso total, Flujo neto y Saldo acumulado sí reflejan el modo activo (Real por
-   * defecto — lo realmente cobrado/ejecutado, no lo presupuestado). Todas las series son líneas
-   * (curve: 'smooth') — sin columnas — para que el gráfico se lea como una curva S continua. */
+  /** Curva S acumulada — % del valor total planeado del proyecto (ingreso_planeado_total),
+   * panorama de TODO el cronograma de principio a fin, independiente del filtro de años y del
+   * selector Planeado/Real/Proyectado de la tabla de abajo. Tres curvas:
+   *  - Planeado (azul, línea base): acumulado del ingreso planeado (cronograma de desembolsos,
+   *    pestaña 11), mes a mes desde el arranque hasta el cierre. Fija, no cambia con lo real.
+   *  - Real (verde): acumulado de lo efectivamente cobrado hasta HOY — se corta ahí (con un
+   *    punto grande) porque es lo único ya ocurrido y verificado, no continúa hacia adelante.
+   *  - Proyectado (naranja, punteado): arranca exactamente donde termina Real (mismo punto, para
+   *    que se vea como continuación) y reparte lo que falta por cobrar (Total - cobrado real)
+   *    entre los meses restantes del cronograma, llegando a 100% en el mes de cierre.
+   */
+  sCurveMonths = computed<EnrichedMonth[]>(() => [...this.enrichedMonths()].sort((a, b) => (a.year * 12 + a.month) - (b.year * 12 + b.month)));
+
   chartOptions = computed<ComboChartOptions>(() => {
-    const data = this.displayMonths();
-    const round = (v: number) => Math.round(v);
+    const months = this.sCurveMonths();
+    const total = this.report()?.ingreso_planeado_total ?? 0;
+    const empty: ComboChartOptions = {
+      series: [], chart: { height: 380, type: 'line', toolbar: { show: false } },
+      xaxis: { categories: [] }, yaxis: {}, colors: ['#2563eb', '#16a34a', '#f97316'],
+      stroke: { width: 2, curve: 'straight' }, markers: { size: 0 },
+      dataLabels: { enabled: false }, legend: { show: false }, tooltip: {}, plotOptions: {}, grid: {}, annotations: {},
+    };
+    if (!months.length || total <= 0) return empty;
+
+    const today = new Date();
+    const currentKey = today.getFullYear() * 12 + (today.getMonth() + 1);
+
+    let cumPlan = 0, cumReal = 0;
+    let todayIdx = -1, realPctAtToday = 0;
+    const planPct: number[] = [];
+    const realPct: (number | null)[] = [];
+
+    months.forEach((m) => {
+      cumPlan += m.ingreso_planeado;
+      planPct.push(Math.min(100, Math.round((cumPlan / total) * 1000) / 10));
+
+      const key = m.year * 12 + m.month;
+      if (key <= currentKey) {
+        cumReal += m.ingreso_bruto;
+        realPct.push(Math.min(100, Math.round((cumReal / total) * 1000) / 10));
+      } else {
+        realPct.push(null);
+      }
+    });
+    // El último índice con dato real es "hoy" — de ahí arranca Proyectado.
+    for (let i = 0; i < realPct.length; i++) if (realPct[i] !== null) { todayIdx = i; realPctAtToday = realPct[i]!; }
+
+    const lastIdx = months.length - 1;
+    const projPct: (number | null)[] = months.map((_, i) => {
+      if (todayIdx === -1 || i < todayIdx) return null;
+      if (i === todayIdx) return realPctAtToday;
+      if (lastIdx === todayIdx) return null;
+      const t = (i - todayIdx) / (lastIdx - todayIdx);
+      return Math.round((realPctAtToday + (100 - realPctAtToday) * t) * 10) / 10;
+    });
+
     return {
       series: [
-        { name: `Ingreso (${this.viewModeLabel()})`, type: 'line', data: data.map(m => round(this.activeRow(m).ingreso)) },
-        { name: 'Egreso aporte FODC (planeado)', type: 'line', data: data.map(m => round(m.egreso_contraparte)) },
-        { name: 'Egreso aporte aliado/cliente (planeado)', type: 'line', data: data.map(m => round(m.egreso_aliado)) },
-        { name: `Egreso total (${this.viewModeLabel()})`, type: 'line', data: data.map(m => round(this.activeRow(m).egreso)) },
-        { name: `Flujo neto (${this.viewModeLabel()})`, type: 'line', data: data.map(m => round(this.activeRow(m).ingreso - this.activeRow(m).egreso)) },
-        { name: `Saldo acumulado (${this.viewModeLabel()})`, type: 'line', data: data.map(m => round(this.activeRow(m).saldo)) },
+        { name: 'Planeado (línea base)', type: 'line', data: planPct },
+        { name: 'Real (ejecutado)', type: 'line', data: realPct },
+        { name: 'Proyectado (saldo a cierre)', type: 'line', data: projPct },
       ],
       chart: { height: 380, type: 'line', toolbar: { show: false } },
-      stroke: { width: [2, 2, 2, 2, 2, 3], curve: 'smooth' },
-      markers: { size: 4, strokeWidth: 0, hover: { size: 6 } },
-      colors: ['#2563eb', '#f59e0b', '#94a3b8', '#eab308', '#38bdf8', '#22c55e'],
-      xaxis: { categories: data.map(m => this.monthLabel(m)) },
-      yaxis: { labels: { formatter: (val: number) => this.formatCompact(val) } },
+      stroke: { width: [2, 3, 2], curve: 'straight', dashArray: [0, 0, 6] },
+      markers: {
+        size: 0,
+        discrete: todayIdx >= 0 ? [{ seriesIndex: 1, dataPointIndex: todayIdx, fillColor: '#16a34a', strokeColor: '#fff', size: 7, shape: 'circle' }] : [],
+      },
+      colors: ['#2563eb', '#16a34a', '#f97316'],
+      xaxis: { categories: months.map(m => this.monthLabel(m)) },
+      // El eje Y muestra el % (que es lo que realmente grafican las series) y, entre paréntesis,
+      // a cuánta plata equivale ese % del valor total planeado del proyecto — así el % deja de
+      // ser un número abstracto y se lee directo en pesos.
+      yaxis: { min: 0, max: 100, labels: { formatter: (v: number) => `${Math.round(v)}% (${this.formatCompact((v / 100) * total)})` } },
       dataLabels: { enabled: false },
       legend: { show: false },
       tooltip: {
         shared: true,
         intersect: false,
-        custom: ({ series, dataPointIndex, w }: any) =>
-          buildTooltip(this.monthLabel(data[dataPointIndex]), w.config.series.map((s: any, i: number) => ({
-            label: s.name, value: this.formatCurrency(series[i][dataPointIndex]), color: w.globals.colors[i],
-          }))),
+        custom: ({ series, dataPointIndex, w }: any) => {
+          const rows = w.config.series
+            .map((s: any, i: number) => ({ label: s.name, value: series[i][dataPointIndex], color: w.globals.colors[i] }))
+            .filter((r: any) => r.value !== null && r.value !== undefined)
+            .map((r: any) => ({ ...r, value: `${r.value}% (${this.formatCurrency((r.value / 100) * total)})` }));
+          return buildTooltip(this.monthLabel(months[dataPointIndex]), rows);
+        },
       },
       plotOptions: {},
       grid: { borderColor: '#e2e8f0' },
+      annotations: todayIdx >= 0 ? {
+        xaxis: [{
+          x: this.monthLabel(months[todayIdx]),
+          borderColor: '#9ca3af',
+          strokeDashArray: 4,
+          label: { text: 'Hoy', style: { color: '#6b7280', background: 'transparent' }, orientation: 'horizontal' },
+        }],
+      } : {},
     };
   });
 
   /** Leyenda propia del combo (no depende del render nativo de ApexCharts,
    * que se ve vacío/roto por el mismo problema de CSS que el tooltip). */
   chartLegend = computed(() => [
-    { label: `Ingreso (${this.viewModeLabel()})`, color: '#2563eb' },
-    { label: 'Egreso aporte FODC (planeado)', color: '#f59e0b' },
-    { label: 'Egreso aporte aliado/cliente (planeado)', color: '#94a3b8' },
-    { label: `Egreso total (${this.viewModeLabel()})`, color: '#eab308' },
-    { label: `Flujo neto (${this.viewModeLabel()})`, color: '#38bdf8' },
-    { label: `Saldo acumulado (${this.viewModeLabel()})`, color: '#22c55e' },
+    { label: 'Planeado (línea base)', color: '#2563eb' },
+    { label: 'Real (ejecutado)', color: '#16a34a' },
+    { label: 'Proyectado (saldo a cierre)', color: '#f97316' },
   ]);
 
   onYearFromChange(value: string): void { this.yearFrom.set(Number(value)); }

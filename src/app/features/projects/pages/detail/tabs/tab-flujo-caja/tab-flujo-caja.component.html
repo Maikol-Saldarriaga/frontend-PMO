@@ -145,7 +145,11 @@
     <!-- ── Gráfico ──────────────────────────────────────────────────────── -->
     @if (chartReady()) {
       <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
-        <h3 class="text-sm font-bold text-gray-900 mb-2">Ingresos, egresos y saldo acumulado por mes ({{ viewModeLabel() }})</h3>
+        <h3 class="text-sm font-bold text-gray-900 mb-2">Curva S — % del valor total del proyecto</h3>
+        <p class="text-xs text-neutral-400 -mt-1 mb-2">
+          Panorama completo del cronograma, de inicio a cierre — no depende del filtro de años ni del selector de abajo.
+          @if (r.ingreso_planeado_total) { Valor total planeado: <span class="font-semibold text-gray-500">{{ formatCurrency(r.ingreso_planeado_total) }}</span>. }
+        </p>
         <div class="flex flex-wrap items-center gap-4 mb-3">
           @for (item of chartLegend(); track item.label) {
             <div class="flex items-center gap-1.5 text-xs font-medium text-gray-500">
@@ -161,7 +165,7 @@
           [markers]="chartOptions().markers"
           [dataLabels]="chartOptions().dataLabels" [legend]="chartOptions().legend"
           [tooltip]="chartOptions().tooltip" [plotOptions]="chartOptions().plotOptions"
-          [grid]="chartOptions().grid"></apx-chart>
+          [grid]="chartOptions().grid" [annotations]="chartOptions().annotations"></apx-chart>
       </div>
     }
 

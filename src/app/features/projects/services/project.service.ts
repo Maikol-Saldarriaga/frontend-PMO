@@ -279,8 +279,22 @@ export class ProjectService {
   // por rubro (createInvoice/updateInvoice/listFundingReceipts/...), apuntando a las rutas
   // anidadas bajo /disbursements/:did en vez de /budget/:bid. ──
 
+  /** Página cruda del backend (ver ListInvoicesByDisbursement en finance.go) — desde que ese
+   * endpoint se paginó por cursor, ya no devuelve un array plano sino { data, next_cursor }. */
+  private listInvoicesByDisbursementPage(id: string, did: string, params?: { cursor?: string | number; limit?: number }): Observable<CursorPage<Invoice>> {
+    const query: Record<string, string> = { limit: String(params?.limit ?? 100) };
+    if (params?.cursor) query['cursor'] = String(params.cursor);
+    return this.http.get<CursorPage<Invoice>>(ENDPOINTS.projects.disbursementInvoices(id, did), { params: query });
+  }
+
+  /** Todas las facturas de un desembolso (factura general + IVA/administración derivadas) —
+   * recorre todas las páginas, ya que esta vista siempre necesita el conjunto completo, no una
+   * tabla paginada. */
   listInvoicesByDisbursement(id: string, did: string): Observable<Invoice[]> {
-    return this.http.get<Invoice[]>(ENDPOINTS.projects.disbursementInvoices(id, did));
+    return this.listInvoicesByDisbursementPage(id, did, { limit: 100 }).pipe(
+      expand(page => page.next_cursor ? this.listInvoicesByDisbursementPage(id, did, { limit: 100, cursor: page.next_cursor }) : EMPTY),
+      reduce<CursorPage<Invoice>, Invoice[]>((acc, page) => acc.concat(page.data), []),
+    );
   }
 
   createInvoiceForDisbursement(id: string, did: string, data: InvoiceRequest): Observable<Invoice> {
@@ -295,8 +309,19 @@ export class ProjectService {
     return this.http.delete<void>(ENDPOINTS.projects.disbursementInvoiceById(id, did, iid));
   }
 
+  private listFundingReceiptsForDisbursementPage(id: string, did: string, iid: string, params?: { cursor?: string | number; limit?: number }): Observable<CursorPage<FundingReceipt>> {
+    const query: Record<string, string> = { limit: String(params?.limit ?? 100) };
+    if (params?.cursor) query['cursor'] = String(params.cursor);
+    return this.http.get<CursorPage<FundingReceipt>>(ENDPOINTS.projects.disbursementReceipts(id, did, iid), { params: query });
+  }
+
+  /** Todos los cobros de una factura — recorre todas las páginas (ver nota en
+   * listInvoicesByDisbursement: este endpoint también se paginó por cursor). */
   listFundingReceiptsForDisbursement(id: string, did: string, iid: string): Observable<FundingReceipt[]> {
-    return this.http.get<FundingReceipt[]>(ENDPOINTS.projects.disbursementReceipts(id, did, iid));
+    return this.listFundingReceiptsForDisbursementPage(id, did, iid, { limit: 100 }).pipe(
+      expand(page => page.next_cursor ? this.listFundingReceiptsForDisbursementPage(id, did, iid, { limit: 100, cursor: page.next_cursor }) : EMPTY),
+      reduce<CursorPage<FundingReceipt>, FundingReceipt[]>((acc, page) => acc.concat(page.data), []),
+    );
   }
 
   createFundingReceiptForDisbursement(id: string, did: string, iid: string, data: FundingReceiptRequest): Observable<FundingReceipt> {

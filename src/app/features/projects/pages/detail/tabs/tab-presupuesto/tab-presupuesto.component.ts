@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, signal } from '@angular/core';
+import { Component, Input, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -87,6 +87,61 @@ export class TabPresupuestoComponent implements OnInit {
   };
 
   readonly EPSILON = 0.01;
+
+  // ── Filtro de vigencia (año) ─────────────────────────────────────────────
+  // "Vigencia" = lo planeado para un año específico, según la distribución mensual de cada
+  // ítem (budget_item.monthly_distributions) — no el total histórico del ítem. 'all' muestra el
+  // total de siempre (todas las vigencias combinadas).
+  selectedYear = signal<number | 'all'>('all');
+
+  availableYears = computed<number[]>(() => {
+    const years = new Set<number>();
+    const collect = (items: BudgetItem[]) => {
+      for (const it of items) for (const d of it.monthly_distributions ?? []) years.add(d.year);
+    };
+    for (const s of this.sections) for (const e of s.entries) collect(e.items);
+    collect(this.projectLevelSection.entries.flatMap(e => e.items));
+    return [...years].sort((a, b) => a - b);
+  });
+
+  selectYear(y: number | 'all'): void { this.selectedYear.set(y); }
+
+  /** Planeado (contrapartida + aliado) de un ítem para la vigencia elegida — sin filtro, el
+   * total histórico del ítem tal cual; con un año elegido, la suma de solo esos meses según su
+   * distribución mensual. Públicos (no solo usados en los totales agregados de arriba) para que
+   * las filas de ítem en la tabla también reflejen el filtro de vigencia. */
+  itemTotalForYear(item: BudgetItem): number {
+    const year = this.selectedYear();
+    if (year === 'all') return item.total_value;
+    return (item.monthly_distributions ?? [])
+      .filter(d => d.year === year)
+      .reduce((s, d) => s + (d.counterpart_amount ?? 0) + (d.ally_amount ?? 0), 0);
+  }
+  itemCPForYear(item: BudgetItem): number {
+    const year = this.selectedYear();
+    if (year === 'all') return item.counterpart_contribution ?? 0;
+    return (item.monthly_distributions ?? [])
+      .filter(d => d.year === year)
+      .reduce((s, d) => s + (d.counterpart_amount ?? 0), 0);
+  }
+  itemAllyForYear(item: BudgetItem): number {
+    const year = this.selectedYear();
+    if (year === 'all') return item.ally_contribution ?? 0;
+    return (item.monthly_distributions ?? [])
+      .filter(d => d.year === year)
+      .reduce((s, d) => s + (d.ally_amount ?? 0), 0);
+  }
+
+  /** Igual que compTotalCP/compTotalAlly, pero a nivel de un solo sub-componente (entry) — para
+   * la fila "Subtotal" bajo la tabla de ítems de cada uno. */
+  entryCPTotal(e: EntrySection): number {
+    if (this.selectedYear() === 'all') return e.company_contribution ?? e.items.reduce((a, r) => a + (r.counterpart_contribution ?? 0), 0);
+    return e.items.reduce((a, r) => a + this.itemCPForYear(r), 0);
+  }
+  entryAllyTotal(e: EntrySection): number {
+    if (this.selectedYear() === 'all') return e.ally_contribution ?? e.items.reduce((a, r) => a + (r.ally_contribution ?? 0), 0);
+    return e.items.reduce((a, r) => a + this.itemAllyForYear(r), 0);
+  }
 
   // ── Catálogo de rubros (para el selector de "Crear rubro") ─────────────────
   catalogItems      = signal<BudgetComponentCatalogItem[]>([]);
@@ -183,16 +238,27 @@ export class TabPresupuestoComponent implements OnInit {
   // ── Totales ──────────────────────────────────────────────────────────────
 
   compTotal(s: ComponentSection): number {
-    return s.entries.reduce((acc, e) => acc + (e.total_contribution ?? this.entryTotal(e)), 0);
+    if (this.selectedYear() === 'all') {
+      return s.entries.reduce((acc, e) => acc + (e.total_contribution ?? this.entryTotal(e)), 0);
+    }
+    // Con una vigencia elegida, el total_contribution cacheado del backend (histórico completo)
+    // ya no sirve — siempre se recalcula sumando la distribución mensual de ese año.
+    return s.entries.reduce((acc, e) => acc + this.entryTotal(e), 0);
   }
   compTotalCP(s: ComponentSection): number {
-    return s.entries.reduce((acc, e) => acc + (e.company_contribution ?? e.items.reduce((a, r) => a + (r.counterpart_contribution ?? 0), 0)), 0);
+    if (this.selectedYear() === 'all') {
+      return s.entries.reduce((acc, e) => acc + (e.company_contribution ?? e.items.reduce((a, r) => a + (r.counterpart_contribution ?? 0), 0)), 0);
+    }
+    return s.entries.reduce((acc, e) => acc + e.items.reduce((a, r) => a + this.itemCPForYear(r), 0), 0);
   }
   compTotalAlly(s: ComponentSection): number {
-    return s.entries.reduce((acc, e) => acc + (e.ally_contribution ?? e.items.reduce((a, r) => a + (r.ally_contribution ?? 0), 0)), 0);
+    if (this.selectedYear() === 'all') {
+      return s.entries.reduce((acc, e) => acc + (e.ally_contribution ?? e.items.reduce((a, r) => a + (r.ally_contribution ?? 0), 0)), 0);
+    }
+    return s.entries.reduce((acc, e) => acc + e.items.reduce((a, r) => a + this.itemAllyForYear(r), 0), 0);
   }
   entryTotal(e: EntrySection): number {
-    return e.items.reduce((s, r) => s + r.total_value, 0);
+    return e.items.reduce((s, r) => s + this.itemTotalForYear(r), 0);
   }
   grandTotalCP(): number {
     return this.sections.reduce((s, sec) => s + this.compTotalCP(sec), 0) + this.compTotalCP(this.projectLevelSection);
