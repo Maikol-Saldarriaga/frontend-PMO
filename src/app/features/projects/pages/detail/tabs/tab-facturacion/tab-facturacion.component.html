@@ -517,17 +517,16 @@
         <!-- Tabla: IVA / Administración -->
         <div>
           <p class="text-[10px] font-bold text-neutral-400 uppercase tracking-wide mb-2">2. IVA y administración (opcional)</p>
-          <p class="text-[11px] text-neutral-400 mb-3">Marca el check solo si esta factura lleva IVA y/o administración — cada uno se registrará como una factura aparte, con su propio número.</p>
+          <p class="text-[11px] text-neutral-400 mb-3">Marca el check solo si esta factura lleva IVA y/o administración — ambas quedan discriminadas dentro de esta MISMA factura, nunca generan una factura aparte, y su cobro siempre es por el valor total.</p>
           <div class="rounded-xl border border-neutral-200 overflow-hidden">
           <div class="overflow-x-auto">
-            <table class="w-full text-sm min-w-[780px] border-collapse">
+            <table class="w-full text-sm min-w-[640px] border-collapse">
               <thead>
                 <tr class="bg-neutral-50 border-b border-neutral-100 text-[10px] font-bold text-neutral-500 uppercase tracking-wide">
                   <th class="text-left px-4 py-3">Concepto</th>
                   <th class="text-center px-3 py-3 w-16">Aplica</th>
                   <th class="text-left px-3 py-3 w-24">%</th>
                   <th class="text-left px-3 py-3 w-56">Base / Modo</th>
-                  <th class="text-left px-3 py-3 w-40">N° factura</th>
                   <th class="text-right px-4 py-3">Valor</th>
                 </tr>
               </thead>
@@ -547,14 +546,9 @@
                         <span class="absolute inset-y-0 right-2 flex items-center text-xs text-neutral-400 font-semibold pointer-events-none">%</span>
                       </div>
                     </td>
-                    <td class="px-3 py-3 align-middle text-xs text-neutral-400">Sobre valor de factura</td>
-                    <td class="px-3 py-3 align-middle">
-                      <input type="text" [(ngModel)]="form.admin_fee_invoice_number" placeholder="N° de factura"
-                        class="w-full px-2.5 py-2 rounded-lg border border-neutral-200 text-sm placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
-                    </td>
+                    <td class="px-3 py-3 align-middle text-xs text-neutral-400">Sobre costo directo</td>
                     <td class="px-4 py-3 align-middle text-right font-bold text-violet-600">{{ formAdminFeeAmount() !== null ? formatCurrency(formAdminFeeAmount()!) : '—' }}</td>
                   } @else {
-                    <td class="px-3 py-3.5 align-middle text-neutral-300">—</td>
                     <td class="px-3 py-3.5 align-middle text-neutral-300">—</td>
                     <td class="px-3 py-3.5 align-middle text-neutral-300">—</td>
                     <td class="px-4 py-3.5 align-middle text-right text-neutral-300">—</td>
@@ -576,23 +570,14 @@
                       </div>
                     </td>
                     <td class="px-3 py-3 align-middle">
-                      <select [ngModel]="form.iva_base" (ngModelChange)="onFormIvaBaseChange($event)" class="w-full px-2.5 py-2 rounded-lg border border-neutral-200 text-xs bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors cursor-pointer">
-                        <option value="factura">Sobre valor de factura</option>
-                        <option value="administracion">Sobre valor de administración</option>
+                      <select [(ngModel)]="form.iva_base" class="w-full px-2.5 py-2 rounded-lg border border-neutral-200 text-xs bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors cursor-pointer">
+                        <option value="costo_directo">Sobre costo directo</option>
+                        <option value="administracion">Sobre administración</option>
+                        <option value="costo_directo_administracion">Sobre costo directo + administración</option>
                       </select>
-                    </td>
-                    <td class="px-3 py-3 align-middle">
-                      @if (form.iva_base === 'administracion') {
-                        <input type="text" [(ngModel)]="form.iva_invoice_number" placeholder="N° de factura"
-                          class="w-full px-2.5 py-2 rounded-lg border border-neutral-200 text-sm placeholder-neutral-300 bg-neutral-50 focus:bg-surface outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
-                      } @else {
-                        <input type="text" value="Misma factura" disabled title="El IVA sobre el valor de la factura es la misma factura, sin número propio."
-                          class="w-full px-2.5 py-2 rounded-lg border border-neutral-200 text-xs text-neutral-400 bg-neutral-100 cursor-not-allowed"/>
-                      }
                     </td>
                     <td class="px-4 py-3 align-middle text-right font-bold text-amber-600">{{ formIvaEstimate()?.amount !== undefined ? formatCurrency(formIvaEstimate()!.amount) : '—' }}</td>
                   } @else {
-                    <td class="px-3 py-3.5 align-middle text-neutral-300">—</td>
                     <td class="px-3 py-3.5 align-middle text-neutral-300">—</td>
                     <td class="px-3 py-3.5 align-middle text-neutral-300">—</td>
                     <td class="px-4 py-3.5 align-middle text-right text-neutral-300">—</td>
@@ -612,26 +597,26 @@
             <span class="text-neutral-500">Valor de la factura (ingreso del proyecto)</span>
             <span class="font-bold text-primary-700 text-base">{{ formatCurrency(form.value ?? 0) }}</span>
           </div>
+          @if (form.admin_fee_applies || form.iva_applies) {
+            <div class="flex items-center justify-between text-sm">
+              <span class="text-neutral-500">Costo directo (despejado)</span>
+              <span class="font-semibold text-neutral-600">{{ formCostoDirecto() !== null ? formatCurrency(formCostoDirecto()!) : '—' }}</span>
+            </div>
+          }
           @if (form.admin_fee_applies) {
             <div class="flex items-center justify-between text-sm">
-              <span class="text-neutral-500">Administración (sobre la factura)</span>
+              <span class="text-neutral-500">Administración (sobre el costo directo)</span>
               <span class="font-semibold text-violet-600">{{ formAdminFeeAmount() !== null ? formatCurrency(formAdminFeeAmount()!) : '—' }}</span>
             </div>
           }
           @if (form.iva_applies) {
             <div class="flex items-center justify-between text-sm">
-              <span class="text-neutral-500">IVA ({{ form.iva_base === 'administracion' ? 'sobre la administración' : 'sobre la factura' }})</span>
+              <span class="text-neutral-500">IVA ({{ form.iva_base === 'costo_directo' ? 'sobre costo directo' : form.iva_base === 'administracion' ? 'sobre administración' : 'sobre costo directo + administración' }})</span>
               <span class="font-semibold text-amber-600">{{ formIvaEstimate()?.amount !== undefined ? formatCurrency(formIvaEstimate()!.amount) : '—' }}</span>
             </div>
           }
-          @if (formValueBeforeIva() !== null) {
-            <div class="flex items-center justify-between text-sm">
-              <span class="text-neutral-500">Valor antes de IVA</span>
-              <span class="font-semibold text-neutral-600">{{ formatCurrency(formValueBeforeIva()!) }}</span>
-            </div>
-          }
           <p class="text-[10px] text-neutral-400 pt-1.5">
-            Administración siempre se registra como factura independiente. IVA es independiente solo cuando se calcula sobre la administración; sobre la factura es la misma factura. Ninguna de las dos cuenta como ingreso del proyecto.
+            IVA y administración quedan discriminados dentro de esta misma factura — nunca generan una factura aparte, y el cobro siempre es por el valor total de arriba.
           </p>
         </div>
         </div>

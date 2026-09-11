@@ -1366,17 +1366,19 @@ export interface Invoice {
   document_key?:             string | null;
   document_name?:            string | null;
 
-  // ── IVA / Administración: esta factura puede ser la "factura" general, o una factura
-  // derivada e independiente de IVA/administración generada junto con ella — ver
-  // record_type. Ninguna factura de tipo "iva"/"administracion" cuenta como ingreso del
-  // proyecto (solo el value de la factura general sí).
+  // ── IVA / Administración: SIEMPRE anotaciones informativas sobre esta MISMA factura — nunca
+  // generan una fila aparte. record_type/parent_invoice_id quedan solo por compatibilidad con
+  // facturas históricas creadas antes de este cambio (cuando sí existía esa fila independiente).
   record_type:               'factura' | 'iva' | 'administracion';
   parent_invoice_id?:        string | null;
   iva_applies:                boolean;
   iva_percentage?:            number | null;
-  /** "factura": el IVA se calcula sobre el valor de la factura.
-   *  "administracion": el IVA se calcula sobre el valor de la administración solamente. */
-  iva_base?:                  'factura' | 'administracion';
+  /** El valor de la factura es el TOTAL BRUTO (Costo Directo + Administración + IVA incluidos);
+   *  el backend despeja el Costo Directo primero y liquida Administración/IVA a partir de él.
+   *  "costo_directo": IVA calculado solo sobre el Costo Directo.
+   *  "administracion": IVA calculado solo sobre el monto de Administración.
+   *  "costo_directo_administracion": IVA calculado sobre Costo Directo + Administración. */
+  iva_base?:                  'administracion' | 'costo_directo' | 'costo_directo_administracion';
   iva_amount?:                number | null;
   admin_fee_applies:          boolean;
   /** "suma": la administración se suma aparte (predeterminado).
@@ -1398,14 +1400,10 @@ export interface InvoiceRequest {
 
   iva_applies?:            boolean;
   iva_percentage?:         number | null;
-  iva_base?:               'factura' | 'administracion';
-  /** N° de factura propio de la factura de IVA derivada — requerido si iva_applies. */
-  iva_invoice_number?:     string | null;
+  iva_base?:               'administracion' | 'costo_directo' | 'costo_directo_administracion';
   admin_fee_applies?:      boolean;
   admin_fee_percentage?:   number | null;
   admin_fee_mode?:         'suma' | 'disminuye';
-  /** N° de factura propio de la factura de administración derivada — requerido si admin_fee_applies. */
-  admin_fee_invoice_number?: string | null;
 }
 
 // ── Solicitud de Desembolso ─────────────────────────────────────────────────────────────────
