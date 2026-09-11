@@ -370,52 +370,66 @@ export class TabFlujoCajaComponent implements OnInit {
 
   chartReady = computed(() => !this.loading() && !this.error() && !!this.report());
 
-  /** Curva S acumulada — % del valor total planeado del proyecto (ingreso_planeado_total),
-   * panorama de TODO el cronograma de principio a fin, independiente del filtro de años y del
-   * selector Planeado/Real/Proyectado de la tabla de abajo. Tres curvas:
-   *  - Planeado (azul, línea base): acumulado del ingreso planeado (cronograma de desembolsos,
-   *    pestaña 11), mes a mes desde el arranque hasta el cierre. Fija, no cambia con lo real.
-   *  - Real (verde): acumulado de lo efectivamente cobrado hasta HOY — se corta ahí (con un
-   *    punto grande) porque es lo único ya ocurrido y verificado, no continúa hacia adelante.
-   *  - Proyectado (naranja, punteado): arranca exactamente donde termina Real (mismo punto, para
-   *    que se vea como continuación) y reparte lo que falta por cobrar (Total - cobrado real)
+  /** Curva S acumulada — panorama de TODO el cronograma de principio a fin, independiente del
+   * filtro de años y del selector Planeado/Real/Proyectado de la tabla de abajo. Dibuja 4 series
+   * pero solo 3 CONCEPTOS (la leyenda propia, chartLegend, agrupa las 2 de ingreso en una sola
+   * entrada) — cada una normalizada como % de SU PROPIO total (ingreso_planeado_total para las de
+   * ingreso, egreso_planeado_total para las de egreso — dos denominadores distintos, por eso el
+   * eje Y solo muestra %, y el equivalente en pesos de cada punto se muestra en el tooltip usando
+   * el total correcto de esa serie):
+   *  - Ingreso cobrado (verde sólido): acumulado de lo efectivamente cobrado hasta HOY — se corta
+   *    ahí (con un punto grande) porque es lo único ya ocurrido y verificado.
+   *  - Ingreso proyectado (verde punteado, mismo color que el anterior para que se lea como
+   *    continuación de una sola línea, no como un concepto aparte): arranca exactamente donde
+   *    termina el cobrado (mismo punto, mismo valor) y reparte linealmente lo que falta por cobrar
    *    entre los meses restantes del cronograma, llegando a 100% en el mes de cierre.
+   *    No hay línea "Ingreso Planeado" (línea base fija): Disbursement.planned_year/planned_month
+   *    no es un concepto que se maneje realmente en la app (los desembolsos no se registran con
+   *    una fecha planeada de cobro) — esa línea existía antes pero graficaba un dato sin respaldo.
+   *  - Egreso Planeado (gris, línea base): acumulado del presupuesto por rubro
+   *    (egreso_contraparte + egreso_aliado = egreso_total), mes a mes — a diferencia del ingreso,
+   *    SÍ es un dato real y confiable (viene del presupuesto asignado, budget_monthly_distributions).
+   *  - Egreso Real (rojo, "Ejecutado real"): acumulado de budget_executions — lo efectivamente
+   *    gastado, sin corte por fecha (no hay "egreso proyectado": solo se pidió Planeado vs Real).
    */
   sCurveMonths = computed<EnrichedMonth[]>(() => [...this.enrichedMonths()].sort((a, b) => (a.year * 12 + a.month) - (b.year * 12 + b.month)));
 
   chartOptions = computed<ComboChartOptions>(() => {
     const months = this.sCurveMonths();
-    const total = this.report()?.ingreso_planeado_total ?? 0;
+    const ingresoTotal = this.report()?.ingreso_planeado_total ?? 0;
+    const egresoTotal = this.report()?.egreso_planeado_total ?? 0;
     const empty: ComboChartOptions = {
       series: [], chart: { height: 380, type: 'line', toolbar: { show: false } },
-      xaxis: { categories: [] }, yaxis: {}, colors: ['#2563eb', '#16a34a', '#f97316'],
+      xaxis: { categories: [] }, yaxis: {}, colors: ['#16a34a', '#16a34a', '#94a3b8', '#dc2626'],
       stroke: { width: 2, curve: 'straight' }, markers: { size: 0 },
       dataLabels: { enabled: false }, legend: { show: false }, tooltip: {}, plotOptions: {}, grid: {}, annotations: {},
     };
-    if (!months.length || total <= 0) return empty;
+    if (!months.length || (ingresoTotal <= 0 && egresoTotal <= 0)) return empty;
 
     const today = new Date();
     const currentKey = today.getFullYear() * 12 + (today.getMonth() + 1);
 
-    let cumPlan = 0, cumReal = 0;
+    let cumIngresoReal = 0, cumEgresoPlan = 0, cumEgresoReal = 0;
     let todayIdx = -1, realPctAtToday = 0;
-    const planPct: number[] = [];
-    const realPct: (number | null)[] = [];
+    const ingresoRealPct: (number | null)[] = [];
+    const egresoPlanPct: number[] = [];
+    const egresoRealPct: number[] = [];
 
     months.forEach((m) => {
-      cumPlan += m.ingreso_planeado;
-      planPct.push(Math.min(100, Math.round((cumPlan / total) * 1000) / 10));
-
       const key = m.year * 12 + m.month;
       if (key <= currentKey) {
-        cumReal += m.ingreso_bruto;
-        realPct.push(Math.min(100, Math.round((cumReal / total) * 1000) / 10));
+        cumIngresoReal += m.ingreso_bruto;
+        ingresoRealPct.push(ingresoTotal > 0 ? Math.min(100, Math.round((cumIngresoReal / ingresoTotal) * 1000) / 10) : 0);
       } else {
-        realPct.push(null);
+        ingresoRealPct.push(null);
       }
+      cumEgresoPlan += m.egreso_total;
+      egresoPlanPct.push(egresoTotal > 0 ? Math.min(100, Math.round((cumEgresoPlan / egresoTotal) * 1000) / 10) : 0);
+      cumEgresoReal += m.egreso_real_registrado;
+      egresoRealPct.push(egresoTotal > 0 ? Math.min(100, Math.round((cumEgresoReal / egresoTotal) * 1000) / 10) : 0);
     });
-    // El último índice con dato real es "hoy" — de ahí arranca Proyectado.
-    for (let i = 0; i < realPct.length; i++) if (realPct[i] !== null) { todayIdx = i; realPctAtToday = realPct[i]!; }
+    // El último índice con dato real es "hoy" — de ahí arranca Proyectado, en el mismo punto.
+    for (let i = 0; i < ingresoRealPct.length; i++) if (ingresoRealPct[i] !== null) { todayIdx = i; realPctAtToday = ingresoRealPct[i]!; }
 
     const lastIdx = months.length - 1;
     const projPct: (number | null)[] = months.map((_, i) => {
@@ -426,24 +440,30 @@ export class TabFlujoCajaComponent implements OnInit {
       return Math.round((realPctAtToday + (100 - realPctAtToday) * t) * 10) / 10;
     });
 
+    // Un total por serie, en el mismo orden, para que el tooltip convierta cada % al peso
+    // correcto (ingreso_planeado_total para las 2 de ingreso, egreso_planeado_total para las 2 de
+    // egreso).
+    const seriesTotals = [ingresoTotal, ingresoTotal, egresoTotal, egresoTotal];
+
     return {
       series: [
-        { name: 'Planeado (línea base)', type: 'line', data: planPct },
-        { name: 'Real (ejecutado)', type: 'line', data: realPct },
-        { name: 'Proyectado (saldo a cierre)', type: 'line', data: projPct },
+        { name: 'Ingreso cobrado', type: 'line', data: ingresoRealPct },
+        { name: 'Ingreso proyectado', type: 'line', data: projPct },
+        { name: 'Egreso Planeado (presupuesto)', type: 'line', data: egresoPlanPct },
+        { name: 'Egreso Real (ejecutado)', type: 'line', data: egresoRealPct },
       ],
       chart: { height: 380, type: 'line', toolbar: { show: false } },
-      stroke: { width: [2, 3, 2], curve: 'straight', dashArray: [0, 0, 6] },
+      stroke: { width: [3, 2, 2, 3], curve: 'straight', dashArray: [0, 6, 4, 0] },
       markers: {
         size: 0,
-        discrete: todayIdx >= 0 ? [{ seriesIndex: 1, dataPointIndex: todayIdx, fillColor: '#16a34a', strokeColor: '#fff', size: 7, shape: 'circle' }] : [],
+        discrete: todayIdx >= 0 ? [{ seriesIndex: 0, dataPointIndex: todayIdx, fillColor: '#16a34a', strokeColor: '#fff', size: 7, shape: 'circle' }] : [],
       },
-      colors: ['#2563eb', '#16a34a', '#f97316'],
+      colors: ['#16a34a', '#16a34a', '#94a3b8', '#dc2626'],
       xaxis: { categories: months.map(m => this.monthLabel(m)) },
-      // El eje Y muestra el % (que es lo que realmente grafican las series) y, entre paréntesis,
-      // a cuánta plata equivale ese % del valor total planeado del proyecto — así el % deja de
-      // ser un número abstracto y se lee directo en pesos.
-      yaxis: { min: 0, max: 100, labels: { formatter: (v: number) => `${Math.round(v)}% (${this.formatCompact((v / 100) * total)})` } },
+      // El eje Y solo muestra el % — ya no hay un único "total" del que derivar un equivalente en
+      // pesos válido para las 4 series (ingresos y egresos tienen denominadores distintos); ese
+      // equivalente correcto por serie se muestra en el tooltip.
+      yaxis: { min: 0, max: 100, labels: { formatter: (v: number) => `${Math.round(v)}%` } },
       dataLabels: { enabled: false },
       legend: { show: false },
       tooltip: {
@@ -451,9 +471,9 @@ export class TabFlujoCajaComponent implements OnInit {
         intersect: false,
         custom: ({ series, dataPointIndex, w }: any) => {
           const rows = w.config.series
-            .map((s: any, i: number) => ({ label: s.name, value: series[i][dataPointIndex], color: w.globals.colors[i] }))
+            .map((s: any, i: number) => ({ label: s.name, value: series[i][dataPointIndex], color: w.globals.colors[i], total: seriesTotals[i] }))
             .filter((r: any) => r.value !== null && r.value !== undefined)
-            .map((r: any) => ({ ...r, value: `${r.value}% (${this.formatCurrency((r.value / 100) * total)})` }));
+            .map((r: any) => ({ ...r, value: `${r.value}% (${this.formatCurrency((r.value / 100) * r.total)})` }));
           return buildTooltip(this.monthLabel(months[dataPointIndex]), rows);
         },
       },
@@ -473,9 +493,9 @@ export class TabFlujoCajaComponent implements OnInit {
   /** Leyenda propia del combo (no depende del render nativo de ApexCharts,
    * que se ve vacío/roto por el mismo problema de CSS que el tooltip). */
   chartLegend = computed(() => [
-    { label: 'Planeado (línea base)', color: '#2563eb' },
-    { label: 'Real (ejecutado)', color: '#16a34a' },
-    { label: 'Proyectado (saldo a cierre)', color: '#f97316' },
+    { label: 'Ingreso (cobrado / proyectado)', color: '#16a34a' },
+    { label: 'Egreso Planeado (presupuesto)', color: '#94a3b8' },
+    { label: 'Egreso Real (ejecutado)', color: '#dc2626' },
   ]);
 
   onYearFromChange(value: string): void { this.yearFrom.set(Number(value)); }

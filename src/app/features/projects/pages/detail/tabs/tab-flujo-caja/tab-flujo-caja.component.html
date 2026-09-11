@@ -148,7 +148,9 @@
         <h3 class="text-sm font-bold text-gray-900 mb-2">Curva S — % del valor total del proyecto</h3>
         <p class="text-xs text-neutral-400 -mt-1 mb-2">
           Panorama completo del cronograma, de inicio a cierre — no depende del filtro de años ni del selector de abajo.
-          @if (r.ingreso_planeado_total) { Valor total planeado: <span class="font-semibold text-gray-500">{{ formatCurrency(r.ingreso_planeado_total) }}</span>. }
+          Las curvas de ingreso se calculan como % del valor total del contrato y las de egreso como % del presupuesto total —
+          @if (r.ingreso_planeado_total) { valor del contrato: <span class="font-semibold text-gray-500">{{ formatCurrency(r.ingreso_planeado_total) }}</span>; }
+          @if (r.egreso_planeado_total) { presupuesto total: <span class="font-semibold text-gray-500">{{ formatCurrency(r.egreso_planeado_total) }}</span>. }
         </p>
         <div class="flex flex-wrap items-center gap-4 mb-3">
           @for (item of chartLegend(); track item.label) {
