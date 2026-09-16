@@ -370,19 +370,22 @@ export class TabFlujoCajaComponent implements OnInit {
 
   chartReady = computed(() => !this.loading() && !this.error() && !!this.report());
 
-  /** Curva S acumulada — panorama de TODO el cronograma de principio a fin, independiente del
-   * filtro de años y del selector Planeado/Real/Proyectado de la tabla de abajo. Dibuja 4 series
-   * pero solo 3 CONCEPTOS (la leyenda propia, chartLegend, agrupa las 2 de ingreso en una sola
-   * entrada) — cada una normalizada como % de SU PROPIO total (ingreso_planeado_total para las de
-   * ingreso, egreso_planeado_total para las de egreso — dos denominadores distintos, por eso el
-   * eje Y solo muestra %, y el equivalente en pesos de cada punto se muestra en el tooltip usando
-   * el total correcto de esa serie):
-   *  - Ingreso cobrado (verde sólido): acumulado de lo efectivamente cobrado hasta HOY — se corta
-   *    ahí (con un punto grande) porque es lo único ya ocurrido y verificado.
+  /** Curva S acumulada, en PESOS (no %) — el eje Y y el tooltip muestran directamente el dinero
+   * acumulado a cada mes, que es lo que de verdad importa aquí; el % ya no es el dato principal
+   * (antes normalizar ingreso/egreso contra dos totales distintos obligaba a un eje Y en %, que
+   * además hacía ilegible por qué una línea se quedaba "plana" — una curva ACUMULADA plana entre
+   * dos meses simplemente significa que no entró/salió dinero nuevo en esos meses, que es
+   * justamente lo correcto cuando la tabla de abajo muestra $0 en esos meses; graficarlo en pesos
+   * directos hace esa lectura obvia sin tener que reconciliarla contra un %).
+   * Panorama de TODO el cronograma de principio a fin, independiente del filtro de años y del
+   * selector Planeado/Real/Proyectado de la tabla de abajo. Dibuja 4 series pero solo 3 CONCEPTOS
+   * (la leyenda propia, chartLegend, agrupa las 2 de ingreso en una sola entrada):
+   *  - Ingreso cobrado (verde sólido): acumulado de lo efectivamente cobrado (ingreso_bruto) hasta
+   *    HOY — se corta ahí (con un punto grande) porque es lo único ya ocurrido y verificado.
    *  - Ingreso proyectado (verde punteado, mismo color que el anterior para que se lea como
    *    continuación de una sola línea, no como un concepto aparte): arranca exactamente donde
    *    termina el cobrado (mismo punto, mismo valor) y reparte linealmente lo que falta por cobrar
-   *    entre los meses restantes del cronograma, llegando a 100% en el mes de cierre.
+   *    (ingreso_planeado_total - cobrado a la fecha) entre los meses restantes del cronograma.
    *    No hay línea "Ingreso Planeado" (línea base fija): Disbursement.planned_year/planned_month
    *    no es un concepto que se maneje realmente en la app (los desembolsos no se registran con
    *    una fecha planeada de cobro) — esa línea existía antes pero graficaba un dato sin respaldo.
@@ -397,60 +400,54 @@ export class TabFlujoCajaComponent implements OnInit {
   chartOptions = computed<ComboChartOptions>(() => {
     const months = this.sCurveMonths();
     const ingresoTotal = this.report()?.ingreso_planeado_total ?? 0;
-    const egresoTotal = this.report()?.egreso_planeado_total ?? 0;
     const empty: ComboChartOptions = {
       series: [], chart: { height: 380, type: 'line', toolbar: { show: false } },
       xaxis: { categories: [] }, yaxis: {}, colors: ['#16a34a', '#16a34a', '#94a3b8', '#dc2626'],
       stroke: { width: 2, curve: 'straight' }, markers: { size: 0 },
       dataLabels: { enabled: false }, legend: { show: false }, tooltip: {}, plotOptions: {}, grid: {}, annotations: {},
     };
-    if (!months.length || (ingresoTotal <= 0 && egresoTotal <= 0)) return empty;
+    if (!months.length) return empty;
 
     const today = new Date();
     const currentKey = today.getFullYear() * 12 + (today.getMonth() + 1);
 
     let cumIngresoReal = 0, cumEgresoPlan = 0, cumEgresoReal = 0;
-    let todayIdx = -1, realPctAtToday = 0;
-    const ingresoRealPct: (number | null)[] = [];
-    const egresoPlanPct: number[] = [];
-    const egresoRealPct: number[] = [];
+    let todayIdx = -1, realAmountAtToday = 0;
+    const ingresoRealAmt: (number | null)[] = [];
+    const egresoPlanAmt: number[] = [];
+    const egresoRealAmt: number[] = [];
 
     months.forEach((m) => {
       const key = m.year * 12 + m.month;
       if (key <= currentKey) {
         cumIngresoReal += m.ingreso_bruto;
-        ingresoRealPct.push(ingresoTotal > 0 ? Math.min(100, Math.round((cumIngresoReal / ingresoTotal) * 1000) / 10) : 0);
+        ingresoRealAmt.push(cumIngresoReal);
       } else {
-        ingresoRealPct.push(null);
+        ingresoRealAmt.push(null);
       }
       cumEgresoPlan += m.egreso_total;
-      egresoPlanPct.push(egresoTotal > 0 ? Math.min(100, Math.round((cumEgresoPlan / egresoTotal) * 1000) / 10) : 0);
+      egresoPlanAmt.push(cumEgresoPlan);
       cumEgresoReal += m.egreso_real_registrado;
-      egresoRealPct.push(egresoTotal > 0 ? Math.min(100, Math.round((cumEgresoReal / egresoTotal) * 1000) / 10) : 0);
+      egresoRealAmt.push(cumEgresoReal);
     });
     // El último índice con dato real es "hoy" — de ahí arranca Proyectado, en el mismo punto.
-    for (let i = 0; i < ingresoRealPct.length; i++) if (ingresoRealPct[i] !== null) { todayIdx = i; realPctAtToday = ingresoRealPct[i]!; }
+    for (let i = 0; i < ingresoRealAmt.length; i++) if (ingresoRealAmt[i] !== null) { todayIdx = i; realAmountAtToday = ingresoRealAmt[i]!; }
 
     const lastIdx = months.length - 1;
-    const projPct: (number | null)[] = months.map((_, i) => {
+    const projAmt: (number | null)[] = months.map((_, i) => {
       if (todayIdx === -1 || i < todayIdx) return null;
-      if (i === todayIdx) return realPctAtToday;
+      if (i === todayIdx) return realAmountAtToday;
       if (lastIdx === todayIdx) return null;
       const t = (i - todayIdx) / (lastIdx - todayIdx);
-      return Math.round((realPctAtToday + (100 - realPctAtToday) * t) * 10) / 10;
+      return Math.round(realAmountAtToday + (ingresoTotal - realAmountAtToday) * t);
     });
-
-    // Un total por serie, en el mismo orden, para que el tooltip convierta cada % al peso
-    // correcto (ingreso_planeado_total para las 2 de ingreso, egreso_planeado_total para las 2 de
-    // egreso).
-    const seriesTotals = [ingresoTotal, ingresoTotal, egresoTotal, egresoTotal];
 
     return {
       series: [
-        { name: 'Ingreso cobrado', type: 'line', data: ingresoRealPct },
-        { name: 'Ingreso proyectado', type: 'line', data: projPct },
-        { name: 'Egreso Planeado (presupuesto)', type: 'line', data: egresoPlanPct },
-        { name: 'Egreso Real (ejecutado)', type: 'line', data: egresoRealPct },
+        { name: 'Ingreso cobrado', type: 'line', data: ingresoRealAmt },
+        { name: 'Ingreso proyectado', type: 'line', data: projAmt },
+        { name: 'Egreso Planeado (presupuesto)', type: 'line', data: egresoPlanAmt },
+        { name: 'Egreso Real (ejecutado)', type: 'line', data: egresoRealAmt },
       ],
       chart: { height: 380, type: 'line', toolbar: { show: false } },
       stroke: { width: [3, 2, 2, 3], curve: 'straight', dashArray: [0, 6, 4, 0] },
@@ -460,10 +457,7 @@ export class TabFlujoCajaComponent implements OnInit {
       },
       colors: ['#16a34a', '#16a34a', '#94a3b8', '#dc2626'],
       xaxis: { categories: months.map(m => this.monthLabel(m)) },
-      // El eje Y solo muestra el % — ya no hay un único "total" del que derivar un equivalente en
-      // pesos válido para las 4 series (ingresos y egresos tienen denominadores distintos); ese
-      // equivalente correcto por serie se muestra en el tooltip.
-      yaxis: { min: 0, max: 100, labels: { formatter: (v: number) => `${Math.round(v)}%` } },
+      yaxis: { min: 0, labels: { formatter: (v: number) => this.formatCompact(v) } },
       dataLabels: { enabled: false },
       legend: { show: false },
       tooltip: {
@@ -471,9 +465,9 @@ export class TabFlujoCajaComponent implements OnInit {
         intersect: false,
         custom: ({ series, dataPointIndex, w }: any) => {
           const rows = w.config.series
-            .map((s: any, i: number) => ({ label: s.name, value: series[i][dataPointIndex], color: w.globals.colors[i], total: seriesTotals[i] }))
+            .map((s: any, i: number) => ({ label: s.name, value: series[i][dataPointIndex], color: w.globals.colors[i] }))
             .filter((r: any) => r.value !== null && r.value !== undefined)
-            .map((r: any) => ({ ...r, value: `${r.value}% (${this.formatCurrency((r.value / 100) * r.total)})` }));
+            .map((r: any) => ({ ...r, value: this.formatCurrency(r.value) }));
           return buildTooltip(this.monthLabel(months[dataPointIndex]), rows);
         },
       },
