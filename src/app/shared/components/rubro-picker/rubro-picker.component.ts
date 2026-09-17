@@ -9,6 +9,10 @@ export interface RubroPickerItem {
   concept:           string;
   presupuestadoMes:  number;
   ejecutadoMes:       number;
+  /** true cuando el rubro no tiene distribución mensual planeada para el mes de referencia —
+   * el 0/0 en ese caso es "no hay plan", no "presupuesto en cero". Informativo: no bloquea
+   * la selección del rubro. */
+  noPlanThisMonth?:  boolean;
 }
 
 export interface RubroPickerGroup {

@@ -172,12 +172,12 @@ export class TabEquipoComponent implements OnInit, OnDestroy {
     const check = () => { if (++done === 2) this.loading.set(false); };
 
     this.svc.getTeam(this.projectId).subscribe({
-      next:  m => { this.members.set(m ?? []); check(); },
+      next:  m => { this.members.set(Array.isArray(m) ? m : []); check(); },
       error: () => { this.error.set('No se pudo cargar el equipo.'); check(); },
     });
 
     this.svc.getUsers().subscribe({
-      next:  u => { this.users.set(u ?? []); check(); },
+      next:  u => { this.users.set(Array.isArray(u) ? u : []); check(); },
       error: () => check(),
     });
   }
@@ -236,7 +236,7 @@ export class TabEquipoComponent implements OnInit, OnDestroy {
 
   private fetchPrincipalOptions(term: string): void {
     this.supervisorSvc.getList(this.formAllyId || null, term).subscribe({
-      next: res => this.principalOptions.set(res.users ?? []),
+      next: res => this.principalOptions.set((res.users ?? []).filter((u: any) => u.is_active !== false)),
       error: () => {},
     });
   }
@@ -244,7 +244,7 @@ export class TabEquipoComponent implements OnInit, OnDestroy {
   private fetchAllySupOptions(term: string): void {
     if (!this.formAllyId) { this.allySupOptions.set([]); return; }
     this.supervisorSvc.getList(this.formAllyId, term).subscribe({
-      next: res => this.allySupOptions.set(res.affiliates ?? []),
+      next: res => this.allySupOptions.set((res.affiliates ?? []).filter((a: any) => a.is_active !== false)),
       error: () => {},
     });
   }

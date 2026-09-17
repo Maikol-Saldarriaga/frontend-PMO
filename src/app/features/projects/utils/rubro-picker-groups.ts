@@ -35,8 +35,9 @@ export function buildRubroPickerGroups(
       : undefined;
     const presupuestadoMes = (dist?.counterpart_amount ?? 0) + (dist?.ally_amount ?? 0);
     const ejecutadoMes = monthKey ? (executionsMonthlySummary[info.id]?.[monthKey] ?? 0) : 0;
+    const noPlanThisMonth = monthKey != null && dist === undefined;
 
-    byComponent.get(key)!.items.push({ budgetItemId: info.id, concept: info.concept, presupuestadoMes, ejecutadoMes });
+    byComponent.get(key)!.items.push({ budgetItemId: info.id, concept: info.concept, presupuestadoMes, ejecutadoMes, noPlanThisMonth });
   }
   return [...byComponent.values()];
 }

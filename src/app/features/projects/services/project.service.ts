@@ -104,11 +104,12 @@ import {
 } from '../models/project.model';
 
 export interface ProjectFilters {
-  name?:      string;
-  type?:      string;
-  status?:    string;
-  date_from?: string;
-  date_to?:   string;
+  name?:           string;
+  type?:           string;
+  status?:         string;
+  date_from?:      string;
+  date_to?:        string;
+  cost_center_id?: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -123,6 +124,7 @@ export class ProjectService {
     if (filters.status)    params.set('status',    filters.status);
     if (filters.date_from) params.set('date_from', filters.date_from);
     if (filters.date_to)   params.set('date_to',   filters.date_to);
+    if (filters.cost_center_id) params.set('cost_center_id', filters.cost_center_id);
     return this.http.get<ProjectsPageResponse>(`${ENDPOINTS.projects.list}?${params.toString()}`);
   }
 
@@ -540,7 +542,9 @@ export class ProjectService {
   }
 
   getTeam(id: string): Observable<TeamMember[]> {
-    return this.http.get<TeamMember[]>(ENDPOINTS.projects.team(id));
+    return this.http.get<any>(ENDPOINTS.projects.team(id)).pipe(
+      map(res => Array.isArray(res) ? res : (res?.data ?? [])),
+    );
   }
 
   addTeamMember(id: string, data: TeamMemberRequest): Observable<TeamMember> {
@@ -562,6 +566,7 @@ export class ProjectService {
       map(res => {
         const list = Array.isArray(res) ? res : (res?.data ?? res?.users ?? []);
         return list
+          .filter((u: any) => u.is_active !== false)
           .map((u: any) => ({
             id:    u.id,
             email: u.email,
