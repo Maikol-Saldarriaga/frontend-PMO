@@ -70,7 +70,7 @@
         <div class="lg:col-span-1 lg:sticky lg:top-24 space-y-4">
 
           <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <div class="p-4 border-b border-gray-100">
+            <div class="p-4 border-b border-gray-100 space-y-2">
               <div class="relative">
                 <svg class="w-4 h-4 text-gray-300 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
@@ -78,6 +78,13 @@
                 <input type="text" [(ngModel)]="search" placeholder="Buscar desembolso..."
                   class="w-full pl-9 pr-3 py-2 rounded-xl border border-neutral-200 text-sm text-primary-700 placeholder-neutral-300 bg-neutral-50 outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors"/>
               </div>
+              <select [ngModel]="filterYear()" (ngModelChange)="filterYear.set($event)"
+                class="w-full px-3 py-2 rounded-xl border border-neutral-200 text-xs text-primary-700 bg-neutral-50 outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent transition-colors cursor-pointer">
+                <option [ngValue]="'all'">Todas las vigencias</option>
+                @for (v of vigencias(); track v.year) {
+                  <option [ngValue]="v.year">Vigencia {{ v.year }}</option>
+                }
+              </select>
             </div>
 
             <div class="max-h-[420px] overflow-y-auto divide-y divide-gray-50">
@@ -90,14 +97,14 @@
                     <p class="text-xs font-semibold truncate" [class.text-accent]="selectedDisbursement()?.id === d.id" [class.text-primary-700]="selectedDisbursement()?.id !== d.id">
                       {{ d.name }}
                     </p>
-                    <p class="text-[10px] text-neutral-400 truncate">{{ d.percentage }}% · {{ statusLabel(d.status) }}</p>
+                    <p class="text-[10px] text-neutral-400 truncate">{{ d.planned_year ?? '—' }} · {{ d.percentage }}% de la vigencia · {{ statusLabel(d.status) }}</p>
                   </div>
                   <span class="text-[11px] font-bold text-neutral-500 flex-shrink-0">{{ formatCompact(d.planned_amount) }}</span>
                 </button>
               }
               @if (!filteredDisbursements().length) {
                 <div class="px-4 py-8 text-center">
-                  <p class="text-xs text-neutral-400">Sin resultados para "{{ search }}".</p>
+                  <p class="text-xs text-neutral-400">Sin resultados{{ search ? ' para "' + search + '"' : '' }}.</p>
                 </div>
               }
             </div>

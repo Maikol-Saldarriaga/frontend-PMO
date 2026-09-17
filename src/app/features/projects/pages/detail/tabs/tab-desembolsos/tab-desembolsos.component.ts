@@ -5,7 +5,7 @@ import { forkJoin } from 'rxjs';
 
 import { ProjectService } from '../../../../services/project.service';
 import { ConfirmDialogService } from '../../../../../../shared/components/confirm-dialog/confirm-dialog.service';
-import { Disbursement, DisbursementRequest, DisbursementStatus } from '../../../../models/project.model';
+import { Disbursement, DisbursementRequest, DisbursementStatus, VigenciaBudget } from '../../../../models/project.model';
 import { MoneyMaskDirective } from '../../../../../../shared/directives/money-mask.directive';
 
 const MONTH_NAMES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
@@ -28,11 +28,15 @@ function emptyForm(): FormState {
   };
 }
 
-/** Solicitud de Desembolsos — tramos planeados como % del valor total del proyecto (no de un
- * rubro), que permanecen "planeado" hasta que la(s) factura(s) ligada(s) a ellos se cobran
- * (funding_receipts). Ver Disbursement / documento de flujo financiero, sección "Rama de
- * Ingresos". Mismo patrón visual/estructural que TabEgresosComponent: KPIs arriba, tabla
- * principal, panel lateral para crear/editar. */
+/** Solicitud de Desembolsos — tramos planeados como % de lo PRESUPUESTADO EN LA VIGENCIA
+ * (planned_year), no del valor total del proyecto ni de un rubro, que permanecen "planeado"
+ * hasta que la(s) factura(s) ligada(s) a ellos se cobran (funding_receipts). Cada desembolso
+ * debe elegir una vigencia (año) con presupuesto planeado — el backend rechaza tanto la
+ * ausencia de vigencia como una vigencia sin nada presupuestado, y valida dos topes: 100% de
+ * lo presupuestado EN ESA vigencia, y que la suma de todos los desembolsos (de todas las
+ * vigencias) nunca supere el valor total del proyecto. Ver Disbursement / documento de flujo
+ * financiero, sección "Rama de Ingresos". Mismo patrón visual/estructural que
+ * TabEgresosComponent: KPIs arriba, tabla principal, panel lateral para crear/editar. */
 @Component({
   selector: 'app-tab-desembolsos',
   standalone: true,
@@ -57,11 +61,29 @@ export class TabDesembolsosComponent implements OnInit {
   projectValue    = signal<number | null>(null);
   totalFacturado  = signal(0);
 
+  // ── Vigencias (años) con presupuesto planeado — cada desembolso debe elegir una, y el %
+  // que se le asigna es una fracción de SU total presupuestado, no del valor del proyecto. ──
+  vigencias = signal<VigenciaBudget[]>([]);
+
+  // ── Filtro de la tabla por vigencia — 'all' agrega todas (solo tiene sentido para los
+  // totales en dinero: el % mezclado entre vigencias de distinto tamaño no dice nada). ──
+  filterYear = signal<number | 'all'>('all');
+
+  filteredItems = computed(() => {
+    const year = this.filterYear();
+    return year === 'all' ? this.items() : this.items().filter(i => i.planned_year === year);
+  });
+
   ngOnInit(): void {
     this.load();
 
     this.svc.getProject(this.projectId).subscribe({
       next: p => this.projectValue.set(p.value ?? null),
+      error: () => {},
+    });
+
+    this.svc.listDisbursementVigencias(this.projectId).subscribe({
+      next: v => this.vigencias.set(v),
       error: () => {},
     });
   }
@@ -97,14 +119,23 @@ export class TabDesembolsosComponent implements OnInit {
     });
   }
 
-  // ── KPIs + totales (fila final de la tabla) ──────────────────────────────
-  totalPercentage = computed(() => this.items().reduce((s, i) => s + i.percentage, 0));
-  totalPlanned    = computed(() => this.items().reduce((s, i) => s + i.planned_amount, 0));
-  totalPaid       = computed(() => this.items().reduce((s, i) => s + i.paid_amount, 0));
-  totalBalance    = computed(() => this.items().reduce((s, i) => s + i.balance, 0));
+  // ── KPIs + totales (fila final de la tabla) — sobre filteredItems(), así que reflejan la
+  // vigencia elegida en el filtro (o todas, para los que son sumables en dinero). ──
+  totalPlanned    = computed(() => this.filteredItems().reduce((s, i) => s + i.planned_amount, 0));
+  totalPaid       = computed(() => this.filteredItems().reduce((s, i) => s + i.paid_amount, 0));
+  totalBalance    = computed(() => this.filteredItems().reduce((s, i) => s + i.balance, 0));
   collectionPct   = computed(() => {
     const total = this.totalPlanned();
     return total > 0 ? Math.min(100, Math.round((this.totalPaid() / total) * 100)) : 0;
+  });
+
+  /** % de la vigencia filtrada ya comprometido en desembolsos — solo tiene sentido con una
+   * vigencia específica elegida (mezclar % de vigencias con distinto presupuesto no dice
+   * nada); en 'Todas' se deja sin dato. */
+  totalPercentage = computed<number | null>(() => {
+    const year = this.filterYear();
+    if (year === 'all') return null;
+    return this.filteredItems().reduce((s, i) => s + i.percentage, 0);
   });
 
   /** % del valor total del proyecto que ya se ha facturado — el contexto que pidió el
@@ -122,31 +153,50 @@ export class TabDesembolsosComponent implements OnInit {
   saveError = signal<string | null>(null);
   deletingId = signal<string | null>(null);
 
-  /** % disponible antes de superar el 100% del valor total — excluye el propio ítem si se está editando. */
+  /** Total presupuestado de la vigencia elegida en el formulario — lo que el % del formulario
+   * es una fracción de (no el valor total del proyecto). 0 mientras no se elija vigencia. */
+  formVigenciaTotal = computed(() => {
+    const year = this.form().planned_year;
+    if (year == null) return 0;
+    return this.vigencias().find(v => v.year === year)?.total_presupuestado ?? 0;
+  });
+
+  /** % disponible antes de superar el 100% de lo presupuestado EN LA VIGENCIA elegida —
+   * excluye el propio ítem si se está editando, y solo cuenta desembolsos de esa misma
+   * vigencia (una vigencia distinta no compite por el mismo 100%). */
   availablePercentage = computed(() => {
+    const year = this.form().planned_year;
+    if (year == null) return 0;
     const editingId = this.form().id;
-    const used = this.items().filter(i => i.id !== editingId).reduce((s, i) => s + i.percentage, 0);
+    const used = this.items()
+      .filter(i => i.id !== editingId && i.planned_year === year)
+      .reduce((s, i) => s + i.percentage, 0);
     return Math.max(0, 100 - used);
   });
 
   formOverPercentage = computed(() => (Number(this.form().percentage) || 0) > this.availablePercentage() + 0.01);
 
   /** Equivalente en dinero del % que se está escribiendo — se recalcula en vivo contra el
-   * valor total del proyecto para que el usuario vea a cuánto corresponde ese % sin tener
-   * que calcularlo mentalmente. */
+   * total presupuestado de la vigencia elegida, para que el usuario vea a cuánto corresponde
+   * ese % sin tener que calcularlo mentalmente. */
   formPlannedAmount = computed(() => {
     const pct = Number(this.form().percentage) || 0;
-    const total = this.projectValue() ?? 0;
-    return total * pct / 100;
+    return this.formVigenciaTotal() * pct / 100;
   });
 
   canSave(): boolean {
     const f = this.form();
-    return !!f.name.trim() && !!f.percentage && f.percentage > 0 && f.percentage <= 100 && !this.formOverPercentage();
+    return !!f.name.trim() && !!f.planned_year && !!f.percentage && f.percentage > 0 && f.percentage <= 100 && !this.formOverPercentage();
   }
 
   openCreate(): void {
-    this.form.set(emptyForm());
+    const f = emptyForm();
+    // si la tabla ya está filtrada por una vigencia, arrancar el formulario en esa misma —
+    // ahorra el clic de volver a elegirla en el caso más común (agregar otro tramo a la
+    // vigencia que se está mirando).
+    const filtered = this.filterYear();
+    if (filtered !== 'all') f.planned_year = filtered;
+    this.form.set(f);
     this.saveError.set(null);
     this.panelOpen.set(true);
   }
@@ -174,11 +224,11 @@ export class TabDesembolsosComponent implements OnInit {
     this.form.update(f => ({ ...f, [field]: value }));
   }
 
-  /** Permite escribir el desembolso directamente en pesos — se convierte a % del valor
-   * total del proyecto (mismo dato que persiste el backend). Complementa al input de %:
-   * cualquiera de los dos que se edite actualiza al otro. */
+  /** Permite escribir el desembolso directamente en pesos — se convierte a % del total
+   * presupuestado de la vigencia elegida (mismo dato que persiste el backend). Complementa
+   * al input de %: cualquiera de los dos que se edite actualiza al otro. */
   updateFormAmount(amount: number | null): void {
-    const total = this.projectValue() ?? 0;
+    const total = this.formVigenciaTotal();
     const pct = total > 0 && amount ? Math.round((amount / total) * 10000) / 100 : null;
     this.updateFormField('percentage', pct);
   }
@@ -187,9 +237,10 @@ export class TabDesembolsosComponent implements OnInit {
     const f = this.form();
     const name = f.name.trim();
     if (!name) { this.saveError.set('El nombre / hito es obligatorio.'); return; }
+    if (!f.planned_year) { this.saveError.set('Debes elegir la vigencia a la que va este desembolso.'); return; }
     if (!f.percentage || f.percentage <= 0 || f.percentage > 100) { this.saveError.set('El porcentaje debe estar entre 0 y 100.'); return; }
     if (this.formOverPercentage()) {
-      this.saveError.set(`La suma de porcentajes superaría el 100% del valor total del proyecto (disponible: ${this.availablePercentage().toFixed(2)}%).`);
+      this.saveError.set(`La suma de porcentajes de la vigencia ${f.planned_year} superaría el 100% de lo presupuestado para ese año (disponible: ${this.availablePercentage().toFixed(2)}%).`);
       return;
     }
 

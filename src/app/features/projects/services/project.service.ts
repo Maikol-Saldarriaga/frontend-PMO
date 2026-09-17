@@ -40,6 +40,7 @@ import {
   InvoiceRequest,
   Disbursement,
   DisbursementRequest,
+  VigenciaBudget,
   GanttResponse,
   GanttFilters,
   ScopeComponent,
@@ -272,6 +273,14 @@ export class ProjectService {
 
   deleteDisbursement(id: string, did: string): Observable<void> {
     return this.http.delete<void>(ENDPOINTS.projects.disbursementById(id, did));
+  }
+
+  /** Vigencias (años) con presupuesto planeado para este proyecto — popula el selector de
+   * vigencia del formulario de desembolsos. */
+  listDisbursementVigencias(id: string): Observable<VigenciaBudget[]> {
+    return this.http.get<{ data: VigenciaBudget[] }>(ENDPOINTS.projects.disbursementVigencias(id)).pipe(
+      map(res => res.data ?? []),
+    );
   }
 
   // ── Facturas y cobros ligados a un desembolso (Fase 2b) — la Factura FODC -> Aliado se

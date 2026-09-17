@@ -1407,11 +1407,12 @@ export interface InvoiceRequest {
 }
 
 // ── Solicitud de Desembolso ─────────────────────────────────────────────────────────────────
-// Un tramo planeado como % del VALOR TOTAL del proyecto (no de un rubro) — permanece
-// "planeado" hasta que las facturas ligadas a él (Invoice.disbursement_id) se cobran
-// (FundingReceipt). planned_amount/paid_amount/balance/status son calculados por el backend
-// en cada lectura, nunca editables desde el formulario.
-
+// Un tramo planeado como % de lo PRESUPUESTADO EN LA VIGENCIA (planned_year), no del valor
+// total del proyecto ni de un rubro — permanece "planeado" hasta que las facturas ligadas a
+// él (Invoice.disbursement_id) se cobran (FundingReceipt). vigencia_total/planned_amount/
+// paid_amount/balance/status son calculados por el backend en cada lectura, nunca editables
+// desde el formulario. planned_year es obligatorio: el backend rechaza un desembolso sin
+// vigencia, o cuya vigencia no tenga nada presupuestado. Ver VigenciaBudget.
 export type DisbursementStatus = 'planeado' | 'parcial' | 'pagado';
 
 export interface Disbursement {
@@ -1429,6 +1430,9 @@ export interface Disbursement {
   observation?:          string | null;
   created_at:            string;
   updated_at:            string;
+  /** Total presupuestado (budget_monthly_distributions) para planned_year — lo que percentage
+   * es una fracción de. */
+  vigencia_total:        number;
   planned_amount:        number;
   paid_amount:           number;
   balance:               number;
@@ -1446,6 +1450,13 @@ export interface DisbursementRequest {
   requested_date?: string | null;
   sort_order?:     number;
   observation?:    string | null;
+}
+
+/** Una vigencia (año calendario) seleccionable para un desembolso, con su total
+ * presupuestado — ver GET /projects/:id/disbursements/vigencias. */
+export interface VigenciaBudget {
+  year:                number;
+  total_presupuestado: number;
 }
 
 // ── Cobros reales recibidos (contra una factura ya registrada) ──────────────

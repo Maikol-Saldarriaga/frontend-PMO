@@ -68,6 +68,7 @@ export const ENDPOINTS = {
     extensionById:     (id: string, eid: string) => `${API_URL}/projects/${id}/extensions/${eid}`,
     disbursements:     (id: string) => `${API_URL}/projects/${id}/disbursements`,
     disbursementById:  (id: string, did: string) => `${API_URL}/projects/${id}/disbursements/${did}`,
+    disbursementVigencias: (id: string) => `${API_URL}/projects/${id}/disbursements/vigencias`,
     disbursementInvoices:    (id: string, did: string) => `${API_URL}/projects/${id}/disbursements/${did}/invoices`,
     disbursementInvoiceById: (id: string, did: string, iid: string) => `${API_URL}/projects/${id}/disbursements/${did}/invoices/${iid}`,
     disbursementReceipts:    (id: string, did: string, iid: string) => `${API_URL}/projects/${id}/disbursements/${did}/invoices/${iid}/receipts`,

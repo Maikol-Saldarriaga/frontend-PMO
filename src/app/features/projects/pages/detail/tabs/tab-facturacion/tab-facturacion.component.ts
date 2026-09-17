@@ -7,7 +7,7 @@ import { ProjectService } from '../../../../services/project.service';
 import {
   Invoice, InvoiceRequest,
   FundingReceipt, FundingReceiptRequest, FundingReceiptStatus,
-  Disbursement,
+  Disbursement, VigenciaBudget,
 } from '../../../../models/project.model';
 import { MoneyMaskDirective } from '../../../../../../shared/directives/money-mask.directive';
 import { PortalToBodyDirective } from '../../../../../../shared/directives/portal-to-body.directive';
@@ -137,10 +137,26 @@ export class TabFacturacionComponent implements OnInit {
     });
   }
 
+  // ── Vigencias — cada desembolso ahora pertenece a una, y su % es relativo a ESE año, no
+  // al valor total del proyecto (ver TabDesembolsosComponent). Con varios años de por medio
+  // la lista de la izquierda deja de ser legible sin poder filtrar/aclarar por vigencia. ──
+  vigencias = signal<VigenciaBudget[]>([]);
+  filterYear = signal<number | 'all'>('all');
+
+  private loadVigencias(): void {
+    this.svc.listDisbursementVigencias(this.projectId).subscribe({
+      next: v => this.vigencias.set(v),
+      error: () => {},
+    });
+  }
+
   filteredDisbursements(): Disbursement[] {
+    const year = this.filterYear();
     const q = this.search.trim().toLowerCase();
-    if (!q) return this.disbursements();
-    return this.disbursements().filter(d => d.name.toLowerCase().includes(q));
+    return this.disbursements().filter(d =>
+      (year === 'all' || d.planned_year === year) &&
+      (!q || d.name.toLowerCase().includes(q)),
+    );
   }
 
   // ── Configuración de administración/IVA del proyecto (cargada una vez) ──
@@ -290,6 +306,7 @@ export class TabFacturacionComponent implements OnInit {
     });
 
     this.loadDisbursements();
+    this.loadVigencias();
   }
 
   selectDisbursement(d: Disbursement): void {
