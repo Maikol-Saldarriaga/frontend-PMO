@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, inject, OnInit, AfterViewInit, OnDestroy, ElementRef, ViewChild, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Router, ActivatedRoute } from '@angular/router';
@@ -66,7 +66,7 @@ import { MoneyMaskDirective } from '../../../../shared/directives/money-mask.dir
   ],
   templateUrl: './project-detail.component.html',
 })
-export class ProjectDetailComponent implements OnInit {
+export class ProjectDetailComponent implements OnInit, AfterViewInit, OnDestroy {
   private router    = inject(Router);
   private route     = inject(ActivatedRoute);
   private service   = inject(ProjectService);
@@ -74,6 +74,9 @@ export class ProjectDetailComponent implements OnInit {
   private sanitizer = inject(DomSanitizer);
   private auth      = inject(AuthStore);
   private costCenterService = inject(CostCenterService);
+
+  @ViewChild('projectNameEl') projectNameEl?: ElementRef<HTMLElement>;
+  private nameResizeObserver?: ResizeObserver;
 
   safeIcon(svgPath: string): SafeHtml {
     return this.sanitizer.bypassSecurityTrustHtml(svgPath);
@@ -86,15 +89,39 @@ export class ProjectDetailComponent implements OnInit {
   activeTab  = signal<string>('resumen');
   access     = signal<ProjectAccess | null>(null);
   nameExpanded = signal(false);
+  nameOverflows = signal(false);
 
   toggleNameExpanded(): void {
     this.nameExpanded.update(v => !v);
   }
 
+  ngAfterViewInit(): void {
+    this.observeNameEl();
+  }
+
+  ngOnDestroy(): void {
+    this.nameResizeObserver?.disconnect();
+  }
+
+  private observeNameEl(): void {
+    if (!this.projectNameEl) return;
+    this.nameResizeObserver?.disconnect();
+    this.nameResizeObserver = new ResizeObserver(() => this.checkNameOverflow());
+    this.nameResizeObserver.observe(this.projectNameEl.nativeElement);
+    this.checkNameOverflow();
+  }
+
+  private checkNameOverflow(): void {
+    const el = this.projectNameEl?.nativeElement;
+    if (!el || this.nameExpanded()) return;
+    this.nameOverflows.set(el.scrollHeight > el.clientHeight + 1);
+  }
+
   isAdmin = computed(() => this.auth.user()?.role === 'ADMIN');
 
   /** ADMIN, COORDINADOR, y cualquier miembro con TODOS los permisos de sección en 'write'
-   * (ej. Apoyo con acceso completo) pueden editar el valor del contrato (presupuesto).
+   * (ej. Apoyo con acceso completo) pueden editar el valor del contrato (presupuesto) y
+   * el centro de costo.
    * full_access del backend NO sirve acá: ese flag es is_owner||is_coordinator, no refleja
    * que todos los permisos individuales estén en write. */
   canEditBudget = computed(() => {
@@ -309,7 +336,11 @@ export class ProjectDetailComponent implements OnInit {
 
   private refreshDetails(): void {
     this.service.getProjectDetails(this.projectId).subscribe({
-      next:  d => { this.details.set(d); this.loading.set(false); },
+      next:  d => {
+        this.details.set(d);
+        this.loading.set(false);
+        setTimeout(() => this.observeNameEl());
+      },
       error: () => { this.error.set('No se pudo cargar el proyecto.'); this.loading.set(false); },
     });
   }

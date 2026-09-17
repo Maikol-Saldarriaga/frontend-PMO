@@ -9,6 +9,8 @@ import { API_BASE_URL } from '../../../../../core/config/api.config';
 import { UserService } from '../../../../../core/users/services/user.service';
 import { AuthStore } from '../../../../../core/auth/store/auth.store';
 import { PROJECT_CREATOR_ROLES } from '../../../../../core/auth/models/role.model';
+import { CostCenterService } from '../../../../../core/cost-centers/services/cost-center.service';
+import { CostCenter } from '../../../../../core/cost-centers/models/cost-center.model';
 
 @Component({
   selector: 'app-projects-list',
@@ -17,10 +19,11 @@ import { PROJECT_CREATOR_ROLES } from '../../../../../core/auth/models/role.mode
   templateUrl: './projects-list.component.html',
 })
 export class ProjectsListComponent implements OnInit, OnDestroy {
-  private router         = inject(Router);
-  private projectService = inject(ProjectService);
-  private userService    = inject(UserService);
-  private authStore      = inject(AuthStore);
+  private router          = inject(Router);
+  private projectService  = inject(ProjectService);
+  private userService     = inject(UserService);
+  private authStore       = inject(AuthStore);
+  private costCenterSvc   = inject(CostCenterService);
   private destroy$       = new Subject<void>();
   private nameSearch$    = new Subject<string>();
   private avatarRetried  = new Set<string>();
@@ -35,11 +38,12 @@ export class ProjectsListComponent implements OnInit, OnDestroy {
   private cursorHistory: (string | null)[] = [null];
 
   filters = signal<Required<ProjectFilters>>({
-    name: '', type: '', status: '', date_from: '', date_to: '',
+    name: '', type: '', status: '', date_from: '', date_to: '', cost_center_id: '',
   });
 
   readonly typeOptions   = ['contrato', 'convenio'];
   readonly statusOptions = ['draft', 'activo', 'completado', 'cancelado'];
+  costCenters = signal<CostCenter[]>([]);
 
   canCreate = computed(() => {
     const role = this.authStore.user()?.role;
@@ -48,10 +52,14 @@ export class ProjectsListComponent implements OnInit, OnDestroy {
 
   activeFilterCount = computed(() => {
     const f = this.filters();
-    return [f.name, f.type, f.status, f.date_from, f.date_to].filter(Boolean).length;
+    return [f.name, f.type, f.status, f.date_from, f.date_to, f.cost_center_id].filter(Boolean).length;
   });
 
   ngOnInit(): void {
+    this.costCenterSvc.listAll().subscribe({
+      next: items => this.costCenters.set(items ?? []),
+      error: () => {},
+    });
     // Debounce name search — only fires API after 400ms of inactivity
     this.nameSearch$.pipe(
       debounceTime(400),
@@ -137,14 +145,20 @@ export class ProjectsListComponent implements OnInit, OnDestroy {
   }
 
   clearAllFilters(): void {
-    this.filters.set({ name: '', type: '', status: '', date_from: '', date_to: '' } as Required<ProjectFilters>);
+    this.filters.set({ name: '', type: '', status: '', date_from: '', date_to: '', cost_center_id: '' } as Required<ProjectFilters>);
     this.fetchProjects();
   }
 
-  setType(value: string):     void { this.filters.update(f => ({ ...f, type: value }));      this.fetchProjects(); }
-  setStatus(value: string):   void { this.filters.update(f => ({ ...f, status: value }));    this.fetchProjects(); }
-  setDateFrom(value: string): void { this.filters.update(f => ({ ...f, date_from: value })); this.fetchProjects(); }
-  setDateTo(value: string):   void { this.filters.update(f => ({ ...f, date_to: value }));   this.fetchProjects(); }
+  setType(value: string):         void { this.filters.update(f => ({ ...f, type: value }));           this.fetchProjects(); }
+  setStatus(value: string):       void { this.filters.update(f => ({ ...f, status: value }));         this.fetchProjects(); }
+  setDateFrom(value: string):     void { this.filters.update(f => ({ ...f, date_from: value }));      this.fetchProjects(); }
+  setDateTo(value: string):       void { this.filters.update(f => ({ ...f, date_to: value }));        this.fetchProjects(); }
+  setCostCenter(value: string):   void { this.filters.update(f => ({ ...f, cost_center_id: value })); this.fetchProjects(); }
+
+  costCenterLabel(id: string): string {
+    const cc = this.costCenters().find(c => c.id === id);
+    return cc ? `${cc.code} — ${cc.name}` : id;
+  }
 
   /** activo/completado usan real_progress ponderado; borrador sigue con percent_done de pasos.
    * Si real_progress aún no existe (sin cronograma/checkpoints cargados), se muestra como 0%

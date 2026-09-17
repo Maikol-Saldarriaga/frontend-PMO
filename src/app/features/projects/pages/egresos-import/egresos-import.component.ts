@@ -158,7 +158,17 @@ export class EgresosImportComponent implements OnInit, OnDestroy {
             } as RubroPickerRubroInfo))
           )
         );
-        this.rubroInfos.set(infos);
+        // Rubros "Nivel Proyecto" (indirectos, sin componente técnico) — ver mismo fix en
+        // egresos-list.component.ts.
+        const projectLevelInfos: RubroPickerRubroInfo[] = (w.project_level_entries ?? []).flatMap((entry: BudgetEntry) =>
+          (entry.items ?? []).map((item: BudgetItem) => ({
+            id: item.id,
+            concept: item.concept ?? '',
+            technicalComponentName: 'Nivel Proyecto',
+            monthlyDistributions: item.monthly_distributions ?? [],
+          } as RubroPickerRubroInfo))
+        );
+        this.rubroInfos.set([...infos, ...projectLevelInfos]);
       },
       error: () => this.rubroInfos.set([]),
     });

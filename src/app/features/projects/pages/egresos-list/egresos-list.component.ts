@@ -162,7 +162,20 @@ export class EgresosListComponent implements OnInit {
             } as RubroInfo))
           )
         );
-        this.rubroInfos.set(infos);
+        // Rubros "Nivel Proyecto" (indirectos, sin componente técnico) — quedan fuera de
+        // w.components porque no cuelgan de ningún componente; ver ProjectLevelEntries en
+        // contract_budget.go GetBudgetWizard.
+        const projectLevelInfos: RubroInfo[] = (w.project_level_entries ?? []).flatMap((entry: BudgetEntry) =>
+          (entry.items ?? []).map((item: BudgetItem) => ({
+            id: item.id,
+            concept: item.concept ?? '',
+            technicalComponentId: null,
+            technicalComponentName: 'Nivel Proyecto',
+            activities: item.activities ?? [],
+            monthlyDistributions: item.monthly_distributions ?? [],
+          } as RubroInfo))
+        );
+        this.rubroInfos.set([...infos, ...projectLevelInfos]);
       },
       error: () => this.rubroInfos.set([]),
     });

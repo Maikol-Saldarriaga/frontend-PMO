@@ -485,21 +485,31 @@ export class TabFacturacionComponent implements OnInit {
     this.form = this.emptyForm();
   }
 
+  /** Campos faltantes/ inválidos del formulario de factura, para deshabilitar el submit
+   * sin comprimirlo y mostrarle al usuario qué le falta antes de que intente guardar. */
+  getMissingInvoiceFields(): string[] {
+    const missing: string[] = [];
+
+    if (!this.form.value || this.form.value <= 0) {
+      missing.push('Valor de la factura (mayor a 0)');
+    }
+    if (this.form.iva_applies && (this.form.iva_percentage == null || this.form.iva_percentage < 0 || this.form.iva_percentage > 100)) {
+      missing.push('% de IVA válido (0-100)');
+    }
+    if (this.form.admin_fee_applies && (this.form.admin_fee_percentage == null || this.form.admin_fee_percentage < 0 || this.form.admin_fee_percentage > 100)) {
+      missing.push('% de administración válido (0-100)');
+    }
+
+    return missing;
+  }
+
   submitInvoice(): void {
     const d = this.selectedDisbursement();
     if (!d || this.formSaving()) return;
 
-    if (!this.form.value || this.form.value <= 0) {
-      this.formError.set('El valor de la factura es requerido y debe ser mayor a 0.');
-      return;
-    }
-
-    if (this.form.iva_applies && (this.form.iva_percentage == null || this.form.iva_percentage < 0 || this.form.iva_percentage > 100)) {
-      this.formError.set('El % de IVA debe estar entre 0 y 100.');
-      return;
-    }
-    if (this.form.admin_fee_applies && (this.form.admin_fee_percentage == null || this.form.admin_fee_percentage < 0 || this.form.admin_fee_percentage > 100)) {
-      this.formError.set('El % de administración debe estar entre 0 y 100.');
+    const missing = this.getMissingInvoiceFields();
+    if (missing.length) {
+      this.formError.set(`Completa antes de guardar: ${missing.join(', ')}.`);
       return;
     }
 
@@ -507,7 +517,7 @@ export class TabFacturacionComponent implements OnInit {
     this.formError.set(null);
 
     const payload: InvoiceRequest = {
-      value: this.form.value,
+      value: this.form.value!,
       collection_act_number: this.form.collection_act_number.trim() || undefined,
       description: this.form.description.trim() || undefined,
       date: this.form.date ? `${this.form.date}T00:00:00Z` : undefined,

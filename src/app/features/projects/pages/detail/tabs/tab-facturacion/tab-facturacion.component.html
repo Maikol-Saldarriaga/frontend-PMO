@@ -682,9 +682,22 @@
           <p class="text-xs font-medium text-danger">{{ formError() }}</p>
         }
 
+        @let missingInvoiceFields = getMissingInvoiceFields();
+        @let invoiceBlocked = locked || formSaving() || missingInvoiceFields.length > 0;
+
+        @if (!locked && !formSaving() && missingInvoiceFields.length) {
+          <p class="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex items-start gap-1.5">
+            <svg class="w-3.5 h-3.5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span>Falta completar: {{ missingInvoiceFields.join(', ') }}.</span>
+          </p>
+        }
+
         <div class="flex items-center gap-2 pt-1">
-          <button type="button" (click)="submitInvoice()" [disabled]="locked || formSaving()"
-            class="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-accent to-accent-700 hover:from-accent-600 hover:to-accent-800 text-white text-xs font-semibold rounded-lg shadow-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+          <button type="button" (click)="submitInvoice()" [disabled]="invoiceBlocked"
+            class="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg shadow-sm transition-all"
+            [class.bg-gradient-to-r]="!invoiceBlocked" [class.from-accent]="!invoiceBlocked" [class.to-accent-700]="!invoiceBlocked"
+            [class.hover:from-accent-600]="!invoiceBlocked" [class.hover:to-accent-800]="!invoiceBlocked" [class.text-white]="!invoiceBlocked"
+            [class.bg-neutral-200]="invoiceBlocked" [class.text-neutral-500]="invoiceBlocked" [class.cursor-not-allowed]="invoiceBlocked">
             @if (formSaving()) { Guardando... } @else { {{ editingInvoiceId() ? 'Guardar cambios' : 'Registrar factura' }} }
           </button>
           <button type="button" (click)="cancelForm()"
